@@ -165,4 +165,4 @@ docker-compose up --build
 ---
 
 ## 👥 Authors
-Developed for **Smart India Hackathon 2026** by Team CIPHERTRACE.
+Developed for **Smart India Hackathon 2026** by **Team Ve Ni Di**.

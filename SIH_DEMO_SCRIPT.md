@@ -1,4 +1,5 @@
 # CIPHERTRACE — 5-Minute SIH Demo & Judge Pitch Script
+**Presented by Team Ve Ni Di | Smart India Hackathon 2026**
 
 ## Elevator Pitch (30 Seconds)
 > *"Judges, current document security solutions like Microsoft Purview or Digify rely on cloud KMS or simple metadata watermarks that can be easily stripped. When an air-gapped defense document leaks, tracing it back to an exact individual decryption session is nearly impossible.*

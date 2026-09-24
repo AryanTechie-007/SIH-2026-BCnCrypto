@@ -56,7 +56,7 @@ export function App() {
         boxSizing: 'border-box'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <span><strong>CIPHERTRACE DEFENSE SYSTEMS</strong> &bull; SMART INDIA HACKATHON 2026</span>
+          <span><strong>CIPHERTRACE DEFENSE SYSTEMS</strong> &bull; TEAM VE NI DI &bull; SMART INDIA HACKATHON 2026</span>
           <span>&bull;</span>
           <span>AIR-GAP ARCHITECTURE &bull; NO EXTERNAL KMS DEPENDENCY</span>
         </div>
