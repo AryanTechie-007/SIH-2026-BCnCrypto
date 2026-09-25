@@ -203,8 +203,15 @@ async def decrypt_uploaded_envelope(
     commits the transaction to the ledger, and returns the downloadable watermarked PDF.
     """
     content = await file.read()
+    text_content = content.decode("utf-8", errors="ignore").strip()
+    if text_content.startswith("--- CIPHERTRACE"):
+        raise HTTPException(
+            status_code=400,
+            detail="Legacy or mock .enc format detected. Please go to Stage 1 (Sender Console), select your classified document, click 'Encrypt & Distribute', and download the genuine NIST FIPS 203 .enc package."
+        )
+
     try:
-        enc_data = json.loads(content.decode("utf-8"))
+        enc_data = json.loads(text_content)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Corrupted or invalid .enc file format: {str(e)}")
 

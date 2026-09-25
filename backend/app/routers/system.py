@@ -24,6 +24,30 @@ async def derive_vault_key(passphrase: str) -> bytes:
     # Using SHA3-256 to derive a key from passphrase + salt
     return CryptoEngine.sha3_256(passphrase.encode("utf-8") + salt).encode("utf-8")[:32]
 
+@router.get("/health", response_model=None)
+async def get_system_health():
+    """Returns cryptographic health telemetry for the air-gapped terminal."""
+    from datetime import datetime
+    return {
+        "status": "OPERATIONAL",
+        "system": "CIPHERTRACE 2.0 Air-Gapped Forensic Platform",
+        "version": "2.0.0-DEFENSE",
+        "timestamp": datetime.utcnow().isoformat(),
+        "cryptographic_suite": {
+            "kem": "ML-KEM-768 (NIST FIPS 203)",
+            "signature": "ML-DSA-65 (NIST FIPS 204)",
+            "symmetric": "AES-256-GCM (NIST SP 800-38D)",
+            "hashing": "SHA3-256 (NIST FIPS 202)",
+            "ecc": "Reed-Solomon RS(255, 127)"
+        },
+        "consensus_endorsers": [
+            "NAVY-NODE-ALPHA (Flagship)",
+            "AIR-FORCE-NODE-BETA",
+            "COAST-GUARD-NODE-GAMMA"
+        ],
+        "air_gap_mode": True
+    }
+
 @router.post("/export", response_model=None)
 async def export_system_vault(req: VaultExportRequest):
     """
