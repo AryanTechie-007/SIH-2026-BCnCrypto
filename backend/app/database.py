@@ -1,10 +1,15 @@
+import os
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
-from .models.database import Base
+from sqlalchemy.future import select
+from .models.database import Base, User, Document
+from .services.crypto_engine import CryptoEngine
 
-DATABASE_URL = "sqlite+aiosqlite:///./ciphertrace.db"
+# Use absolute path for SQLite database so current working directory never causes path divergence
+DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "ciphertrace_v2.db"))
+DATABASE_URL = f"sqlite+aiosqlite:///{DB_PATH}"
 
-engine = create_async_engine(DATABASE_URL, echo=True)
+engine = create_async_engine(DATABASE_URL, echo=False)
 AsyncSessionLocal = sessionmaker(
     bind=engine,
     class_=AsyncSession,
@@ -12,6 +17,7 @@ AsyncSessionLocal = sessionmaker(
 )
 
 async def init_db():
+    """Initializes database schema. Zero mock data seeded."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 

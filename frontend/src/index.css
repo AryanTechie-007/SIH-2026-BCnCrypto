@@ -1,37 +1,25 @@
 :root {
-  --bg-primary: #07090e;
-  --bg-secondary: #0d121f;
-  --bg-card: rgba(16, 23, 38, 0.75);
-  --bg-card-hover: rgba(22, 32, 54, 0.9);
-  --bg-input: rgba(10, 15, 28, 0.8);
-  
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-glow: rgba(6, 182, 212, 0.3);
-  --border-emerald: rgba(16, 185, 129, 0.3);
-  --border-crimson: rgba(239, 68, 68, 0.3);
-  
-  --cyan-primary: #06b6d4;
-  --cyan-glow: rgba(6, 182, 212, 0.15);
-  --emerald-primary: #10b981;
-  --emerald-glow: rgba(16, 185, 129, 0.15);
-  --amber-primary: #f59e0b;
-  --amber-glow: rgba(245, 158, 11, 0.15);
-  --crimson-primary: #ef4444;
-  --crimson-glow: rgba(239, 68, 68, 0.15);
-  --indigo-primary: #6366f1;
-  
-  --text-main: #f1f5f9;
+  --bg-core: #070a11;
+  --bg-panel: #0d121d;
+  --bg-panel-alt: #121826;
+  --bg-panel-highlight: #172033;
+  --border-hard: #1e293b;
+  --border-active: #334155;
+  --border-focus: #0284c7;
+
+  --text-bright: #ffffff;
+  --text-main: #e2e8f0;
   --text-muted: #94a3b8;
   --text-dim: #64748b;
-  
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-display: 'Outfit', sans-serif;
-  --font-mono: 'Fira Code', monospace;
-  
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 20px;
+
+  --color-tactical-blue: #0284c7;
+  --color-tactical-cyan: #06b6d4;
+  --color-tactical-green: #10b981;
+  --color-tactical-amber: #f59e0b;
+  --color-tactical-crimson: #ef4444;
+
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
 }
 
 * {
@@ -41,219 +29,226 @@
 }
 
 body {
-  background-color: var(--bg-primary);
+  background-color: var(--bg-core);
   color: var(--text-main);
   font-family: var(--font-sans);
+  font-size: 13px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
-  background-image: 
-    radial-gradient(circle at 15% 15%, rgba(6, 182, 212, 0.04) 0%, transparent 40%),
-    radial-gradient(circle at 85% 85%, rgba(99, 102, 241, 0.04) 0%, transparent 40%),
-    linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
-  background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
 }
 
-/* Custom Scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-::-webkit-scrollbar-track {
-  background: var(--bg-primary);
-}
-::-webkit-scrollbar-thumb {
-  background: #1e293b;
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #334155;
-}
-
-/* Glassmorphism Cards */
-.glass-panel {
-  background: var(--bg-card);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45);
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.glass-panel:hover {
-  border-color: rgba(255, 255, 255, 0.14);
-}
-
-.glass-panel-glow {
-  border-color: var(--border-glow);
-  box-shadow: 0 0 25px -5px var(--cyan-glow);
-}
-
-.glass-panel-emerald {
-  border-color: var(--border-emerald);
-  box-shadow: 0 0 25px -5px var(--emerald-glow);
-}
-
-.glass-panel-crimson {
-  border-color: var(--border-crimson);
-  box-shadow: 0 0 25px -5px var(--crimson-glow);
-}
-
-/* Typography Helpers */
-h1, h2, h3, h4 {
-  font-family: var(--font-display);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-
+/* Monospace Technical Data */
 .font-mono {
   font-family: var(--font-mono);
 }
 
-/* Buttons */
-.btn {
+/* Strict Tactical Panels (No Glassmorphism) */
+.tactical-panel {
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-hard);
+  border-radius: 2px;
+}
+
+.tactical-panel-header {
+  background-color: var(--bg-panel-alt);
+  border-bottom: 1px solid var(--border-hard);
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tactical-panel-header h3 {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-bright);
+}
+
+.tactical-panel-body {
+  padding: 16px;
+}
+
+/* Flat Tactical Buttons (Zero Float/Hover Bounce) */
+.tactical-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 10px 18px;
-  border-radius: var(--radius-md);
-  font-size: 14px;
+  padding: 9px 14px;
+  font-size: 12px;
   font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-radius: 2px;
   border: 1px solid transparent;
-  outline: none;
-  font-family: var(--font-sans);
+  cursor: pointer;
+  background-color: var(--bg-panel-highlight);
+  color: var(--text-bright);
+  transition: none;
 }
 
-.btn-primary {
-  background: linear-gradient(135deg, #0284c7 0%, #06b6d4 100%);
-  color: #ffffff;
-  box-shadow: 0 2px 14px rgba(6, 182, 212, 0.35);
-}
-.btn-primary:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 20px rgba(6, 182, 212, 0.5);
-}
-.btn-primary:disabled {
-  opacity: 0.5;
+.tactical-btn:disabled {
+  opacity: 0.45;
   cursor: not-allowed;
 }
 
-.btn-emerald {
-  background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+.tactical-btn-primary {
+  background-color: #0369a1;
+  border-color: #0284c7;
   color: #ffffff;
-  box-shadow: 0 2px 14px rgba(16, 185, 129, 0.35);
 }
-.btn-emerald:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.5);
+.tactical-btn-primary:active:not(:disabled) {
+  background-color: #075985;
 }
 
-.btn-secondary {
-  background: rgba(30, 41, 59, 0.8);
+.tactical-btn-success {
+  background-color: #047857;
+  border-color: #059669;
+  color: #ffffff;
+}
+.tactical-btn-success:active:not(:disabled) {
+  background-color: #065f46;
+}
+
+.tactical-btn-danger {
+  background-color: #b91c1c;
+  border-color: #dc2626;
+  color: #ffffff;
+}
+.tactical-btn-danger:active:not(:disabled) {
+  background-color: #991b1b;
+}
+
+.tactical-btn-secondary {
+  background-color: var(--bg-panel-alt);
+  border-color: var(--border-hard);
   color: var(--text-main);
-  border-color: var(--border-subtle);
 }
-.btn-secondary:hover:not(:disabled) {
-  background: rgba(51, 65, 85, 0.9);
-  border-color: rgba(255, 255, 255, 0.2);
+.tactical-btn-secondary:active:not(:disabled) {
+  background-color: var(--bg-panel-highlight);
 }
 
-.btn-danger {
-  background: rgba(239, 68, 68, 0.15);
-  color: #fca5a5;
-  border-color: rgba(239, 68, 68, 0.35);
-}
-.btn-danger:hover:not(:disabled) {
-  background: rgba(239, 68, 68, 0.3);
-  color: #ffffff;
-  border-color: var(--crimson-primary);
-}
-
-/* Badges & Pills */
-.badge {
+/* Tactical Status Badges */
+.tactical-badge {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
-  border-radius: 9999px;
-  font-size: 11px;
-  font-weight: 600;
+  gap: 4px;
+  padding: 2px 7px;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  border-radius: 2px;
+  border: 1px solid transparent;
 }
 
-.badge-cyan {
-  background: rgba(6, 182, 212, 0.15);
-  color: #67e8f9;
-  border: 1px solid rgba(6, 182, 212, 0.3);
-}
-
-.badge-emerald {
-  background: rgba(16, 185, 129, 0.15);
+.badge-green {
+  background-color: #064e3b;
+  border-color: #047857;
   color: #6ee7b7;
-  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.badge-blue {
+  background-color: #082f49;
+  border-color: #0284c7;
+  color: #7dd3fc;
 }
 
 .badge-amber {
-  background: rgba(245, 158, 11, 0.15);
+  background-color: #451a03;
+  border-color: #b45309;
   color: #fcd34d;
-  border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
-.badge-crimson {
-  background: rgba(239, 68, 68, 0.15);
+.badge-red {
+  background-color: #450a0a;
+  border-color: #b91c1c;
   color: #fca5a5;
-  border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
-.badge-purple {
-  background: rgba(168, 85, 247, 0.15);
-  color: #d8b4fe;
-  border: 1px solid rgba(168, 85, 247, 0.3);
+.badge-slate {
+  background-color: #1e293b;
+  border-color: #334155;
+  color: #cbd5e1;
 }
 
-/* Inputs */
-.input-field {
+/* Strict Data Grid & Tables */
+.tactical-table {
   width: 100%;
-  padding: 10px 14px;
-  background: var(--bg-input);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.tactical-table th {
+  background-color: var(--bg-panel-alt);
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-hard);
+}
+
+.tactical-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-hard);
   color: var(--text-main);
-  font-family: var(--font-sans);
-  font-size: 14px;
-  transition: all 0.2s ease;
 }
-.input-field:focus {
+
+.tactical-table tr:hover {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+/* Form Controls */
+.tactical-select, .tactical-input {
+  width: 100%;
+  background-color: #0a0e17;
+  border: 1px solid var(--border-hard);
+  color: var(--text-bright);
+  padding: 8px 10px;
+  font-size: 12px;
+  border-radius: 2px;
   outline: none;
-  border-color: var(--cyan-primary);
-  box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.15);
 }
 
-/* Animations */
-@keyframes pulseGlow {
-  0%, 100% { opacity: 0.6; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.04); }
+.tactical-select:focus, .tactical-input:focus {
+  border-color: var(--border-focus);
 }
 
-.animate-pulse-glow {
-  animation: pulseGlow 2.5s infinite ease-in-out;
+/* Banner Alerts */
+.tactical-alert {
+  padding: 12px 14px;
+  border-radius: 2px;
+  border-left: 4px solid transparent;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 12px;
 }
 
-@keyframes scanline {
-  0% { transform: translateY(-100%); }
-  100% { transform: translateY(1000%); }
+.tactical-alert-danger {
+  background-color: #1c0f13;
+  border: 1px solid #7f1d1d;
+  border-left: 4px solid #ef4444;
+  color: #fca5a5;
 }
 
-.scanline-overlay {
-  position: absolute;
-  top: 0; left: 0; right: 0; height: 10px;
-  background: linear-gradient(to bottom, transparent, rgba(6, 182, 212, 0.25), transparent);
-  animation: scanline 4s linear infinite;
-  pointer-events: none;
+.tactical-alert-success {
+  background-color: #0a1f18;
+  border: 1px solid #065f46;
+  border-left: 4px solid #10b981;
+  color: #6ee7b7;
+}
+
+.tactical-alert-warning {
+  background-color: #21190a;
+  border: 1px solid #78350f;
+  border-left: 4px solid #f59e0b;
+  color: #fde68a;
 }

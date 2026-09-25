@@ -1,72 +1,128 @@
 import React, { useState, useEffect } from 'react';
-import { Navbar } from './components/Navbar';
-import { SenderDashboard } from './pages/SenderDashboard';
-import { RecipientDashboard } from './pages/RecipientDashboard';
-import { InvestigatorDashboard } from './pages/InvestigatorDashboard';
-import { AttackLab } from './pages/AttackLab';
-import { LedgerDashboard } from './pages/LedgerDashboard';
-import { ContinuityGraph } from './pages/ContinuityGraph';
+import { TopHeader } from './components/TopHeader';
+import { TelemetryBar } from './components/TelemetryBar';
+import { AuthModal } from './components/AuthModal';
+import { SenderConsole } from './views/SenderConsole';
+import { RecipientConsole } from './views/RecipientConsole';
+import { ForensicConsole } from './views/ForensicConsole';
+import { AttackVerificationConsole } from './views/AttackVerificationConsole';
+import { LedgerAuditConsole } from './views/LedgerAuditConsole';
 import { ApiClient } from './api/client';
+import { SystemHealth, UserAccount } from './types';
+
+const STORAGE_KEY_USER = 'ciphertrace_operator_user';
+const STORAGE_KEY_TOKEN = 'ciphertrace_operator_token';
 
 export function App() {
-  const [activeTab, setActiveTab] = useState('sender');
-  const [isBackendConnected, setIsBackendConnected] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>('sender');
+  const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null);
+  const [healthError, setHealthError] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+
+  // Load saved session
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_USER);
+      if (saved) {
+        setCurrentUser(JSON.parse(saved));
+      }
+    } catch {
+      // Ignore storage error
+    }
+  }, []);
+
+  const handleLoginSuccess = (user: UserAccount, token: string) => {
+    setCurrentUser(user);
+    try {
+      localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user));
+      localStorage.setItem(STORAGE_KEY_TOKEN, token);
+    } catch {
+      // Ignore storage error
+    }
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    try {
+      localStorage.removeItem(STORAGE_KEY_USER);
+      localStorage.removeItem(STORAGE_KEY_TOKEN);
+    } catch {
+      // Ignore storage error
+    }
+    setIsAuthOpen(true);
+  };
+
+  const checkHealth = async () => {
+    try {
+      const h = await ApiClient.getHealth();
+      setSystemHealth(h);
+      setHealthError(null);
+    } catch (err: any) {
+      setSystemHealth(null);
+      setHealthError(err.message || 'Backend unreachable');
+    }
+  };
 
   useEffect(() => {
-    // Check if backend API is online
-    async function check() {
-      const ok = await ApiClient.checkHealth();
-      setIsBackendConnected(ok);
-    }
-    check();
-    const interval = setInterval(check, 5000);
-    return () => clearInterval(interval);
+    checkHealth();
+    const timer = setInterval(checkHealth, 4000);
+    return () => clearInterval(timer);
   }, []);
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <Navbar 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
-        isBackendConnected={isBackendConnected} 
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-core)' }}>
+      {/* Top Header Navigation */}
+      <TopHeader
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        systemHealth={systemHealth}
+        healthError={healthError}
+        onRefreshHealth={checkHealth}
+        currentUser={currentUser}
+        onOpenAuth={() => setIsAuthOpen(true)}
       />
 
+      {/* Main Tactical Workspace */}
       <main style={{ flex: 1 }}>
-        {activeTab === 'sender' && <SenderDashboard />}
-        {activeTab === 'recipient' && <RecipientDashboard />}
-        {activeTab === 'investigator' && <InvestigatorDashboard />}
-        {activeTab === 'attack-lab' && <AttackLab />}
-        {activeTab === 'ledger' && <LedgerDashboard />}
-        {activeTab === 'graph' && <ContinuityGraph />}
+        {activeTab === 'sender' && (
+          <SenderConsole
+            currentUser={currentUser}
+            onOpenAuth={() => setIsAuthOpen(true)}
+          />
+        )}
+        {activeTab === 'recipient' && (
+          <RecipientConsole
+            currentOperator={currentUser ? {
+              id: currentUser.id,
+              username: currentUser.username,
+              navy_id: currentUser.navy_id,
+              name: currentUser.name,
+              rank: currentUser.rank,
+              command_unit: currentUser.command_unit,
+              clearance_level: currentUser.clearance_level,
+              device_id: currentUser.device_id,
+              status: currentUser.status,
+              ml_kem_pub_preview: currentUser.ml_kem_pub_preview,
+              ml_dsa_pub_preview: currentUser.ml_dsa_pub_preview
+            } : null}
+          />
+        )}
+        {activeTab === 'forensics' && <ForensicConsole />}
+        {activeTab === 'attacks' && <AttackVerificationConsole />}
+        {activeTab === 'ledger' && <LedgerAuditConsole />}
       </main>
 
-      {/* Global Security Attestation Footer */}
-      <footer style={{
-        borderTop: '1px solid var(--border-subtle)',
-        padding: '14px 24px',
-        backgroundColor: 'rgba(7, 9, 14, 0.95)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        fontSize: '11px',
-        color: 'var(--text-dim)',
-        maxWidth: '1600px',
-        width: '100%',
-        margin: '0 auto',
-        boxSizing: 'border-box'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <span><strong>CIPHERTRACE DEFENSE SYSTEMS</strong> &bull; TEAM VE NI DI &bull; SMART INDIA HACKATHON 2026</span>
-          <span>&bull;</span>
-          <span>AIR-GAP ARCHITECTURE &bull; NO EXTERNAL KMS DEPENDENCY</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <span>NIST FIPS 203 (ML-KEM-768)</span>
-          <span>NIST FIPS 204 (ML-DSA-65)</span>
-          <span>SHA3-256 / AES-256-GCM</span>
-          <span className="badge badge-emerald" style={{ fontSize: '9px' }}>SYSTEM OPERATIONAL</span>
-        </div>
-      </footer>
+      {/* Global Defense Telemetry Footer */}
+      <TelemetryBar systemHealth={systemHealth} />
+
+      {/* Authentication & Operator Enrollment Modal */}
+      <AuthModal
+        isOpen={isAuthOpen}
+        onClose={() => setIsAuthOpen(false)}
+        currentUser={currentUser}
+        onLoginSuccess={handleLoginSuccess}
+      />
     </div>
   );
 }

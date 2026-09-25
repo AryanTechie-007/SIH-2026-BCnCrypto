@@ -1,13 +1,25 @@
-from fastapi import FastAPI
+import os
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi import Request
 from .database import init_db
-from .routers import identity, documents, decryption, forensics, evidence, attacks, ledger_demo, ledger
+from .routers import system, identity, documents, decryption, forensics, ledger, attacks, auth
 
-app = FastAPI(title="CipherTrace Backend")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup sequence: initialize database schema
+    await init_db()
+    yield
 
-# CORS configuration for React Frontend
+app = FastAPI(
+    title="CIPHERTRACE 2.0 — Post-Quantum Forensic Attribution Platform",
+    description="Air-Gapped Document Attribution System (NIST FIPS 203 ML-KEM-768, FIPS 204 ML-DSA-65, AES-256-GCM, 2D DCT Steganography)",
+    version="2.0.0-DEFENSE",
+    lifespan=lifespan
+)
+
+# Enable CORS for local Vite development and air-gapped terminal access
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -16,31 +28,32 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.on_event("startup")
-async def startup_event():
-    await init_db()
-
-app.include_router(identity.router)
-app.include_router(documents.router)
-app.include_router(decryption.router)
-app.include_router(forensics.router)
-app.include_router(evidence.router)
-app.include_router(attacks.router)
-app.include_router(ledger_demo.router)
-app.include_router(ledger.router)
-
-@app.get("/health")
-@app.get("/api/health")
-async def health_check():
-    return {"status": "healthy", "version": "0.1.0"}
-
+# Global exception handler to guarantee structured error delivery to UI
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     return JSONResponse(
         status_code=500,
-        content={"message": "An internal server error occurred.", "detail": str(exc)},
+        content={"detail": f"INTERNAL SERVER ERROR: {str(exc)}"}
     )
+
+# Include All System Routers
+app.include_router(auth.router)
+app.include_router(system.router)
+app.include_router(identity.router)
+app.include_router(documents.router)
+app.include_router(decryption.router)
+app.include_router(forensics.router)
+app.include_router(ledger.router)
+app.include_router(attacks.router)
+
+@app.get("/")
+async def root():
+    return {
+        "platform": "CIPHERTRACE 2.0",
+        "status": "OPERATIONAL",
+        "documentation": "/docs"
+    }
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
