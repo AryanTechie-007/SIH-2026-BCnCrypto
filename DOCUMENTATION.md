@@ -81,9 +81,7 @@ ATTEMPT 2/
 │           ├── ForensicConsole.tsx
 │           ├── AttackVerificationConsole.tsx
 │           └── LedgerAuditConsole.tsx
-├── demo_assets/
-│   └── CLASSIFIED_NAVAL_OPERATIONS.pdf
-├── start_attempt2.bat
+├── start_demo.bat
 └── DOCUMENTATION.md
 ```
 

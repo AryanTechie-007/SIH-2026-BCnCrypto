@@ -64,8 +64,18 @@ async def simulate_adversarial_attack(attack_type: str = "jpeg_35", db: AsyncSes
     wm = wm_res.scalars().first()
 
     if not wm or not os.path.exists(wm.watermarked_path):
-        # Fall back to sample if none generated yet
-        sample_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "demo_assets", "CLASSIFIED_NAVAL_OPERATIONS.pdf"))
+        # Fall back to self-generating a defense test doc if none exists
+        returns_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "returns"))
+        os.makedirs(returns_dir, exist_ok=True)
+        sample_path = os.path.join(returns_dir, "sample_defense_doc.pdf")
+        if not os.path.exists(sample_path):
+            doc = fitz.open()
+            page = doc.new_page()
+            page.insert_text(fitz.Point(50, 70), "TOP SECRET // DEFENSE COMMAND", fontsize=14, color=(0.8, 0, 0))
+            page.insert_text(fitz.Point(50, 100), "CIPHERTRACE ADVERSARIAL TEST BENCHMARK", fontsize=11)
+            doc.save(sample_path)
+            doc.close()
+            watermark_engine.embed_watermark(sample_path, b"OFFICER_SAMPLE_01", sample_path)
         target_path = sample_path
     else:
         target_path = wm.watermarked_path

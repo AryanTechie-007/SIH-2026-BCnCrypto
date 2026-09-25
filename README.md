@@ -148,7 +148,6 @@ docker-compose up --build
 │   │   └── index.css             # Cyber-defense design system
 │   ├── package.json
 │   └── vite.config.ts
-├── demo_assets/                  # Sample defense documents & test PDF generator
 ├── docker-compose.yml            # Multi-container orchestration
 ├── SIH_DEMO_SCRIPT.md            # 5-minute timed presentation pitch & Q&A defense
 └── start_demo.bat                # 1-click Windows runner

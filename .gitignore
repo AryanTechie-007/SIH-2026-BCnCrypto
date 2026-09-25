@@ -1,13 +1,3 @@
-# Communication docs, test run results, and agent audits
-comms.md
-AGT1.md
-CCT1.md
-AGR1.md
-CCR1.md
-FINAL_CERTIFICATION.md
-tasks_done.md
-test_e2e_*.py
-
 # Node.js dependencies and build output
 node_modules/
 frontend/node_modules/
@@ -25,6 +15,7 @@ __pycache__/
 venv/
 .venv/
 env/
+backend/tests/*.pdf*
 
 # Databases and runtime data
 *.db

@@ -66,7 +66,14 @@ class TestAuthAndCrossDevice(unittest.TestCase):
                 self.assertEqual(login_res.user.username, "bob")
 
                 # 3. Alice uploads a classified document
-                sample_pdf_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "demo_assets", "CLASSIFIED_NAVAL_OPERATIONS.pdf"))
+                sample_pdf_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "test_doc_auth.pdf"))
+                if not os.path.exists(sample_pdf_path):
+                    import fitz
+                    pdoc = fitz.open()
+                    ppage = pdoc.new_page(width=595, height=842)
+                    ppage.insert_text(fitz.Point(50, 70), "OPERATION TRIDENT SHIELD - AUTH TEST", fontsize=14)
+                    pdoc.save(sample_pdf_path)
+                    pdoc.close()
                 with open(sample_pdf_path, "rb") as f:
                     pdf_bytes = f.read()
 
