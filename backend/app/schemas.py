@@ -6,9 +6,9 @@ class RegisterRequest(BaseModel):
     password: str
     display_name: str
     navy_id: Optional[str] = None
-    rank: Optional[str] = "OFFICER"
-    command_unit: Optional[str] = "TACTICAL DEFENSE COMMAND"
-    clearance_level: Optional[str] = "LEVEL-5 TOP SECRET"
+    rank: Optional[str] = "User"
+    command_unit: Optional[str] = "General Workspace"
+    clearance_level: Optional[str] = "Confidential"
     device_id: Optional[str] = None
 
 class LoginRequest(BaseModel):

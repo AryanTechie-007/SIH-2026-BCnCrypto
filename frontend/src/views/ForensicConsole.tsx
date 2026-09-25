@@ -48,10 +48,10 @@ export const ForensicConsole: React.FC = () => {
           <span className="tactical-badge badge-slate">REED-SOLOMON (255, 127) ECC</span>
         </div>
         <h1 style={{ fontSize: '20px', fontWeight: 800, letterSpacing: '0.03em', color: '#ffffff' }}>
-          BLIND FORENSIC EXTRACTION & CRYPTOGRAPHIC ATTRIBUTION LAB
+          BLIND FORENSIC EXTRACTION & LEAK ATTRIBUTION LAB
         </h1>
         <p style={{ color: 'var(--text-muted)', fontSize: '12px', marginTop: '2px' }}>
-          Upload intercepted or leaked defense documents. The engine extracts the frequency-domain watermark, resolves the local ledger record, and authenticates the recipient's post-quantum signature.
+          Upload leaked or suspect confidential documents. The engine extracts the frequency-domain watermark, resolves the immutable ledger record, and authenticates the recipient's post-quantum signature.
         </p>
       </div>
 
@@ -129,7 +129,7 @@ export const ForensicConsole: React.FC = () => {
             </div>
             <div className="tactical-panel-body" style={{ fontSize: '11px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <div><strong>Gate 1:</strong> Watermark Payload Format & RS Parity Valid</div>
-              <div><strong>Gate 2:</strong> Decryption Session Exists in Air-Gapped Ledger</div>
+              <div><strong>Gate 2:</strong> Decryption Session Exists in Immutable Ledger</div>
               <div><strong>Gate 3:</strong> NIST FIPS 204 ML-DSA-65 Signature Authenticity</div>
               <div><strong>Gate 4:</strong> Ledger Merkle Root Inclusion Proof Valid</div>
               <div><strong>Gate 5:</strong> Original Document SHA3-256 Digest Match</div>
@@ -169,29 +169,29 @@ export const ForensicConsole: React.FC = () => {
                 {analysisResult.recipient && (
                   <div style={{ backgroundColor: '#090d15', border: '1px solid var(--border-hard)', padding: '16px', marginBottom: '16px' }}>
                     <div style={{ fontSize: '11px', color: 'var(--text-dim)', textTransform: 'uppercase', marginBottom: '8px' }}>
-                      Attributed Source Officer & Hardware Identifier
+                      Attributed Recipient & Device Identifier
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
                       <div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>NAME & RANK:</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>NAME & ROLE:</div>
                         <div style={{ fontWeight: 800, color: '#ffffff', fontSize: '14px' }}>
                           {analysisResult.recipient.name}
                         </div>
                         <div style={{ fontSize: '11px', color: '#38bdf8' }}>{analysisResult.recipient.rank}</div>
                       </div>
                       <div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>NAVY REGISTRATION:</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>USER ACCOUNT ID:</div>
                         <div className="font-mono" style={{ fontWeight: 700, color: '#ffffff' }}>
                           {analysisResult.recipient.navy_id}
                         </div>
                         <div style={{ fontSize: '11px', color: 'var(--text-dim)' }}>{analysisResult.recipient.command_unit}</div>
                       </div>
                       <div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>AUTHORIZED DEVICE TOKEN:</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>REGISTERED DEVICE TOKEN:</div>
                         <div className="font-mono" style={{ fontWeight: 700, color: '#ef4444' }}>
                           {analysisResult.recipient.device_id}
                         </div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-dim)' }}>CLEARANCE: {analysisResult.recipient.clearance_level}</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-dim)' }}>ACCESS LEVEL: {analysisResult.recipient.clearance_level}</div>
                       </div>
                     </div>
                   </div>

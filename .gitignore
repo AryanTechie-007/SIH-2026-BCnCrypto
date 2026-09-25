@@ -24,6 +24,8 @@ backend/tests/*.pdf*
 backend/ciphertrace.db
 backend/uploads/*
 !backend/uploads/.gitkeep
+backend/returns/*
+!backend/returns/.gitkeep
 
 # IDE and OS files
 .vscode/

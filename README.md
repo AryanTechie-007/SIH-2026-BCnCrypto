@@ -1,28 +1,28 @@
 # 🛡️ CIPHERTRACE
-> **Offline Post-Quantum Cryptographic Document Attribution & Immutable Provenance Platform**  
+> **Post-Quantum Cryptographic Document Security, Watermarking & Immutable Provenance Platform**  
 > *Developed for Smart India Hackathon (SIH 2026) | Problem Statement: Blockchain & Cryptography*
 
 ---
 
 ## 📌 Executive Summary
-**CIPHERTRACE** solves the critical **insider threat and post-decryption leak problem** in defense, intelligence, and high-security enterprises. 
+**CIPHERTRACE** solves the critical **insider threat and post-decryption leak problem** for any individual, team, or enterprise handling confidential documents.
 
-While traditional security protects files in transit and at rest, once an authorized officer decrypts a document, traditional controls vanish. If an officer photographs their screen, prints, or leaks the PDF, attribution is nearly impossible due to plausible deniability.
+While traditional security protects files in transit and at rest, once an authorized recipient decrypts a document, traditional controls vanish. If a user photographs their screen, prints, or leaks the PDF, attribution is nearly impossible due to plausible deniability.
 
-CIPHERTRACE guarantees that **no recipient can access a classified document without their identity being indelibly, invisibly fused into every page via 2D Discrete Cosine Transform (DCT) spread-spectrum steganography, signed with Post-Quantum Digital Signatures (ML-DSA-65), and committed to an immutable append-only Merkle ledger.**
+CIPHERTRACE guarantees that **no recipient can access a confidential document without their identity being indelibly, invisibly fused into every page via 2D Discrete Cosine Transform (DCT) spread-spectrum steganography, signed with Post-Quantum Digital Signatures (ML-DSA-65), and committed to an immutable append-only Merkle ledger.**
 
 ---
 
 ## 🚀 Key Architecture & Innovations
 
 ```
-       SENDER (Command HQ)
+       SENDER (Document Owner / Sender)
                  │
                  ▼
-[ Upload PDF: "Classified Operations" ]
+[ Upload PDF: "Confidential Project Roadmap" ]
                  │
-   PQC Multi-Recipient Envelope Encryption
-   (AES-256-GCM + NIST ML-KEM-768 Kyber)
+    PQC Multi-Recipient Envelope Encryption
+    (AES-256-GCM + NIST ML-KEM-768 Kyber)
                  │
         ┌────────┴────────┐
         ▼                 ▼
@@ -40,7 +40,7 @@ CIPHERTRACE guarantees that **no recipient can access a classified document with
    (Document Leaked!)
         │
         ▼
-   LEAK DETECTED (Dark Web / Open Source)
+   LEAK DETECTED (Web, Forum, or Social Channels)
         │
         ▼
 [ Forensic Attribution Lab ]
@@ -51,34 +51,33 @@ CIPHERTRACE guarantees that **no recipient can access a classified document with
 ```
 
 ### 1. ⚛️ Post-Quantum Cryptography (NIST Standardized)
-- **ML-KEM-768 (Kyber)**: Quantum-resistant key encapsulation mechanism securing symmetric data encryption keys.
+- **ML-KEM-768 (Kyber)**: Quantum-resistant key encapsulation mechanism securing symmetric data encryption keys per recipient.
 - **ML-DSA-65 (Dilithium)**: Quantum-resistant digital signatures establishing non-repudiation during recipient decryption.
 - **AES-256-GCM**: High-throughput authenticated symmetric cipher for the document payload.
 
 ### 2. 👁️ Imperceptible & Robust 2D DCT Watermarking
 - **2D Discrete Cosine Transform (DCT)**: Modulates mid-frequency DCT coefficients in the luminance ($Y$) channel of every page.
 - **Reed-Solomon ECC (255, 127)**: Corrects bit flips caused by lossy JPEG compression, screen photographs, and noise.
-- **Cropping & Geometric Resilience**: Spatial spread-spectrum distribution allows payload recovery even if up to 20% of page margins are trimmed.
+- **Cropping & Geometric Resilience**: Spatial spread-spectrum distribution allows payload recovery even if page margins are trimmed.
 
 ### 3. ⛓️ Permissioned Hash-Chained Merkle Ledger
 - Append-only cryptographic ledger tracking every decryption event.
 - Blocks are chained with SHA3-256 previous-block hashes and Merkle root integrity.
 - Immediate detection of database tampering or revisionist history.
 
-### 4. 📴 100% Offline Air-Gapped Operation
+### 4. 📴 100% Offline & Universal Operation
 - Zero reliance on external cloud services, third-party Certificate Authorities, or internet access.
-- Deployable on tactical military edge servers, naval vessels, and isolated command centers.
+- Deployable on local workstations, enterprise servers, isolated intranets, or air-gapped secure labs.
 
 ---
 
-## 🖥️ Interactive Dashboards
+## 🖥️ Interactive Consoles
 
-1. **Sender Studio**: Upload documents, select authorized personnel, and generate quantum-resistant encrypted distribution packages.
-2. **Recipient Terminal**: Experience the 6-step atomic PQC handshake, key decapsulation, and automatic receipt signing.
-3. **Forensic Attribution Lab**: Ingest suspected leaks, extract the hidden watermark payload, match against the ledger, and export court-admissible PDF evidence bundles.
-4. **Attack Simulator**: Test watermark robustness against JPEG compression (Quality 30), cropping, rotation, and metadata stripping.
-5. **Ledger & Tamper Lab**: Audit the cryptographic block ledger and test real-time tamper alarms by simulating block corruption.
-6. **Continuity Graph**: Interactive visual provenance topology linking files, recipients, blocks, and forensic matches.
+1. **Secure Distribution**: Upload documents, select authorized recipients, and generate quantum-resistant encrypted distribution packages (.enc).
+2. **Recipient Vault**: Decapsulate encrypted files with post-quantum lattice keys and download watermarked copies.
+3. **Forensic Audit Lab**: Ingest suspected leaks (PDFs, screenshots, crops), extract the hidden watermark payload, match against the ledger, and export evidence packages.
+4. **Robustness Benchmark**: Test watermark robustness against JPEG compression (Quality 30), cropping, rotation, and noise.
+5. **Immutable Ledger**: Audit the cryptographic block ledger and test real-time tamper alarms by simulating insider block corruption.
 
 ---
 
@@ -127,7 +126,7 @@ python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 - Verify Backend: Open `http://127.0.0.1:8000/docs` in your browser.
 
-#### Terminal 2 — React Military Defense UI (Port 5173)
+#### Terminal 2 — React Web Application UI (Port 5173)
 ```bash
 cd frontend
 npm install
@@ -158,7 +157,7 @@ docker-compose up --build
 
 ## ❓ Troubleshooting & Common Questions
 
-#### 1. "Failed to fetch" on Operator Login or Enrollment
+#### 1. "Failed to fetch" on Login or Account Creation
 - **Cause**: The React frontend is open, but the **FastAPI backend is not running** on port 8000.
 - **Fix**: Make sure you ran `start_demo.bat` (which starts BOTH servers), or run `python -m uvicorn app.main:app --port 8000` in the `backend` folder. Check `http://127.0.0.1:8000/api/system/health` to confirm the backend is live.
 
@@ -167,8 +166,8 @@ docker-compose up --build
 - **Fix**: Use your local Wi-Fi IP address instead of `localhost` (e.g. `http://192.168.x.x:5173`).
 
 #### 3. "403 Forbidden / ACCESS DENIED" during Decryption
-- **Cause**: This is **intended post-quantum access control**! When a classified file is encrypted in Stage 1, it is bound ONLY to the selected recipients' ML-KEM-768 public keys. If an unauthorized operator attempts to decrypt it, the enclave strictly rejects them.
-- **Fix**: Switch your active operator to the officer who was granted access during distribution (e.g., Captain Verma or Commander Rao), or check your own username in Stage 1 when distributing.
+- **Cause**: This is **intended post-quantum access control**! When a file is encrypted in Stage 1, it is bound ONLY to the selected recipients' ML-KEM-768 public keys. If an unauthorized user attempts to decrypt it, the platform strictly rejects them.
+- **Fix**: Switch your active user to the recipient who was granted access during distribution (e.g., Bob or Alice), or check your own account in Stage 1 when distributing.
 
 ---
 
@@ -182,24 +181,23 @@ docker-compose up --build
 │   │   ├── models/               # SQLAlchemy ORM models
 │   │   ├── routers/              # Modular REST API endpoints
 │   │   └── services/
-│   │       ├── crypto_service.py     # PQC (ML-KEM, ML-DSA), AES-256-GCM, SHA3
-│   │       ├── embedding_service.py  # 2D DCT spread-spectrum & Reed-Solomon ECC
-│   │       ├── watermark_service.py  # HMAC-SHA3-256 payload derivation
-│   │       └── ledger_service.py     # Hash-chained blocks & Merkle trees
+│   │       ├── crypto_engine.py      # PQC (ML-KEM, ML-DSA), AES-256-GCM, SHA3
+│   │       ├── watermark_engine.py   # 2D DCT spread-spectrum & Reed-Solomon ECC
+│   │       └── ledger_engine.py      # Hash-chained blocks & Merkle trees
 │   ├── tests/                    # Crypto and pipeline unit tests
 │   ├── requirements.txt
 │   └── Dockerfile
 ├── frontend/
 │   ├── src/
-│   │   ├── api/client.ts         # Dual-mode engine (LIVE API vs AIR-GAP DEMO)
-│   │   ├── components/           # UI components, modals, visualizers
-│   │   ├── pages/                # 6 defense dashboard modules
-│   │   ├── types.ts              # TypeScript domain types
-│   │   └── index.css             # Cyber-defense design system
+│   │   ├── api/client.ts         # API client & error handling
+│   │   ├── components/           # UI components, header, auth modal
+│   │   ├── views/                # 5 core security consoles
+│   │   ├── types/                # TypeScript domain types
+│   │   └── index.css             # Design system styling
 │   ├── package.json
 │   └── vite.config.ts
+├── setup/                        # Automated dependency installation scripts
 ├── docker-compose.yml            # Multi-container orchestration
-├── SIH_DEMO_SCRIPT.md            # 5-minute timed presentation pitch & Q&A defense
 └── start_demo.bat                # 1-click Windows runner
 ```
 

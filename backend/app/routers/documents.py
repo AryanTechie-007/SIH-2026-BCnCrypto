@@ -20,7 +20,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 @router.get("", response_model=List[DocumentSchema])
 @router.get("/", response_model=List[DocumentSchema])
 async def list_documents(db: AsyncSession = Depends(get_db)):
-    """Lists all classified defense documents registered in the system."""
+    """Lists all confidential documents registered in the system."""
     result = await db.execute(select(Document).order_by(Document.id.desc()))
     docs = result.scalars().all()
     return [
@@ -37,7 +37,7 @@ async def list_documents(db: AsyncSession = Depends(get_db)):
 
 @router.post("/upload", response_model=DocumentSchema)
 async def upload_document(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
-    """Uploads a classified document, computes SHA3-256 digest, and stores it in secure storage."""
+    """Uploads a confidential document, computes SHA3-256 digest, and stores it in secure storage."""
     target_path = os.path.join(UPLOAD_DIR, file.filename)
     with open(target_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
@@ -50,7 +50,7 @@ async def upload_document(file: UploadFile = File(...), db: AsyncSession = Depen
 
     new_doc = Document(
         file_name=file.filename,
-        title=f"CLASSIFIED DEFENSE PAYLOAD: {file.filename.upper()}",
+        title=f"CONFIDENTIAL ASSET: {file.filename.upper()}",
         sha3_hash=doc_hash,
         original_path=target_path,
         size_bytes=size

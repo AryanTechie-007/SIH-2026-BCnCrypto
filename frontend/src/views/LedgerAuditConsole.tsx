@@ -71,7 +71,7 @@ export const LedgerAuditConsole: React.FC = () => {
           <span className="tactical-badge badge-slate">SHA3-256 HASH CHAINING</span>
         </div>
         <h1 style={{ fontSize: '20px', fontWeight: 800, letterSpacing: '0.03em', color: '#ffffff' }}>
-          AIR-GAPPED DISTRIBUTED LEDGER & ROGUE ADMIN TAMPER AUDIT
+          IMMUTABLE DISTRIBUTED LEDGER & INSIDER TAMPER AUDIT
         </h1>
         <p style={{ color: 'var(--text-muted)', fontSize: '12px', marginTop: '2px' }}>
           Every decryption event is committed across permissioned consensus nodes. Cryptographic hash chaining prevents privileged insider administrators from secretly altering historical audit logs.

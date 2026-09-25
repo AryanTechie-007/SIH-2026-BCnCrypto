@@ -20,7 +20,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
-  const [rank, setRank] = useState('OFFICER');
+  const [rank, setRank] = useState('User');
   const [deviceId, setDeviceId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -92,7 +92,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           password: 'password123',
           display_name: quickName,
           rank: quickRank,
-          device_id: `DEF-HW-${quickUsername.toUpperCase()}`
+          device_id: `DEV-${quickUsername.toUpperCase()}`
         });
         onLoginSuccess(regRes.user, regRes.token);
         onClose();
@@ -148,10 +148,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </div>
             <div>
               <div style={{ fontSize: '13px', fontWeight: 800, letterSpacing: '0.04em', color: '#ffffff' }}>
-                TACTICAL DEFENSE AUTHENTICATION
+                SECURE USER AUTHENTICATION
               </div>
               <div style={{ fontSize: '10px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
-                NIST FIPS 203 / 204 POST-QUANTUM IDENTITY PROTOCOL
+                NIST FIPS 203 / 204 POST-QUANTUM IDENTITY & VAULT ACCESS
               </div>
             </div>
           </div>
@@ -189,7 +189,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             }}
           >
             <LogIn size={13} style={{ display: 'inline', marginRight: '6px' }} />
-            OPERATOR LOGIN
+            SIGN IN
           </button>
           <button
             onClick={() => { setTab('register'); setErrorMessage(null); }}
@@ -207,7 +207,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             }}
           >
             <UserPlus size={13} style={{ display: 'inline', marginRight: '6px' }} />
-            ENROLL NEW OPERATOR
+            CREATE ACCOUNT
           </button>
         </div>
 
@@ -231,7 +231,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '6px' }}>
-                  OPERATOR USERNAME
+                  USERNAME
                 </label>
                 <input
                   type="text"
@@ -246,13 +246,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
               <div>
                 <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '6px' }}>
-                  SECURITY CREDENTIAL / PASSWORD
+                  PASSWORD
                 </label>
                 <input
                   type="password"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  placeholder="Enter operator password"
+                  placeholder="Enter your account password"
                   className="tactical-input"
                   style={{ width: '100%', padding: '10px 12px', fontSize: '12px' }}
                   required
@@ -266,7 +266,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 style={{ width: '100%', padding: '12px', marginTop: '6px', justifyContent: 'center' }}
               >
                 <LogIn size={15} />
-                <span>{isLoading ? 'AUTHENTICATING ENCLAVE...' : 'AUTHENTICATE & ACCESS CONSOLE'}</span>
+                <span>{isLoading ? 'SIGNING IN...' : 'SIGN IN TO VAULT'}</span>
               </button>
             </form>
           ) : (
@@ -280,7 +280,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     type="text"
                     value={username}
                     onChange={e => setUsername(e.target.value)}
-                    placeholder="e.g. bob"
+                    placeholder="e.g. aryan, bob, alice"
                     className="tactical-input"
                     style={{ width: '100%', padding: '8px 10px', fontSize: '12px' }}
                     required
@@ -288,13 +288,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '4px' }}>
-                    FULL CALLSIGN / NAME
+                    FULL NAME
                   </label>
                   <input
                     type="text"
                     value={displayName}
                     onChange={e => setDisplayName(e.target.value)}
-                    placeholder="e.g. Captain Bob"
+                    placeholder="e.g. Aryan Techie"
                     className="tactical-input"
                     style={{ width: '100%', padding: '8px 10px', fontSize: '12px' }}
                     required
@@ -319,7 +319,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '4px' }}>
-                    MILITARY RANK
+                    ROLE / DEPARTMENT
                   </label>
                   <select
                     value={rank}
@@ -327,24 +327,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     className="tactical-input"
                     style={{ width: '100%', padding: '8px 10px', fontSize: '12px', backgroundColor: '#090e18', color: '#ffffff' }}
                   >
-                    <option value="CAPTAIN">CAPTAIN</option>
-                    <option value="COMMANDER">COMMANDER</option>
-                    <option value="LIEUTENANT">LIEUTENANT</option>
-                    <option value="WING COMMANDER">WING COMMANDER</option>
-                    <option value="OPERATOR">OPERATOR</option>
+                    <option value="Executive">Executive</option>
+                    <option value="Legal Counsel">Legal Counsel</option>
+                    <option value="Finance">Finance</option>
+                    <option value="Engineering">Engineering</option>
+                    <option value="Compliance">Compliance</option>
+                    <option value="User">General User</option>
                   </select>
                 </div>
               </div>
 
               <div>
                 <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '4px' }}>
-                  HARDWARE DEVICE ID (OPTIONAL)
+                  DEVICE NAME (OPTIONAL)
                 </label>
                 <input
                   type="text"
                   value={deviceId}
                   onChange={e => setDeviceId(e.target.value)}
-                  placeholder="Leave blank for auto-generation"
+                  placeholder="e.g. Workstation PC, MacBook Pro (auto-generated if empty)"
                   className="tactical-input"
                   style={{ width: '100%', padding: '8px 10px', fontSize: '12px' }}
                 />
@@ -358,7 +359,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 color: 'var(--text-dim)',
                 fontFamily: 'var(--font-mono)'
               }}>
-                ℹ️ Automatically provisions NIST FIPS 203 ML-KEM-768 & FIPS 204 ML-DSA-65 post-quantum keypairs.
+                ℹ️ Automatically provisions NIST FIPS 203 ML-KEM-768 & FIPS 204 ML-DSA-65 post-quantum keypairs for confidential document exchange.
               </div>
 
               <button
@@ -368,7 +369,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 style={{ width: '100%', padding: '10px', marginTop: '4px', justifyContent: 'center' }}
               >
                 <Cpu size={14} />
-                <span>{isLoading ? 'GENERATING NIST PQC KEYS...' : 'PROVISION PQC IDENTITY & ENROLL'}</span>
+                <span>{isLoading ? 'GENERATING POST-QUANTUM KEYS...' : 'CREATE ACCOUNT & GENERATE KEYS'}</span>
               </button>
             </form>
           )}
@@ -376,28 +377,38 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           {/* Quick Setup Shortcuts for Testing */}
           <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--border-hard)' }}>
             <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-dim)', letterSpacing: '0.05em', marginBottom: '8px' }}>
-              ⚡ QUICK TESTING PROVISIONS (1-CLICK SETUP)
+              ⚡ QUICK TESTING ACCOUNTS (1-CLICK)
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
               <button
                 type="button"
-                onClick={() => handleQuickCreate('alice', 'Commander Alice', 'COMMANDER')}
+                onClick={() => handleQuickCreate('alice', 'Alice Morgan', 'Executive')}
                 disabled={isLoading}
                 className="tactical-btn tactical-btn-secondary"
-                style={{ fontSize: '11px', padding: '8px 10px', justifyContent: 'center' }}
+                style={{ fontSize: '10px', padding: '8px 6px', justifyContent: 'center' }}
               >
-                <Zap size={12} style={{ color: '#38bdf8' }} />
-                <span>Login as "Alice" (Sender)</span>
+                <Zap size={11} style={{ color: '#38bdf8' }} />
+                <span>Alice (Sender)</span>
               </button>
               <button
                 type="button"
-                onClick={() => handleQuickCreate('bob', 'Captain Bob', 'CAPTAIN')}
+                onClick={() => handleQuickCreate('bob', 'Bob Vance', 'Legal Counsel')}
                 disabled={isLoading}
                 className="tactical-btn tactical-btn-secondary"
-                style={{ fontSize: '11px', padding: '8px 10px', justifyContent: 'center' }}
+                style={{ fontSize: '10px', padding: '8px 6px', justifyContent: 'center' }}
               >
-                <Zap size={12} style={{ color: '#10b981' }} />
-                <span>Login as "Bob" (Recipient)</span>
+                <Zap size={11} style={{ color: '#10b981' }} />
+                <span>Bob (Recipient)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickCreate('aryan', 'Aryan Techie', 'Engineering')}
+                disabled={isLoading}
+                className="tactical-btn tactical-btn-secondary"
+                style={{ fontSize: '10px', padding: '8px 6px', justifyContent: 'center' }}
+              >
+                <Zap size={11} style={{ color: '#f59e0b' }} />
+                <span>Aryan (Personal)</span>
               </button>
             </div>
           </div>

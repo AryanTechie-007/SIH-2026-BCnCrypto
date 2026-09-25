@@ -96,10 +96,10 @@ export const SenderConsole: React.FC<SenderConsoleProps> = ({ currentUser, onOpe
           <span className="tactical-badge badge-slate">NIST SP 800-38D AES-256-GCM</span>
         </div>
         <h1 style={{ fontSize: '20px', fontWeight: 800, letterSpacing: '0.03em', color: '#ffffff' }}>
-          CLASSIFIED ENVELOPE ENCRYPTION & MULTI-RECIPIENT DISTRIBUTION
+          SECURE ENVELOPE ENCRYPTION & MULTI-RECIPIENT DISTRIBUTION
         </h1>
         <p style={{ color: 'var(--text-muted)', fontSize: '12px', marginTop: '2px' }}>
-          Encrypt defense payloads once with AES-256-GCM. Encapsulate symmetric DEK under distinct ML-KEM-768 lattice keys per recipient.
+          Encrypt confidential documents once with AES-256-GCM. Encapsulate symmetric DEK under distinct ML-KEM-768 lattice keys per recipient.
         </p>
       </div>
 
@@ -108,7 +108,7 @@ export const SenderConsole: React.FC<SenderConsoleProps> = ({ currentUser, onOpe
         <div className="tactical-alert tactical-alert-danger" style={{ marginBottom: '20px' }}>
           <AlertOctagon size={18} style={{ flexShrink: 0, marginTop: '1px' }} />
           <div>
-            <strong>SENDER CONSOLE EXCEPTION:</strong> {errorMessage}
+            <strong>DISTRIBUTION ERROR:</strong> {errorMessage}
           </div>
         </div>
       )}
@@ -118,7 +118,7 @@ export const SenderConsole: React.FC<SenderConsoleProps> = ({ currentUser, onOpe
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div className="tactical-panel">
             <div className="tactical-panel-header">
-              <h3>Target Classified Document</h3>
+              <h3>Confidential Document</h3>
               <label className="tactical-btn tactical-btn-secondary" style={{ padding: '4px 8px', fontSize: '11px', cursor: 'pointer' }}>
                 <Upload size={12} />
                 <span>Upload PDF</span>
@@ -187,7 +187,7 @@ export const SenderConsole: React.FC<SenderConsoleProps> = ({ currentUser, onOpe
           {/* Recipient Selection Table */}
           <div className="tactical-panel">
             <div className="tactical-panel-header">
-              <h3>Designated Operational Recipients ({selectedRecipientIds.length} Selected)</h3>
+              <h3>Designated Recipients ({selectedRecipientIds.length} Selected)</h3>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button
                   className="tactical-btn tactical-btn-secondary"
@@ -210,11 +210,11 @@ export const SenderConsole: React.FC<SenderConsoleProps> = ({ currentUser, onOpe
               <thead>
                 <tr>
                   <th style={{ width: '40px' }}>Auth</th>
-                  <th>Recipient Officer</th>
-                  <th>Navy ID</th>
-                  <th>Command Unit</th>
-                  <th>Clearance</th>
-                  <th>Enrolled Hardware</th>
+                  <th>Recipient</th>
+                  <th>User ID</th>
+                  <th>Department / Team</th>
+                  <th>Access Level</th>
+                  <th>Registered Device</th>
                 </tr>
               </thead>
               <tbody>
@@ -253,12 +253,12 @@ export const SenderConsole: React.FC<SenderConsoleProps> = ({ currentUser, onOpe
             {officers.length === 0 && (
               <div style={{ padding: '24px', textAlign: 'center', backgroundColor: '#090d15' }}>
                 <div style={{ fontSize: '12px', color: 'var(--text-dim)', marginBottom: '8px' }}>
-                  No operator accounts enrolled in system.
+                  No user accounts registered in system.
                 </div>
                 {onOpenAuth && (
                   <button onClick={onOpenAuth} className="tactical-btn tactical-btn-secondary" style={{ margin: '0 auto', fontSize: '11px' }}>
                     <UserPlus size={12} />
-                    <span>Enroll Recipient Operators (Alice / Bob)</span>
+                    <span>Register User Accounts (Alice / Bob / Aryan)</span>
                   </button>
                 )}
               </div>
@@ -295,7 +295,7 @@ export const SenderConsole: React.FC<SenderConsoleProps> = ({ currentUser, onOpe
                   gap: '12px'
                 }}>
                   <div style={{ fontSize: '11px', color: '#e0f2fe' }}>
-                    <strong>📡 CROSS-DEVICE PACKAGE READY:</strong> Download the <code>{distributionResult.envelope_file_name}</code> package. Share it with your recipient over USB, network, or messaging. They can upload it in Stage 2 (Recipient Terminal) to decrypt!
+                    <strong>📡 CROSS-DEVICE PACKAGE READY:</strong> Download the <code>{distributionResult.envelope_file_name}</code> package. Share it with your recipient over USB, network, or messaging. They can upload it in Stage 2 (Recipient Vault) to decrypt!
                   </div>
                   <button
                     className="tactical-btn tactical-btn-success"

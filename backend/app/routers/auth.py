@@ -11,10 +11,11 @@ from ..schemas import RegisterRequest, LoginRequest, UserSchema, AuthResponse
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
-SALT = "CIPHERTRACE_MILITARY_AIRGAP_SALT_2026"
+SALT = "CIPHERTRACE_SECURE_AUTH_SALT_2026"
+LEGACY_SALT = "CIPHERTRACE_MILITARY_AIRGAP_SALT_2026"
 
-def hash_password(password: str) -> str:
-    return hashlib.sha256((SALT + password).encode("utf-8")).hexdigest()
+def hash_password(password: str, salt: str = SALT) -> str:
+    return hashlib.sha256((salt + password).encode("utf-8")).hexdigest()
 
 def user_to_schema(u: User) -> UserSchema:
     return UserSchema(
@@ -33,7 +34,7 @@ def user_to_schema(u: User) -> UserSchema:
 
 @router.post("/register", response_model=AuthResponse)
 async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
-    """Registers a new tactical defense operator with real NIST PQC keypairs."""
+    """Registers a new user account with real NIST PQC keypairs."""
     cleaned_username = req.username.strip().lower()
     if not cleaned_username:
         raise HTTPException(status_code=400, detail="Username cannot be empty")
@@ -45,12 +46,12 @@ async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
     if res.scalar_one_or_none():
         raise HTTPException(status_code=400, detail=f"Username '{cleaned_username}' is already registered")
 
-    navy_id = req.navy_id or f"NAVY-{cleaned_username.upper()}"
+    navy_id = req.navy_id or f"USR-{cleaned_username.upper()}"
     res_navy = await db.execute(select(User).where(User.navy_id == navy_id))
     if res_navy.scalar_one_or_none():
-        navy_id = f"NAVY-{cleaned_username.upper()}-{uuid.uuid4().hex[:4].upper()}"
+        navy_id = f"USR-{cleaned_username.upper()}-{uuid.uuid4().hex[:4].upper()}"
 
-    device_id = req.device_id or f"DEF-HW-{uuid.uuid4().hex[:6].upper()}"
+    device_id = req.device_id or f"DEV-{uuid.uuid4().hex[:6].upper()}"
 
     # Generate real NIST PQC keypairs
     kem_pub, kem_priv = CryptoEngine.generate_kem_keypair()
@@ -61,9 +62,9 @@ async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
         password_hash=hash_password(req.password),
         name=req.display_name.strip() or cleaned_username.capitalize(),
         navy_id=navy_id,
-        rank=req.rank or "OFFICER",
-        command_unit=req.command_unit or "TACTICAL DEFENSE COMMAND",
-        clearance_level=req.clearance_level or "LEVEL-5 TOP SECRET",
+        rank=req.rank or "User",
+        command_unit=req.command_unit or "General Workspace",
+        clearance_level=req.clearance_level or "Confidential",
         device_id=device_id,
         kem_public_key=kem_pub,
         kem_private_key=kem_priv,
@@ -79,12 +80,12 @@ async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
     return AuthResponse(
         user=user_schema,
         token=f"TOKEN-{new_user.id}-{uuid.uuid4().hex[:12]}",
-        message=f"Operator '{new_user.name}' registered with fresh NIST ML-KEM-768 and ML-DSA-65 keypairs."
+        message=f"User '{new_user.name}' registered with fresh NIST ML-KEM-768 and ML-DSA-65 keypairs."
     )
 
 @router.post("/login", response_model=AuthResponse)
 async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
-    """Authenticates operator credentials against hashed account record."""
+    """Authenticates user credentials against hashed account record."""
     cleaned_username = req.username.strip().lower()
     res = await db.execute(select(User).where(User.username == cleaned_username))
     user = res.scalar_one_or_none()
@@ -92,7 +93,15 @@ async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
-    if user.password_hash != hash_password(req.password):
+    # Verify password against current salt or legacy salt
+    is_valid = (user.password_hash == hash_password(req.password, SALT))
+    if not is_valid and user.password_hash == hash_password(req.password, LEGACY_SALT):
+        is_valid = True
+        # Upgrade hash to current salt
+        user.password_hash = hash_password(req.password, SALT)
+        await db.commit()
+
+    if not is_valid:
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
     return AuthResponse(
@@ -103,20 +112,20 @@ async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
 
 @router.get("/users", response_model=List[UserSchema])
 async def list_users(db: AsyncSession = Depends(get_db)):
-    """Lists all registered defense operators for recipient selection."""
+    """Lists all registered users for recipient selection."""
     res = await db.execute(select(User).order_by(User.id.asc()))
     users = res.scalars().all()
     return [user_to_schema(u) for u in users]
 
 @router.get("/me", response_model=UserSchema)
 async def get_current_user(user_id: Optional[int] = None, db: AsyncSession = Depends(get_db)):
-    """Retrieves active operator details."""
+    """Retrieves active user details."""
     if not user_id:
         # Fall back to first user if exists
         res = await db.execute(select(User).order_by(User.id.asc()))
         u = res.scalars().first()
         if not u:
-            raise HTTPException(status_code=404, detail="No operator accounts exist yet. Please register.")
+            raise HTTPException(status_code=404, detail="No user accounts exist yet. Please register.")
         return user_to_schema(u)
 
     res = await db.execute(select(User).where(User.id == user_id))

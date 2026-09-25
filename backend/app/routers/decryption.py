@@ -39,13 +39,13 @@ async def decrypt_document(req: DecryptionRequest, db: AsyncSession = Depends(ge
     user_res = await db.execute(select(User).where(User.id == req.recipient_id))
     user = user_res.scalar_one_or_none()
     if not user:
-        raise HTTPException(status_code=404, detail="Officer identity record not found in system registry")
+        raise HTTPException(status_code=404, detail="User identity record not found in system registry")
 
     # Verify document exists
     doc_res = await db.execute(select(Document).where(Document.id == req.document_id))
     doc = doc_res.scalar_one_or_none()
     if not doc:
-        raise HTTPException(status_code=404, detail="Requested classified document not found")
+        raise HTTPException(status_code=404, detail="Requested confidential document not found")
 
     # 1. STRICT ACCESS CONTROL CHECK: Query matching distribution record
     dist_res = await db.execute(
@@ -59,7 +59,7 @@ async def decrypt_document(req: DecryptionRequest, db: AsyncSession = Depends(ge
     if not dist:
         raise HTTPException(
             status_code=403,
-            detail=f"ACCESS DENIED: {user.name} ({user.navy_id}) was not designated as an authorized recipient during envelope distribution. No ML-KEM-768 key envelope exists for this officer."
+            detail=f"ACCESS DENIED: {user.name} ({user.navy_id}) was not designated as an authorized recipient during envelope distribution. No ML-KEM-768 key envelope exists for this user."
         )
 
     # 2. Extract Envelope and Decapsulate DEK
@@ -222,7 +222,7 @@ async def decrypt_uploaded_envelope(
     user_res = await db.execute(select(User).where(User.id == recipient_id))
     user = user_res.scalar_one_or_none()
     if not user:
-        raise HTTPException(status_code=404, detail="Recipient operator identity record not found in system registry")
+        raise HTTPException(status_code=404, detail="Recipient user identity record not found in system registry")
 
     # Match recipient inside envelope
     recipients_list = enc_data.get("recipients", [])
@@ -235,7 +235,7 @@ async def decrypt_uploaded_envelope(
     if not matched:
         raise HTTPException(
             status_code=403,
-            detail=f"ACCESS DENIED: Operator {user.name} ({user.navy_id}) was not designated as an authorized recipient in this encrypted .enc envelope."
+            detail=f"ACCESS DENIED: {user.name} ({user.navy_id}) was not designated as an authorized recipient in this encrypted .enc envelope."
         )
 
     # Decapsulate DEK

@@ -166,8 +166,8 @@ async def evaluate_suspect_stream(file_name: str, file_bytes: bytes, db: AsyncSe
         )
 
         narrative = (
-            f"POSITIVE ATTRIBUTION CONFIRMED: Intercepted document positively attributed to {user.name} ({user.rank}, {user.navy_id}). "
-            f"Authorized viewing hardware {event.device_id} at {event.timestamp.isoformat()} UTC. "
+            f"POSITIVE ATTRIBUTION CONFIRMED: Leaked document positively attributed to {user.name} ({user.rank}, {user.navy_id}). "
+            f"Authorized viewing device {event.device_id} at {event.timestamp.isoformat()} UTC. "
             f"Recipient post-quantum ML-DSA-65 signature verified authentic against ledger block #{block.id if block else '1'}."
         ) if is_exact else (
             f"PROBABILISTIC ATTRIBUTION: High-correlation watermark signature matched to {user.name} ({user.rank}, {user.navy_id}) "
@@ -202,7 +202,7 @@ async def evaluate_suspect_stream(file_name: str, file_bytes: bytes, db: AsyncSe
                 "timestamp": event.timestamp.isoformat(),
                 "device_id": event.device_id,
                 "document_id": doc.id if doc else 1,
-                "document_name": doc.file_name if doc else "CLASSIFIED_DEFENSE.pdf",
+                "document_name": doc.file_name if doc else "CONFIDENTIAL_DOCUMENT.pdf",
                 "document_sha3": doc.sha3_hash if doc else "",
                 "ledger_block_index": block.id if block else 1,
                 "ledger_block_hash": block.block_hash if block else "",
@@ -238,9 +238,9 @@ async def evaluate_suspect_stream(file_name: str, file_bytes: bytes, db: AsyncSe
     )
 
     narrative = (
-        f"ATTRIBUTION INCONCLUSIVE: Intercepted document contains no valid 2D DCT watermark (BER: {ber:.1f}%). "
-        f"Evaluated against all {len(all_users)} registered military personnel in this node: all officers cleared (0.0% match confidence). "
-        f"Suspect document appears to be an unwatermarked source, raw programming assignment, or external foreign file."
+        f"ATTRIBUTION INCONCLUSIVE: Uploaded document contains no valid 2D DCT watermark (BER: {ber:.1f}%). "
+        f"Evaluated against all {len(all_users)} registered users in this node: all accounts cleared (0.0% match confidence). "
+        f"Suspect document appears to be an unwatermarked source, raw document, or external file."
     )
 
     return ForensicAnalysisResponse(
@@ -303,7 +303,7 @@ async def export_evidence_package(event_id: int, db: AsyncSession = Depends(get_
     blk = blk_res.scalar_one_or_none()
 
     evidence_data = {
-        "specification": "CIPHERTRACE_MILITARY_FORENSIC_EVIDENCE_V2",
+        "specification": "CIPHERTRACE_FORENSIC_EVIDENCE_V2",
         "exported_at": datetime.utcnow().isoformat(),
         "cryptographic_standards": {
             "pqc_signature": "NIST FIPS 204 (ML-DSA-65)",

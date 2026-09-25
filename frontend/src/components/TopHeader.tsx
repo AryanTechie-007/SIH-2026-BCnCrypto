@@ -1,4 +1,5 @@
-import { Shield, ShieldAlert, Cpu, Terminal, RefreshCw, UserCheck, LogIn, Key } from 'lucide-react';
+import React from 'react';
+import { Shield, ShieldAlert, Cpu, Terminal, RefreshCw, UserCheck, LogIn, Key, LogOut } from 'lucide-react';
 import { SystemHealth, UserAccount } from '../types';
 
 interface TopHeaderProps {
@@ -9,6 +10,7 @@ interface TopHeaderProps {
   onRefreshHealth: () => void;
   currentUser: UserAccount | null;
   onOpenAuth: () => void;
+  onLogout?: () => void;
 }
 
 export const TopHeader: React.FC<TopHeaderProps> = ({
@@ -18,14 +20,15 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   healthError,
   onRefreshHealth,
   currentUser,
-  onOpenAuth
+  onOpenAuth,
+  onLogout
 }) => {
   const tabs = [
-    { id: 'sender', label: '1. SENDER ENVELOPE CONSOLE' },
-    { id: 'recipient', label: '2. RECIPIENT TERMINAL' },
-    { id: 'forensics', label: '3. FORENSIC ATTRIBUTION LAB' },
-    { id: 'attacks', label: '4. ADVERSARIAL STRESS LAB' },
-    { id: 'ledger', label: '5. LEDGER & TAMPER AUDIT' }
+    { id: 'sender', label: '1. SECURE DISTRIBUTION' },
+    { id: 'recipient', label: '2. RECIPIENT VAULT' },
+    { id: 'forensics', label: '3. FORENSIC AUDIT LAB' },
+    { id: 'attacks', label: '4. ROBUSTNESS BENCHMARK' },
+    { id: 'ledger', label: '5. IMMUTABLE LEDGER' }
   ];
 
   const isOnline = systemHealth !== null && !healthError;
@@ -44,25 +47,26 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
           <div style={{
             backgroundColor: '#0284c7',
             color: '#ffffff',
-            padding: '4px 6px',
+            padding: '4px 8px',
             fontSize: '11px',
             fontWeight: 800,
-            letterSpacing: '0.05em'
+            letterSpacing: '0.05em',
+            borderRadius: '2px'
           }}>
             CIPHERTRACE
           </div>
           <div>
-            <div style={{ fontSize: '13px', fontWeight: 700, letterSpacing: '0.04em', color: '#ffffff' }}>
-              POST-QUANTUM AIR-GAPPED DOCUMENT ATTRIBUTION PLATFORM
+            <div style={{ fontSize: '13px', fontWeight: 700, letterSpacing: '0.03em', color: '#ffffff' }}>
+              POST-QUANTUM CONFIDENTIAL DOCUMENT SECURITY & PROVENANCE PLATFORM
             </div>
             <div style={{ fontSize: '11px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
-              MILITARY GRADE DEFENSE CORE &bull; NIST FIPS 203 / 204 &bull; FIPS 202 SHA3-256
+              ENTERPRISE POST-QUANTUM CRYPTOGRAPHY &bull; NIST FIPS 203 / 204 &bull; FIPS 202 SHA3-256
             </div>
           </div>
         </div>
 
-        {/* Real-time System Status & Operator Identity */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {/* Real-time System Status & User Identity */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           {currentUser ? (
             <div style={{
               display: 'flex',
@@ -80,20 +84,31 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
               <button
                 onClick={onOpenAuth}
                 className="tactical-btn tactical-btn-secondary"
-                style={{ padding: '2px 6px', fontSize: '10px', marginLeft: '6px' }}
-                title="Switch Account or Device Identity"
+                style={{ padding: '2px 6px', fontSize: '10px', marginLeft: '4px' }}
+                title="Switch Account"
               >
                 Switch
               </button>
+              {onLogout && (
+                <button
+                  onClick={onLogout}
+                  className="tactical-btn tactical-btn-secondary"
+                  style={{ padding: '2px 6px', fontSize: '10px' }}
+                  title="Sign Out"
+                >
+                  <LogOut size={10} style={{ display: 'inline', marginRight: '2px' }} />
+                  Sign Out
+                </button>
+              )}
             </div>
           ) : (
             <button
               onClick={onOpenAuth}
               className="tactical-btn tactical-btn-primary"
-              style={{ padding: '4px 12px', fontSize: '11px' }}
+              style={{ padding: '5px 14px', fontSize: '11px' }}
             >
               <LogIn size={13} />
-              <span>LOGIN / ENROLL OPERATOR</span>
+              <span>SIGN IN / CREATE ACCOUNT</span>
             </button>
           )}
 

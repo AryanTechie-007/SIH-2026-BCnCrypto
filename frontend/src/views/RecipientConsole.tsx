@@ -76,8 +76,8 @@ export const RecipientConsole: React.FC<RecipientConsoleProps> = ({ currentOpera
     { title: '2. AES-256-GCM Decryption', desc: 'Verifying 128-bit authentication tag & recovering plaintext vector payload' },
     { title: '3. Session Formulation', desc: 'Generating non-repeatable session nonce & canonical viewing parameters' },
     { title: '4. 2D DCT Steganography', desc: 'Synthesizing HMAC-SHA3-256 watermark & modulating 150 DPI luminance lattice' },
-    { title: '5. ML-DSA-65 Signature', desc: 'Officer cryptographic token signs viewing event (NIST FIPS 204 non-repudiation)' },
-    { title: '6. Air-Gap Ledger Commit', desc: 'Broadcasting signed audit proof to permissioned distributed consensus nodes' }
+    { title: '5. ML-DSA-65 Signature', desc: 'Recipient post-quantum key signs access event (NIST FIPS 204 non-repudiation)' },
+    { title: '6. Immutable Ledger Commit', desc: 'Broadcasting signed audit proof to permissioned distributed consensus nodes' }
   ];
 
   const handleDecrypt = async () => {
@@ -146,7 +146,7 @@ export const RecipientConsole: React.FC<RecipientConsoleProps> = ({ currentOpera
           <span className="tactical-badge badge-slate">NON-REPUDIATION ATTESTATION</span>
         </div>
         <h1 style={{ fontSize: '20px', fontWeight: 800, letterSpacing: '0.03em', color: '#ffffff' }}>
-          AIR-GAPPED RECIPIENT TERMINAL & CRYPTOGRAPHIC DECAPSULATION
+          SECURE RECIPIENT VAULT & CRYPTOGRAPHIC DECAPSULATION
         </h1>
         <p style={{ color: 'var(--text-muted)', fontSize: '12px', marginTop: '2px' }}>
           Decapsulate received .enc envelopes across devices using NIST ML-KEM-768 lattice keys. Each session fuses an invisible 2D DCT watermark and auto-signs a non-repudiable ML-DSA-65 audit proof.
@@ -159,7 +159,7 @@ export const RecipientConsole: React.FC<RecipientConsoleProps> = ({ currentOpera
           <AlertOctagon size={20} style={{ flexShrink: 0, marginTop: '2px' }} />
           <div>
             <strong style={{ color: '#ffffff', display: 'block', marginBottom: '2px', fontSize: '13px' }}>
-              ENCLAVE SECURITY EXCEPTION
+              SECURITY ACCESS EXCEPTION
             </strong>
             <span style={{ fontSize: '12px' }}>{errorMessage}</span>
           </div>
@@ -172,12 +172,12 @@ export const RecipientConsole: React.FC<RecipientConsoleProps> = ({ currentOpera
           {/* Active Operator Selector */}
           <div className="tactical-panel">
             <div className="tactical-panel-header">
-              <h3>Active Terminal Operator Identity</h3>
+              <h3>Active Recipient Identity</h3>
             </div>
             <div className="tactical-panel-body" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {officers.length === 0 ? (
                 <div style={{ fontSize: '11px', color: 'var(--text-dim)', padding: '10px' }}>
-                  No operator accounts found. Please use the top header to enroll an operator first.
+                  No user accounts found. Please sign in or create an account first.
                 </div>
               ) : (
                 officers.map(u => {
@@ -317,12 +317,12 @@ export const RecipientConsole: React.FC<RecipientConsoleProps> = ({ currentOpera
                         {isOfficerAuthorizedInEnvelope ? (
                           <div style={{ color: '#34d399', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
                             <Check size={13} />
-                            <span>ACCESS PERMITTED (Operator key envelope verified)</span>
+                            <span>ACCESS PERMITTED (Recipient key envelope verified)</span>
                           </div>
                         ) : (
                           <div style={{ color: '#f87171', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
                             <X size={13} />
-                            <span>ACCESS WILL BE REJECTED (Operator not in envelope)</span>
+                            <span>ACCESS WILL BE REJECTED (Recipient not in envelope)</span>
                           </div>
                         )}
                       </div>
@@ -364,7 +364,7 @@ export const RecipientConsole: React.FC<RecipientConsoleProps> = ({ currentOpera
                 <span>
                   {isDecrypting
                     ? 'EXECUTING PQC DECAPSULATION...'
-                    : 'DECRYPT & APPLY TACTICAL WATERMARK'}
+                    : 'DECRYPT & APPLY SECURE WATERMARK'}
                 </span>
               </button>
             </div>
@@ -423,7 +423,7 @@ export const RecipientConsole: React.FC<RecipientConsoleProps> = ({ currentOpera
                 </h3>
                 <button
                   className="tactical-btn tactical-btn-success"
-                  onClick={() => ApiClient.downloadWatermarkedPdf(decryptionResult.event_id, `WATERMARKED_OPERATOR_${decryptionResult.recipient_name.replace(/\s+/g, '_')}.pdf`)}
+                  onClick={() => ApiClient.downloadWatermarkedPdf(decryptionResult.event_id, `WATERMARKED_RECIPIENT_${decryptionResult.recipient_name.replace(/\s+/g, '_')}.pdf`)}
                   style={{ padding: '6px 14px', fontSize: '12px' }}
                 >
                   <Download size={14} />
@@ -433,7 +433,7 @@ export const RecipientConsole: React.FC<RecipientConsoleProps> = ({ currentOpera
               <div className="tactical-panel-body">
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
                   <div style={{ padding: '12px', backgroundColor: '#090d15', border: '1px solid var(--border-hard)' }}>
-                    <div style={{ fontSize: '10px', color: 'var(--text-dim)' }}>RECIPIENT OPERATOR</div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-dim)' }}>RECIPIENT USER</div>
                     <div style={{ fontSize: '13px', fontWeight: 700, color: '#ffffff', marginTop: '2px' }}>
                       {decryptionResult.recipient_name}
                     </div>

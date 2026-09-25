@@ -30,8 +30,8 @@ async def get_system_health():
     from datetime import datetime
     return {
         "status": "OPERATIONAL",
-        "system": "CIPHERTRACE 2.0 Air-Gapped Forensic Platform",
-        "version": "2.0.0-DEFENSE",
+        "system": "CIPHERTRACE 2.0 Confidential Document Security & Provenance",
+        "version": "2.0.0-ENTERPRISE",
         "timestamp": datetime.utcnow().isoformat(),
         "cryptographic_suite": {
             "kem": "ML-KEM-768 (NIST FIPS 203)",
@@ -41,9 +41,9 @@ async def get_system_health():
             "ecc": "Reed-Solomon RS(255, 127)"
         },
         "consensus_endorsers": [
-            "NAVY-NODE-ALPHA (Flagship)",
-            "AIR-FORCE-NODE-BETA",
-            "COAST-GUARD-NODE-GAMMA"
+            "AUDIT-NODE-PRIMARY",
+            "SECURITY-VAULT-BETA",
+            "PROVENANCE-CONSENSUS-NODE"
         ],
         "air_gap_mode": True
     }

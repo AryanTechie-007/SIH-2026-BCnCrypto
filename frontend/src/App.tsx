@@ -81,6 +81,7 @@ export function App() {
         onRefreshHealth={checkHealth}
         currentUser={currentUser}
         onOpenAuth={() => setIsAuthOpen(true)}
+        onLogout={handleLogout}
       />
 
       {/* Main Tactical Workspace */}

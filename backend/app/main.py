@@ -13,9 +13,9 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(
-    title="CIPHERTRACE 2.0 — Post-Quantum Forensic Attribution Platform",
-    description="Air-Gapped Document Attribution System (NIST FIPS 203 ML-KEM-768, FIPS 204 ML-DSA-65, AES-256-GCM, 2D DCT Steganography)",
-    version="2.0.0-DEFENSE",
+    title="CIPHERTRACE 2.0 — Post-Quantum Confidential Document Security & Provenance Platform",
+    description="Confidential Document Security and Leak Attribution System (NIST FIPS 203 ML-KEM-768, FIPS 204 ML-DSA-65, AES-256-GCM, 2D DCT Steganography)",
+    version="2.0.0-ENTERPRISE",
     lifespan=lifespan
 )
 

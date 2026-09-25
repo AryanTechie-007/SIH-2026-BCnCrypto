@@ -19,7 +19,7 @@ export const TelemetryBar: React.FC<TelemetryBarProps> = ({ systemHealth }) => {
       fontFamily: 'var(--font-mono)'
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-        <span><strong>NETWORK:</strong> AIR-GAPPED TACTICAL INTRANET</span>
+        <span><strong>NETWORK:</strong> SECURE LOCAL CLUSTER</span>
         <span>&bull;</span>
         <span><strong>KEM:</strong> {systemHealth?.cryptographic_suite.kem || 'NIST FIPS 203 (ML-KEM-768)'}</span>
         <span>&bull;</span>

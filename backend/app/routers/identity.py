@@ -10,7 +10,7 @@ router = APIRouter(prefix="/api/identity", tags=["Identity"])
 
 @router.get("/officers", response_model=List[OfficerSchema])
 async def list_enrolled_officers(db: AsyncSession = Depends(get_db)):
-    """Lists all enrolled military defense recipients with their post-quantum public keys."""
+    """Lists all enrolled recipients with their post-quantum public keys."""
     result = await db.execute(select(User).order_by(User.id.asc()))
     users = result.scalars().all()
     return [
@@ -32,11 +32,11 @@ async def list_enrolled_officers(db: AsyncSession = Depends(get_db)):
 
 @router.get("/officers/{officer_id}", response_model=OfficerSchema)
 async def get_officer(officer_id: int, db: AsyncSession = Depends(get_db)):
-    """Retrieves identity credentials for a specific officer."""
+    """Retrieves identity credentials for a specific recipient."""
     result = await db.execute(select(User).where(User.id == officer_id))
     u = result.scalar_one_or_none()
     if not u:
-        raise HTTPException(status_code=404, detail="Officer identity token not found in registry")
+        raise HTTPException(status_code=404, detail="User identity token not found in registry")
     return OfficerSchema(
         id=u.id,
         username=u.username,
