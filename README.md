@@ -71,13 +71,11 @@ CIPHERTRACE guarantees that **no recipient can access a confidential document wi
 
 ---
 
-## 🖥️ Interactive Consoles
+## 🖥️ Interactive User Modules
 
-1. **Secure Distribution**: Upload documents, select authorized recipients, and generate quantum-resistant encrypted distribution packages (.enc).
-2. **Recipient Vault**: Decapsulate encrypted files with post-quantum lattice keys and download watermarked copies.
-3. **Forensic Audit Lab**: Ingest suspected leaks (PDFs, screenshots, crops), extract the hidden watermark payload, match against the ledger, and export evidence packages.
-4. **Robustness Benchmark**: Test watermark robustness against JPEG compression (Quality 30), cropping, rotation, and noise.
-5. **Immutable Ledger**: Audit the cryptographic block ledger and test real-time tamper alarms by simulating insider block corruption.
+1. **Secure Distribution (Send)**: Upload documents, select authorized recipients, and generate quantum-resistant encrypted distribution packages (.enc).
+2. **Recipient Vault (Receive)**: Decapsulate encrypted files with post-quantum lattice keys and download personal watermarked copies.
+3. **Forensic Audit Lab (Investigate)**: Ingest suspected leaks (PDFs, screenshots, crops), extract the hidden watermark payload, verify against the tamper-proof ledger, and identify the leaker with cryptographic evidence.
 
 ---
 

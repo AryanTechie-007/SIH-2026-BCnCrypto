@@ -5,8 +5,6 @@ import { AuthModal } from './components/AuthModal';
 import { SenderConsole } from './views/SenderConsole';
 import { RecipientConsole } from './views/RecipientConsole';
 import { ForensicConsole } from './views/ForensicConsole';
-import { AttackVerificationConsole } from './views/AttackVerificationConsole';
-import { LedgerAuditConsole } from './views/LedgerAuditConsole';
 import { ApiClient } from './api/client';
 import { SystemHealth, UserAccount } from './types';
 
@@ -110,8 +108,6 @@ export function App() {
           />
         )}
         {activeTab === 'forensics' && <ForensicConsole />}
-        {activeTab === 'attacks' && <AttackVerificationConsole />}
-        {activeTab === 'ledger' && <LedgerAuditConsole />}
       </main>
 
       {/* Global Defense Telemetry Footer */}
