@@ -82,43 +82,93 @@ CIPHERTRACE guarantees that **no recipient can access a classified document with
 
 ---
 
-## ⚡ Quick Start Guide (Windows)
+## ⚡ How to Run Locally on Your System
 
-### Option 1: One-Click Launcher
-Simply double-click:
-```bat
-start_demo.bat
-```
-This automatically boots both the FastAPI backend and Vite frontend, and opens `http://127.0.0.1:5173` in your browser.
+### 📋 Prerequisites
+Make sure you have these installed on your computer:
+1. **Python 3.11 or higher**: [Download Python](https://www.python.org/downloads/) *(Important: Check "Add Python to PATH" during installation!)*
+2. **Node.js LTS (v18+)**: [Download Node.js](https://nodejs.org/)
+3. **Git**: [Download Git](https://git-scm.com/)
 
 ---
 
-### Option 2: Manual Setup
+### 🚀 Method 1: The 1-Click Installer (Fastest & Recommended)
 
-#### 1. Backend (Python 3.11+)
+#### Step 1: Clone the Repository
+```bash
+git clone https://github.com/AryanTechie-007/SIH-2026-BCnCrypto.git
+cd SIH-2026-BCnCrypto
+```
+
+#### Step 2: Install All Dependencies
+Double-click:
+```bat
+install_dependencies.bat
+```
+*(Or inside the `setup/` subfolder, double-click `setup\install_dependencies.bat`)*  
+This automatically installs all required Python cryptographic packages and Frontend npm modules.
+
+#### Step 3: Launch the Platform
+Double-click:
+```bat
+start_demo.bat
+```
+This terminates any stale port processes, starts both the FastAPI backend and React frontend, and opens `http://127.0.0.1:5173` in your browser.
+
+---
+
+### 💻 Method 2: Manual Terminal Execution
+
+#### Terminal 1 — FastAPI Cryptographic Backend (Port 8000)
 ```bash
 cd backend
-python -m venv venv
-venv\Scripts\activate   # On Linux/macOS: source venv/bin/activate
 pip install -r requirements.txt
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
-- API Documentation (Swagger): `http://127.0.0.1:8000/docs`
+- Verify Backend: Open `http://127.0.0.1:8000/docs` in your browser.
 
-#### 2. Frontend (Node.js 18+)
+#### Terminal 2 — React Military Defense UI (Port 5173)
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
-- Web Application: `http://127.0.0.1:5173`
+- Open UI: Navigate to `http://127.0.0.1:5173` in your browser.
 
 ---
 
-### Option 3: Docker Deployment
+### 🌐 Method 3: Multi-Device / LAN Wi-Fi Access (Cross-Laptop Demo)
+To let friends or evaluators connect from their laptops/phones on the same Wi-Fi:
+1. Find the host laptop's local IP address (open PowerShell and run `ipconfig`).
+2. Have your friends navigate to:
+   ```
+   http://<YOUR_LOCAL_IP>:5173
+   ```
+   *(Example: `http://192.168.0.110:5173`)*
+3. Vite's proxy automatically routes API requests to the host's backend with zero CORS issues!
+
+---
+
+### 🐳 Method 4: Docker Container Deployment
 ```bash
 docker-compose up --build
 ```
+
+---
+
+## ❓ Troubleshooting & Common Questions
+
+#### 1. "Failed to fetch" on Operator Login or Enrollment
+- **Cause**: The React frontend is open, but the **FastAPI backend is not running** on port 8000.
+- **Fix**: Make sure you ran `start_demo.bat` (which starts BOTH servers), or run `python -m uvicorn app.main:app --port 8000` in the `backend` folder. Check `http://127.0.0.1:8000/api/system/health` to confirm the backend is live.
+
+#### 2. "localhost refused to connect"
+- **Cause**: Trying to open `localhost:5173` on a friend's machine while the code is running on your machine.
+- **Fix**: Use your local Wi-Fi IP address instead of `localhost` (e.g. `http://192.168.x.x:5173`).
+
+#### 3. "403 Forbidden / ACCESS DENIED" during Decryption
+- **Cause**: This is **intended post-quantum access control**! When a classified file is encrypted in Stage 1, it is bound ONLY to the selected recipients' ML-KEM-768 public keys. If an unauthorized operator attempts to decrypt it, the enclave strictly rejects them.
+- **Fix**: Switch your active operator to the officer who was granted access during distribution (e.g., Captain Verma or Commander Rao), or check your own username in Stage 1 when distributing.
 
 ---
 

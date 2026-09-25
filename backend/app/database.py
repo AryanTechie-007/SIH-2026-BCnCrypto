@@ -6,7 +6,7 @@ from .models.database import Base, User, Document
 from .services.crypto_engine import CryptoEngine
 
 # Use absolute path for SQLite database so current working directory never causes path divergence
-DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "ciphertrace_v2.db"))
+DB_PATH = os.environ.get("CIPHERTRACE_DB_PATH") or os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "ciphertrace_v2.db"))
 DATABASE_URL = f"sqlite+aiosqlite:///{DB_PATH}"
 
 engine = create_async_engine(DATABASE_URL, echo=False)
