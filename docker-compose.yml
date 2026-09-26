@@ -9,11 +9,20 @@ services:
     ports:
       - "8000:8000"
     environment:
+      - DEMO_MODE=true
+      - SECURE_MODE=false
+      - CIPHERTRACE_SYSTEM_SECRET=CIPHERTRACE_MILITARY_AIRGAP_DEFENSE_2026_PQC_KEYSTORE_MASTER
+      - SQLITE_DB_PATH=/app/data/ciphertrace_v2.db
+      - KEYSTORE_DIR=/app/keystores
+      - FABRIC_PEER_ENDPOINT=peer0.org1.example.com:7051
       - AIRGAP_MODE=true
-      - SQLITE_DB_PATH=/app/data/ciphertrace.db
+      - CORS_ORIGINS=["http://localhost:3000","http://127.0.0.1:3000","http://localhost:80"]
     volumes:
       - ciphertrace-data:/app/data
+      - ciphertrace-keystores:/app/keystores
     restart: unless-stopped
+    networks:
+      - ciphertrace_default
 
   frontend:
     build:
@@ -22,9 +31,18 @@ services:
     container_name: ciphertrace-frontend
     ports:
       - "3000:80"
+    environment:
+      - VITE_API_URL=http://localhost:8000
     depends_on:
       - backend
     restart: unless-stopped
+    networks:
+      - ciphertrace_default
+
+networks:
+  ciphertrace_default:
+    name: ciphertrace_default
 
 volumes:
   ciphertrace-data:
+  ciphertrace-keystores:

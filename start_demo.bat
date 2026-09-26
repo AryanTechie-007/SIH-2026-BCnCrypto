@@ -63,7 +63,7 @@ if not exist "frontend\node_modules\" (
 
 :: Backend Dependencies - Simplified check
 echo [SETUP] Verifying Python environment...
-python -c "import fastapi, uvicorn, fitz, cryptography, sqlalchemy, greenlet, aiosqlite, numpy, scipy, PIL, cv2, reedsolo" >nul 2>&1
+python -c "import fastapi, uvicorn, fitz, cryptography, sqlalchemy, greenlet, aiosqlite, numpy, scipy, PIL, cv2, reedsolo, mlkem, argon2, jwt" >nul 2>&1
 if %errorlevel% neq 0 (
     echo [SETUP] Missing or outdated Python packages detected. Installing...
     python -m pip install --upgrade pip

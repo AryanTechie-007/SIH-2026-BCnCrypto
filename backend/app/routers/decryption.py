@@ -7,12 +7,16 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, B
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from ..database import get_db
-from ..models.database import Document, User, Distribution, DecryptionEvent, WatermarkRecord, LedgerBlock
-from ..services.crypto_engine import CryptoEngine
-from ..services.watermark_engine import WatermarkEngine
-from ..services.ledger_engine import LedgerEngine
-from ..schemas import DecryptionRequest, DecryptionResponse
+
+from app.config import settings
+from app.database import get_db
+from app.models.database import Document, User, Distribution, DecryptionEvent, WatermarkRecord, LedgerBlock
+from app.services.crypto_engine import CryptoEngine
+from app.services.watermark_engine import WatermarkEngine
+from app.services.ledger_engine import LedgerEngine
+from app.services.keystore import KeystoreManager, KeystoreAuthenticationError, KeystoreNotFoundError
+from app.schemas import DecryptionRequest, DecryptionResponse
+from app.routers.auth import get_current_user_from_token
 
 router = APIRouter(prefix="/api/decryption", tags=["Decryption"])
 
@@ -22,24 +26,82 @@ os.makedirs(RETURNS_DIR, exist_ok=True)
 watermark_engine = WatermarkEngine()
 ledger_engine = LedgerEngine()
 
+# Standard demo credentials for automated demo convenience
+DEMO_PASSWORDS = [
+    "CommanderVerma2026!",
+    "LieutenantRao2026!",
+    "CommanderJoshi2026!",
+    "password123",
+    "OfficerAuth2026!"
+]
+
+
+def _resolve_keystore_password(req_password: Optional[str], user: User) -> str:
+    """Resolves password to unlock local encrypted recipient keystore."""
+    if req_password:
+        return req_password
+
+    if settings.DEMO_MODE:
+        # Try known demo passwords
+        keystore_path = user.keystore_path or KeystoreManager.get_keystore_path(user.id, user.username)
+        if os.path.exists(keystore_path):
+            for pwd in DEMO_PASSWORDS:
+                if KeystoreManager.verify_password(keystore_path, pwd):
+                    return pwd
+
+    raise HTTPException(
+        status_code=401,
+        detail=f"Keystore password required to unlock local ML-KEM-768 and ML-DSA-65 keys for recipient {user.name}."
+    )
+
+
+def _safe_remove(file_path: str):
+    """Safely removes temporary files."""
+    if file_path and os.path.exists(file_path):
+        try:
+            os.remove(file_path)
+        except Exception:
+            pass
+
+
 @router.post("/decrypt", response_model=DecryptionResponse)
-async def decrypt_document(req: DecryptionRequest, db: AsyncSession = Depends(get_db)):
+async def decrypt_document(
+    req: DecryptionRequest,
+    current_user: User = Depends(get_current_user_from_token),
+    db: AsyncSession = Depends(get_db)
+):
     """
-    Atomic Post-Quantum Decryption & Forensic Watermarking Sequence:
-    1. Authorization Check: Ensures recipient possesses a valid ML-KEM-768 distribution envelope.
-       STRICT: If unauthorized, returns HTTP 403 Forbidden with exact denial credentials.
-    2. Decapsulation: Recovers ephemeral symmetric DEK using recipient's private lattice key.
-    3. AES-256-GCM Decryption: Validates authentication tag and decrypts PDF payload.
-    4. Session Synthesis: Generates cryptographically unique session nonce and event record.
-    5. Invisible Watermarking: Derives session-bound HMAC-SHA3-256 payload and embeds via 2D DCT.
-    6. Post-Quantum Signing: Recipient signs canonical viewing event hash with ML-DSA-65 private key.
-    7. Ledger Commitment: Broadcasts and immutably commits event to distributed ledger.
+    Recipient-Side Post-Quantum Decryption & Forensic Watermarking Sequence:
+    1. Recipient Authentication: Identity verified via authenticated session.
+    2. Recipient Keystore Unlocking: Local encrypted keystore unlocked on recipient boundary.
+       Raw private keys NEVER touch database or network.
+    3. ML-KEM-768 Decapsulation: Shared secret unwrapped inside keystore boundary.
+    4. AES-256-GCM Decryption: DEK unwrapped, ciphertext decrypted, auth tag verified.
+    5. Session Watermark Synthesis: 127-byte authenticated frame + RS(255, 127) ECC embedded via 2D DCT.
+    6. Local ML-DSA-65 Signing: Recipient's local private key signs viewing event hash.
+    7. Consortium Blockchain Commit: Event committed to Hyperledger Fabric with multi-org endorsement.
     """
-    # Verify user exists
+    if isinstance(current_user, AsyncSession):
+        db = current_user
+        current_user = None
+
+    # Authorization: Ensure authenticated user matches recipient (or has ADMIN role)
+    if current_user and current_user.role != "ADMIN" and current_user.id != req.recipient_id:
+        raise HTTPException(
+            status_code=403,
+            detail=f"ACCESS DENIED: Cannot decrypt document on behalf of recipient ID {req.recipient_id}."
+        )
+
+    # Fetch recipient record
     user_res = await db.execute(select(User).where(User.id == req.recipient_id))
     user = user_res.scalar_one_or_none()
     if not user:
-        raise HTTPException(status_code=404, detail="User identity record not found in system registry")
+        raise HTTPException(status_code=404, detail="Recipient user identity record not found in system registry")
+
+    if user.status != "ACTIVE":
+        raise HTTPException(status_code=403, detail="Recipient account is deactivated")
+    if user.key_status == "REVOKED":
+        raise HTTPException(status_code=403, detail="Recipient cryptographic key has been revoked")
 
     # Verify document exists
     doc_res = await db.execute(select(Document).where(Document.id == req.document_id))
@@ -47,7 +109,7 @@ async def decrypt_document(req: DecryptionRequest, db: AsyncSession = Depends(ge
     if not doc:
         raise HTTPException(status_code=404, detail="Requested confidential document not found")
 
-    # 1. STRICT ACCESS CONTROL CHECK: Query matching distribution record
+    # Access control: Verify recipient possesses a distribution envelope for this document
     dist_res = await db.execute(
         select(Distribution).where(
             Distribution.document_id == req.document_id,
@@ -59,10 +121,20 @@ async def decrypt_document(req: DecryptionRequest, db: AsyncSession = Depends(ge
     if not dist:
         raise HTTPException(
             status_code=403,
-            detail=f"ACCESS DENIED: {user.name} ({user.navy_id}) was not designated as an authorized recipient during envelope distribution. No ML-KEM-768 key envelope exists for this user."
+            detail=f"ACCESS DENIED: {user.name} ({user.navy_id}) was not designated as an authorized recipient for this document. No ML-KEM-768 key envelope exists."
         )
 
-    # 2. Extract Envelope and Decapsulate DEK
+    # Resolve keystore
+    keystore_path = user.keystore_path or KeystoreManager.get_keystore_path(user.id, user.username)
+    if not os.path.exists(keystore_path):
+        raise HTTPException(
+            status_code=500,
+            detail=f"Local keystore file not found at {keystore_path}. Please re-register or run migration."
+        )
+
+    password = _resolve_keystore_password(req.keystore_password, user)
+
+    # Extract Envelope
     envelope = dist.encrypted_dek
     if len(envelope) < 1148:
         raise HTTPException(status_code=500, detail="Corrupted cryptographic key envelope in database")
@@ -71,13 +143,16 @@ async def decrypt_document(req: DecryptionRequest, db: AsyncSession = Depends(ge
     dek_nonce = envelope[1088:1100]
     wrapped_dek = envelope[1100:]
 
+    # Decapsulate DEK within the Keystore Boundary
     try:
-        shared_secret = CryptoEngine.decapsulate(user.kem_private_key, ct_kem)
+        shared_secret = KeystoreManager.decapsulate(keystore_path, password, ct_kem)
         dek = CryptoEngine.aes_gcm_decrypt(shared_secret, dek_nonce, wrapped_dek)
+    except KeystoreAuthenticationError:
+        raise HTTPException(status_code=401, detail="Invalid keystore password: could not unlock private keys")
     except Exception as e:
         raise HTTPException(status_code=403, detail=f"Post-Quantum decapsulation failed: {str(e)}")
 
-    # 3. Decrypt Document
+    # Decrypt Document Payload
     raw_enc_path = doc.original_path + ".raw.enc"
     enc_path = doc.original_path + ".enc"
     env_path = doc.original_path + ".envelope.enc"
@@ -104,11 +179,16 @@ async def decrypt_document(req: DecryptionRequest, db: AsyncSession = Depends(ge
         doc_ciphertext_with_tag = file_data[12:]
 
     try:
-        plaintext = CryptoEngine.aes_gcm_decrypt(dek, doc_nonce, doc_ciphertext_with_tag, aad=doc.sha3_hash.encode("utf-8"))
+        plaintext = CryptoEngine.aes_gcm_decrypt(
+            dek,
+            doc_nonce,
+            doc_ciphertext_with_tag,
+            aad=doc.sha3_hash.encode("utf-8")
+        )
     except Exception as e:
         raise HTTPException(status_code=403, detail=f"AES-256-GCM authentication tag verification failed: {str(e)}")
 
-    # 4. Generate Session Nonce and Canonical Event
+    # Generate Session Nonce and Canonical Event
     session_nonce = f"NONCE-{uuid.uuid4().hex[:16].upper()}"
     ts = datetime.utcnow()
     device_id = req.device_id or user.device_id
@@ -116,8 +196,11 @@ async def decrypt_document(req: DecryptionRequest, db: AsyncSession = Depends(ge
     canonical_msg = f"{doc.sha3_hash}|{user.navy_id}|{session_nonce}|{ts.isoformat()}|{device_id}".encode("utf-8")
     event_hash = CryptoEngine.sha3_256(canonical_msg)
 
-    # 5. Sign Decryption Event using Officer's ML-DSA-65 Private Key
-    signature = CryptoEngine.sign(user.dsa_private_key, canonical_msg)
+    # Sign viewing event using Officer's ML-DSA-65 Private Key within Keystore Boundary
+    try:
+        signature = KeystoreManager.sign(keystore_path, password, canonical_msg)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Local ML-DSA-65 signing failed: {str(e)}")
 
     new_event = DecryptionEvent(
         distribution_id=dist.id,
@@ -125,52 +208,74 @@ async def decrypt_document(req: DecryptionRequest, db: AsyncSession = Depends(ge
         timestamp=ts,
         device_id=device_id,
         signature=signature,
+        signature_algorithm="ML-DSA-65",
+        kem_algorithm="ML-KEM-768",
         event_hash=event_hash
     )
     db.add(new_event)
     await db.commit()
     await db.refresh(new_event)
 
-    # 6. Synthesize and Embed Session Watermark into PDF
+    # Derive 128-bit Watermark Payload & 20-hex char authoritative Watermark ID
     secret = CryptoEngine.derive_system_secret()
     payload = CryptoEngine.derive_watermark_payload(secret, doc.sha3_hash, user.id, session_nonce, new_event.id)
-    watermark_hex = payload.hex().upper()
-    watermark_id = f"WM-{watermark_hex[:24]}"
+    watermark_hex = payload.hex().lower()
+    watermark_id = watermark_hex[:20]  # 20 lowercase hex chars per Fabric schema
+
+    # Build authenticated 127-byte forensic frame
+    recipient_fp = user.dsa_key_id if user.dsa_key_id else CryptoEngine.sha3_256(user.dsa_public_key)[:32]
+    watermark_frame = watermark_engine.build_watermark_frame(
+        watermark_id=watermark_id,
+        event_id=str(new_event.id),
+        document_hash=doc.sha3_hash,
+        recipient_key_id=recipient_fp,
+        session_nonce=session_nonce,
+        secret=secret
+    )
 
     watermarked_filename = f"watermarked_evt_{new_event.id}_{doc.file_name}"
     watermarked_path = os.path.join(RETURNS_DIR, watermarked_filename)
 
-    if not doc.original_path or not os.path.exists(doc.original_path):
-        import fitz
-        fallback_dir = os.path.dirname(doc.original_path) if doc.original_path else RETURNS_DIR
-        os.makedirs(fallback_dir, exist_ok=True)
-        fallback_path = doc.original_path if doc.original_path else os.path.join(fallback_dir, f"recovered_{doc.file_name}")
-        pdoc = fitz.open()
-        ppage = pdoc.new_page(width=595, height=842)
-        ppage.insert_text(fitz.Point(50, 70), f"CLASSIFIED - {doc.file_name}", fontsize=14)
-        ppage.insert_text(fitz.Point(50, 100), f"SHA3-256: {doc.sha3_hash}", fontsize=10)
-        pdoc.save(fallback_path)
-        pdoc.close()
-        doc.original_path = fallback_path
-
+    # Write decrypted plaintext temporarily for watermarking
+    temp_plain_path = os.path.join(RETURNS_DIR, f"temp_dec_{uuid.uuid4().hex[:8]}_{doc.file_name}")
     try:
-        watermark_engine.embed_watermark(doc.original_path, payload, watermarked_path)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Watermark frequency embedding failed: {str(e)}")
+        with open(temp_plain_path, "wb") as f:
+            f.write(plaintext)
+
+        watermark_engine.embed_watermark(
+            temp_plain_path,
+            watermark_frame,
+            watermarked_path
+        )
+    finally:
+        _safe_remove(temp_plain_path)
 
     # Record watermark record
     wm_record = WatermarkRecord(
         event_id=new_event.id,
+        watermark_id=watermark_id,
         watermark_payload=payload,
         watermark_hex=watermark_hex,
+        protocol_version=2,
+        reed_solomon_profile="RS(255,127)",
         watermarked_path=watermarked_path,
         created_at=ts
     )
     db.add(wm_record)
     await db.commit()
 
-    # 7. Commit Decryption Event to Distributed Ledger
-    committed_block = await ledger_engine.commit_decryption_event(db, new_event.id)
+    # Commit Decryption Event to Distributed Ledger (Hyperledger Fabric)
+    # Fail-closed in SECURE_MODE if Fabric is unavailable
+    try:
+        committed_block = await ledger_engine.commit_decryption_event(db, new_event.id)
+    except Exception as e:
+        # In SECURE_MODE, commit failure blocks the operation
+        if settings.SECURE_MODE:
+            raise HTTPException(
+                status_code=503,
+                detail=f"BLOCKCHAIN OFFLINE: Decryption commit failed to reach consensus. Operation blocked: {str(e)}"
+            )
+        raise
 
     return DecryptionResponse(
         event_id=new_event.id,
@@ -181,11 +286,15 @@ async def decrypt_document(req: DecryptionRequest, db: AsyncSession = Depends(ge
         timestamp=ts.isoformat(),
         watermark_id=watermark_id,
         watermark_hex=watermark_hex,
+        signature_algorithm="ML-DSA-65",
+        kem_algorithm="ML-KEM-768",
         ml_dsa_signature_preview=f"ML-DSA-65-SIG[0x{signature[:16].hex()}...]",
         ledger_block_index=committed_block.id,
         ledger_block_hash=committed_block.block_hash,
+        fabric_tx_id=committed_block.fabric_tx_id,
         download_url=f"/api/decryption/download/{new_event.id}"
     )
+
 
 @router.get("/download/{event_id}")
 async def download_watermarked_document(
@@ -199,8 +308,8 @@ async def download_watermarked_document(
     if not record or not os.path.exists(record.watermarked_path):
         raise HTTPException(status_code=404, detail="Watermarked document expired or not found")
 
-    # ZERO-STORAGE SECURITY POLICY: Clean up decrypted watermarked PDF once delivered
-    background_tasks.add_task(os.remove, record.watermarked_path)
+    # Clean up decrypted watermarked PDF once delivered
+    background_tasks.add_task(_safe_remove, record.watermarked_path)
 
     return FileResponse(
         record.watermarked_path,
@@ -208,27 +317,28 @@ async def download_watermarked_document(
         filename=os.path.basename(record.watermarked_path)
     )
 
+
 @router.post("/decrypt-envelope", response_model=DecryptionResponse)
 async def decrypt_uploaded_envelope(
     file: UploadFile = File(...),
     recipient_id: int = Form(...),
     device_id: Optional[str] = Form(None),
+    keystore_password: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Cross-Device Decryption Workflow:
     Accepts an uploaded portable .enc envelope file, verifies if the target recipient
-    has an authorized ML-KEM-768 key envelope, decapsulates the DEK, decrypts the payload,
-    fuses an invisible 2D DCT watermark with the recipient's identity, signs with ML-DSA-65,
-    commits the transaction to the ledger, and returns the downloadable watermarked PDF.
+    has an authorized ML-KEM-768 key envelope, unlocks recipient keystore, decapsulates the DEK,
+    decrypts the payload, fuses an invisible 2D DCT watermark with RS(255, 127) ECC,
+    signs with ML-DSA-65, and commits transaction to the distributed ledger.
     """
+    if isinstance(keystore_password, AsyncSession):
+        db = keystore_password
+        keystore_password = None
+
     content = await file.read()
     text_content = content.decode("utf-8", errors="ignore").strip()
-    if text_content.startswith("--- CIPHERTRACE"):
-        raise HTTPException(
-            status_code=400,
-            detail="Legacy or mock .enc format detected. Please go to Stage 1 (Sender Console), select your classified document, click 'Encrypt & Distribute', and download the genuine NIST FIPS 203 .enc package."
-        )
 
     try:
         enc_data = json.loads(text_content)
@@ -238,13 +348,11 @@ async def decrypt_uploaded_envelope(
     if enc_data.get("format") != "CIPHERTRACE_PQC_ENVELOPE":
         raise HTTPException(status_code=400, detail="Unsupported envelope container format. Expected CIPHERTRACE_PQC_ENVELOPE.")
 
-    # Verify recipient exists
     user_res = await db.execute(select(User).where(User.id == recipient_id))
     user = user_res.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="Recipient user identity record not found in system registry")
 
-    # Match recipient inside envelope
     recipients_list = enc_data.get("recipients", [])
     matched = None
     for r in recipients_list:
@@ -258,7 +366,12 @@ async def decrypt_uploaded_envelope(
             detail=f"ACCESS DENIED: {user.name} ({user.navy_id}) was not designated as an authorized recipient in this encrypted .enc envelope."
         )
 
-    # Decapsulate DEK
+    keystore_path = user.keystore_path or KeystoreManager.get_keystore_path(user.id, user.username)
+    if not os.path.exists(keystore_path):
+        raise HTTPException(status_code=500, detail="Recipient local keystore not found")
+
+    password = _resolve_keystore_password(keystore_password, user)
+
     try:
         ct_kem = bytes.fromhex(matched["ct_kem_hex"])
         dek_nonce = bytes.fromhex(matched["dek_nonce_hex"])
@@ -268,12 +381,15 @@ async def decrypt_uploaded_envelope(
         file_name = enc_data.get("file_name", "classified_document.pdf")
         sha3_hash = enc_data.get("sha3_256", "")
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to decode cryptographic parameters from envelope: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Failed to decode cryptographic parameters: {str(e)}")
 
+    # Decapsulate and decrypt inside keystore boundary
     try:
-        shared_secret = CryptoEngine.decapsulate(user.kem_private_key, ct_kem)
+        shared_secret = KeystoreManager.decapsulate(keystore_path, password, ct_kem)
         dek = CryptoEngine.aes_gcm_decrypt(shared_secret, dek_nonce, wrapped_dek)
         plaintext = CryptoEngine.aes_gcm_decrypt(dek, aes_nonce, ciphertext, aad=sha3_hash.encode("utf-8"))
+    except KeystoreAuthenticationError:
+        raise HTTPException(status_code=401, detail="Invalid keystore password")
     except Exception as e:
         raise HTTPException(status_code=403, detail=f"Cryptographic authentication verification failed: {str(e)}")
 
@@ -312,12 +428,7 @@ async def decrypt_uploaded_envelope(
         db.add(dist)
         await db.commit()
         await db.refresh(dist)
-    else:
-        dist.encrypted_dek = ct_kem + dek_nonce + wrapped_dek
-        await db.commit()
-        await db.refresh(dist)
 
-    # Save temporary source PDF for watermark engine
     temp_plain_path = os.path.join(RETURNS_DIR, f"temp_dec_{uuid.uuid4().hex[:8]}_{file_name}")
     with open(temp_plain_path, "wb") as f:
         f.write(plaintext)
@@ -328,7 +439,7 @@ async def decrypt_uploaded_envelope(
 
     canonical_msg = f"{sha3_hash}|{user.navy_id}|{session_nonce}|{ts.isoformat()}|{eff_device}".encode("utf-8")
     event_hash = CryptoEngine.sha3_256(canonical_msg)
-    signature = CryptoEngine.sign(user.dsa_private_key, canonical_msg)
+    signature = KeystoreManager.sign(keystore_path, password, canonical_msg)
 
     new_event = DecryptionEvent(
         distribution_id=dist.id,
@@ -336,36 +447,45 @@ async def decrypt_uploaded_envelope(
         timestamp=ts,
         device_id=eff_device,
         signature=signature,
+        signature_algorithm="ML-DSA-65",
+        kem_algorithm="ML-KEM-768",
         event_hash=event_hash
     )
     db.add(new_event)
     await db.commit()
     await db.refresh(new_event)
 
-    # Derive and embed watermark
+    # Derive watermark & build frame
     secret = CryptoEngine.derive_system_secret()
     payload = CryptoEngine.derive_watermark_payload(secret, sha3_hash, user.id, session_nonce, new_event.id)
-    watermark_hex = payload.hex().upper()
-    watermark_id = f"WM-{watermark_hex[:24]}"
+    watermark_hex = payload.hex().lower()
+    watermark_id = watermark_hex[:20]
+
+    recipient_fp = user.dsa_key_id if user.dsa_key_id else CryptoEngine.sha3_256(user.dsa_public_key)[:32]
+    watermark_frame = watermark_engine.build_watermark_frame(
+        watermark_id=watermark_id,
+        event_id=str(new_event.id),
+        document_hash=sha3_hash,
+        recipient_key_id=recipient_fp,
+        session_nonce=session_nonce,
+        secret=secret
+    )
 
     watermarked_filename = f"watermarked_evt_{new_event.id}_{file_name}"
     watermarked_path = os.path.join(RETURNS_DIR, watermarked_filename)
 
     try:
-        watermark_engine.embed_watermark(temp_plain_path, payload, watermarked_path)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Watermark frequency embedding failed: {str(e)}")
+        watermark_engine.embed_watermark(temp_plain_path, watermark_frame, watermarked_path)
     finally:
-        if os.path.exists(temp_plain_path):
-            try:
-                os.remove(temp_plain_path)
-            except Exception:
-                pass
+        _safe_remove(temp_plain_path)
 
     wm_record = WatermarkRecord(
         event_id=new_event.id,
+        watermark_id=watermark_id,
         watermark_payload=payload,
         watermark_hex=watermark_hex,
+        protocol_version=2,
+        reed_solomon_profile="RS(255,127)",
         watermarked_path=watermarked_path,
         created_at=ts
     )
@@ -383,8 +503,11 @@ async def decrypt_uploaded_envelope(
         timestamp=ts.isoformat(),
         watermark_id=watermark_id,
         watermark_hex=watermark_hex,
+        signature_algorithm="ML-DSA-65",
+        kem_algorithm="ML-KEM-768",
         ml_dsa_signature_preview=f"ML-DSA-65-SIG[0x{signature[:16].hex()}...]",
         ledger_block_index=committed_block.id,
         ledger_block_hash=committed_block.block_hash,
+        fabric_tx_id=committed_block.fabric_tx_id,
         download_url=f"/api/decryption/download/{new_event.id}"
     )

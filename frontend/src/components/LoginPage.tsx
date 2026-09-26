@@ -79,13 +79,21 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
     }
   };
 
+  const DEMO_OFFICER_PASSWORDS: Record<string, string> = {
+    verma: 'CommanderVerma2026!',
+    varma: 'CommanderVerma2026!',
+    rao: 'LieutenantRao2026!',
+    joshi: 'CommanderJoshi2026!'
+  };
+
   const handleDirectQuickLogin = async (officerKey: string, officerName: string) => {
     try {
       setIsLoading(true);
       setQuickLoadingKey(officerKey);
       setErrorMessage(null);
       setUsername(officerKey);
-      setPassword('password123');
+      const demoPwd = DEMO_OFFICER_PASSWORDS[officerKey.toLowerCase()] || 'CommanderVerma2026!';
+      setPassword(demoPwd);
 
       // Attempt 1-click quick authentication
       let res;
@@ -93,7 +101,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
         res = await ApiClient.quickLogin(officerKey);
       } catch (err: any) {
         // Fallback to standard login
-        res = await ApiClient.login({ username: officerKey, password: 'password123' });
+        res = await ApiClient.login({ username: officerKey, password: demoPwd });
       }
       onLoginSuccess(res.user, res.token);
     } catch (err: any) {
@@ -132,7 +140,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
 
   const handleQuickLogin = (uname: string) => {
     setUsername(uname);
-    setPassword('password123');
+    const demoPwd = DEMO_OFFICER_PASSWORDS[uname.toLowerCase()] || 'CommanderVerma2026!';
+    setPassword(demoPwd);
   };
 
   return (
@@ -416,7 +425,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
 
                 <div>
                   <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '5px', fontFamily: 'var(--font-mono)' }}>
-                    PASSWORD (Default: password123)
+                    PASSWORD (Demo: CommanderVerma2026!)
                   </label>
                   <input
                     type="password"

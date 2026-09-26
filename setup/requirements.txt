@@ -3,6 +3,10 @@ uvicorn
 sqlalchemy
 greenlet
 aiosqlite
+mlkem
+dilithium-py
+argon2-cffi
+pyjwt
 cryptography
 pymupdf
 Pillow

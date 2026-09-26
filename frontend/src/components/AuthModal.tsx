@@ -79,9 +79,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     try {
       setIsLoading(true);
       setErrorMessage(null);
+      const demoPwds: Record<string, string> = {
+        verma: 'CommanderVerma2026!',
+        varma: 'CommanderVerma2026!',
+        rao: 'LieutenantRao2026!',
+        joshi: 'CommanderJoshi2026!'
+      };
+      const demoPwd = demoPwds[quickUsername.toLowerCase()] || 'CommanderVerma2026!';
+
       // Try logging in first in case already created
       try {
-        const loginRes = await ApiClient.login({ username: quickUsername, password: 'password123' });
+        const loginRes = await ApiClient.login({ username: quickUsername, password: demoPwd });
         onLoginSuccess(loginRes.user, loginRes.token);
         onClose();
         return;
@@ -89,7 +97,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         // If not created yet, register
         const regRes = await ApiClient.register({
           username: quickUsername,
-          password: 'password123',
+          password: demoPwd,
           display_name: quickName,
           rank: quickRank,
           device_id: `DEV-${quickUsername.toUpperCase()}`

@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 
+
 class RegisterRequest(BaseModel):
     username: str
     password: str
@@ -10,13 +11,17 @@ class RegisterRequest(BaseModel):
     command_unit: Optional[str] = "General Workspace"
     clearance_level: Optional[str] = "Confidential"
     device_id: Optional[str] = None
+    role: Optional[str] = "RECIPIENT"
+
 
 class LoginRequest(BaseModel):
     username: str
     password: str
 
+
 class QuickLoginRequest(BaseModel):
     officer: str
+
 
 class UserSchema(BaseModel):
     id: int
@@ -27,14 +32,20 @@ class UserSchema(BaseModel):
     command_unit: str
     clearance_level: str
     device_id: str
+    role: str
     status: str
+    kem_key_id: str
+    dsa_key_id: str
+    key_status: str
     ml_kem_pub_preview: str
     ml_dsa_pub_preview: str
+
 
 class AuthResponse(BaseModel):
     user: UserSchema
     token: str
     message: str
+
 
 class OfficerSchema(BaseModel):
     id: int
@@ -45,9 +56,14 @@ class OfficerSchema(BaseModel):
     command_unit: str
     clearance_level: str
     device_id: str
+    role: str
     status: str
+    kem_key_id: str
+    dsa_key_id: str
+    key_status: str
     ml_kem_pub_preview: str
     ml_dsa_pub_preview: str
+
 
 class DocumentSchema(BaseModel):
     id: int
@@ -57,9 +73,11 @@ class DocumentSchema(BaseModel):
     size_bytes: int
     created_at: str
 
+
 class DistributeRequest(BaseModel):
     document_id: int
     recipient_ids: Optional[List[int]] = None
+
 
 class KeyEnvelopeInfo(BaseModel):
     recipient_id: int
@@ -67,6 +85,7 @@ class KeyEnvelopeInfo(BaseModel):
     recipient_name: str
     kem_algorithm: str
     kem_ciphertext_preview: str
+
 
 class DistributionResponse(BaseModel):
     document_id: int
@@ -76,10 +95,13 @@ class DistributionResponse(BaseModel):
     envelopes: List[KeyEnvelopeInfo]
     envelope_file_name: str
 
+
 class DecryptionRequest(BaseModel):
     document_id: int
     recipient_id: int
     device_id: Optional[str] = None
+    keystore_password: Optional[str] = None
+
 
 class DecryptionResponse(BaseModel):
     event_id: int
@@ -90,10 +112,14 @@ class DecryptionResponse(BaseModel):
     timestamp: str
     watermark_id: str
     watermark_hex: str
+    signature_algorithm: str = "ML-DSA-65"
+    kem_algorithm: str = "ML-KEM-768"
     ml_dsa_signature_preview: str
     ledger_block_index: int
     ledger_block_hash: str
+    fabric_tx_id: Optional[str] = None
     download_url: str
+
 
 class VerificationGates(BaseModel):
     watermark_valid: bool
@@ -102,6 +128,8 @@ class VerificationGates(BaseModel):
     merkle_inclusion_valid: bool
     document_hash_match: bool
     ledger_chain_integrity: bool
+    fabric_consensus_valid: Optional[bool] = None
+
 
 class CandidateMatch(BaseModel):
     officer_id: int
@@ -111,14 +139,39 @@ class CandidateMatch(BaseModel):
     command_unit: str
     device_id: str
     confidence: float
-    match_type: str # "CONFIRMED_MATCH", "PROBABILISTIC", "LOW_CORRELATION", "CLEARED"
+    match_type: str  # "CONFIRMED_MATCH", "PROBABILISTIC", "LOW_CORRELATION", "CLEARED"
     event_id: Optional[int] = None
     document_name: Optional[str] = None
 
+
+class EvidenceBundle(BaseModel):
+    case_id: str
+    watermark_id: str
+    document_hash: str
+    recipient_key_id: str
+    recipient_identity: str
+    recipient_navy_id: str
+    decryption_event_id: int
+    timestamp: str
+    signature_algorithm: str
+    signature_hex: str
+    public_key_hex: str
+    event_hash: str
+    fabric_tx_id: Optional[str] = None
+    fabric_block_number: Optional[int] = None
+    fabric_endorsements: Optional[List[str]] = None
+    ledger_verification: str
+    signature_verification: str
+    watermark_verification: str
+    document_hash_verification: str
+    bundle_sha3_digest: str
+
+
 class ForensicAnalysisResponse(BaseModel):
     file_name: Optional[str] = "suspect_document"
-    status: str # "IDENTIFIED", "ATTRIBUTED_WITH_WARNINGS", "UNATTRIBUTED", "EXTRACTION_FAILED"
+    status: str  # "IDENTIFIED", "ATTRIBUTED_WITH_WARNINGS", "UNATTRIBUTED", "EXTRACTION_FAILED"
     watermark_detected: bool
+    watermark_id: Optional[str] = None
     extracted_payload_hex: Optional[str] = None
     payload_recovery_pct: float
     bit_error_rate: float
@@ -131,6 +184,8 @@ class ForensicAnalysisResponse(BaseModel):
     overall_confidence: float
     analysis_narrative: str
     candidate_matches: Optional[List[CandidateMatch]] = None
+    evidence_bundle: Optional[EvidenceBundle] = None
+
 
 class BatchForensicResponse(BaseModel):
     total_files: int
@@ -138,8 +193,10 @@ class BatchForensicResponse(BaseModel):
     unattributed_count: int
     results: List[ForensicAnalysisResponse]
 
+
 class VaultExportRequest(BaseModel):
     passphrase: str
+
 
 class VaultImportRequest(BaseModel):
     passphrase: str

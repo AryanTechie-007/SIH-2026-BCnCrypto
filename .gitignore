@@ -22,6 +22,8 @@ backend/tests/*.pdf*
 !backend/ciphertrace_v2.db
 *.sqlite
 *.sqlite3
+*.db-shm
+*.db-wal
 backend/ciphertrace.db
 backend/uploads/*
 !backend/uploads/.gitkeep

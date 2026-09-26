@@ -1,0 +1,23 @@
+{
+  "name": "forensic-audit",
+  "version": "2.0.0",
+  "description": "CIPHERTRACE Forensic Audit Chaincode for Hyperledger Fabric (NIST FIPS 203 & 204)",
+  "main": "index.js",
+  "engines": {
+    "node": ">=18",
+    "npm": ">=9"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "pretest": "npm run lint",
+    "test": "nyc mocha --recursive",
+    "start": "fabric-chaincode-node start"
+  },
+  "engineStrict": true,
+  "author": "CIPHERTRACE SIH 2026 Consortium",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "fabric-contract-api": "^2.5.4",
+    "fabric-shim": "^2.5.4"
+  }
+}

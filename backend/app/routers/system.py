@@ -26,25 +26,30 @@ async def derive_vault_key(passphrase: str) -> bytes:
 
 @router.get("/health", response_model=None)
 async def get_system_health():
-    """Returns cryptographic health telemetry for the air-gapped terminal."""
+    """Returns accurate cryptographic health telemetry for the air-gapped terminal."""
     from datetime import datetime
+    from ..services import ledger_client
+    from app.config import settings
+    
+    backend_info = CryptoEngine.get_backend_info()
+    ledger_status = ledger_client.get_ledger_status()
+    
     return {
         "status": "OPERATIONAL",
         "system": "CIPHERTRACE 2.0 Confidential Document Security & Provenance",
         "version": "2.0.0-ENTERPRISE",
+        "mode": settings.get_mode_label(),
         "timestamp": datetime.utcnow().isoformat(),
         "cryptographic_suite": {
-            "kem": "ML-KEM-768 (NIST FIPS 203)",
-            "signature": "ML-DSA-65 (NIST FIPS 204)",
+            "kem": f"{backend_info['kem_algorithm']} ({backend_info['fips_203_standard']})",
+            "signature": f"{backend_info['signature_algorithm']} ({backend_info['fips_204_standard']})",
+            "backend": backend_info["backend"],
             "symmetric": "AES-256-GCM (NIST SP 800-38D)",
             "hashing": "SHA3-256 (NIST FIPS 202)",
             "ecc": "Reed-Solomon RS(255, 127)"
         },
-        "consensus_endorsers": [
-            "AUDIT-NODE-PRIMARY",
-            "SECURITY-VAULT-BETA",
-            "PROVENANCE-CONSENSUS-NODE"
-        ],
+        "ledger": ledger_status,
+        "keystore_storage": "Encrypted Recipient Keystores (Argon2id + AES-256-GCM)",
         "air_gap_mode": True
     }
 

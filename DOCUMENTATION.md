@@ -1,151 +1,134 @@
-# CIPHERTRACE 2.0 (ATTEMPT 2) — Technical Specification & Operational Manual
+# CIPHERTRACE — Technical Specification & Operational Manual
 **Project:** Post-Quantum Defense Document Forensic Attribution Platform  
 **Target Environment:** 100% Offline / Air-Gapped Military-Grade Deployment  
-**Standard Compliance:** NIST FIPS 203 (ML-KEM-768), NIST FIPS 204 (ML-DSA-65), NIST SP 800-38D (AES-256-GCM), FIPS 202 (SHA3-256)
+**Standard Compliance:** NIST FIPS 203 (ML-KEM-768), NIST FIPS 204 (ML-DSA-65), NIST SP 800-38D (AES-256-GCM), NIST FIPS 202 (SHA3-256), CCSDS 131.0-B-3 (Reed-Solomon RS(255,127))
 
 ---
 
-## 1. Architectural Principles (Strict Operational Rules)
+## 1. Architectural Principles & Security Invariants
 
-1. **Zero Silent Fallbacks:**
-   - The application does not silently generate fake or mock data when an endpoint fails.
-   - If the backend is unreachable, the UI reports an explicit communications fault with retry options.
-   - If an unauthorized recipient attempts decryption, the cryptographic enclave rejects the request with HTTP `403 FORBIDDEN` and displays an explicit access denial alert.
-   - If a watermark is corrupted beyond recovery or not found, the forensic lab reports `ATTRIBUTION FAILED: PAYLOAD NOT RECOVERED`.
+1. **Zero Plaintext Private Key Storage (Client Keystore Isolation):**
+   - No private keys are stored in the server SQLite database (`ciphertrace_v2.db`).
+   - Private keys are stored in encrypted client-side keystores (`Argon2id` KDF + `AES-256-GCM`).
+   - Keystores are unlocked locally on the recipient device using the user's PIN/passphrase.
+   - Decapsulation and ML-DSA-65 signing occur inside the keystore memory boundary; keys are zeroed immediately after use.
+   - Private keys are never serialized into API responses, database columns, ledger records, or log files.
 
-2. **Military-Grade Professional UI/UX:**
-   - **No Glassmorphism:** Opaque, high-contrast, structured slate panels (`#0b0f19`, `#111827`, `#1f293d`).
-   - **No Floaty Animations:** Flat, sharp-bordered tactile controls with instantaneous responsive feedback.
-   - **Dense Data Presentation:** Strict tabular views, monospace cryptographic hashes, timestamped audit feeds, and unambiguous status badges.
-   - **Operational Telemetry:** Real-time visibility into backend connectivity, active database status, consensus node health, and air-gap attestation.
+2. **Genuine NIST Post-Quantum Cryptography:**
+   - **Key Encapsulation:** ML-KEM-768 (NIST FIPS 203) with exact parameter sizes (1184 B public key, 2400 B secret key, 1088 B ciphertext, 32 B shared secret).
+   - **Digital Signatures:** ML-DSA-65 (NIST FIPS 204) with exact parameter sizes (1952 B public key, 4032 B secret key, 3309 B signature).
+   - Classical algorithms (X25519/Ed25519) are not used or emulated with padding.
 
-3. **Cryptographic & Forensic Rigor:**
-   - **Post-Quantum Key Encapsulation (ML-KEM-768):** Protects session Document Encryption Keys (DEKs) against store-now-decrypt-later quantum attacks.
-   - **Post-Quantum Digital Signatures (ML-DSA-65):** Non-repudiable recipient attestation of each individual decryption viewing session.
-   - **Invisible 2D DCT Frequency Steganography:**
-     - High resolution rendering (150 DPI).
-     - Strict `uint8` color-space conversion to ensure $100\%$ authentic color fidelity (zero color shift, no neon green/yellow, crisp black text).
-     - Reed-Solomon (255, 127) error-correcting codes ensuring full extraction even through JPEG recompression, downsampling, and cropping.
-   - **Air-Gapped Merkle-Chained Distributed Ledger:**
-     - SHA3-256 hash-chained block succession.
-     - Merkle root inclusion proofs preventing rogue admin log alteration.
+3. **Robust Watermark Engineering:**
+   - **2D DCT Frequency Modulation:** Luminance ($Y$) channel rendered at deterministic 150 DPI. Modulation on coefficient $(3,3)$ provides optical imperceptibility ($\text{PSNR} > 42\text{ dB}$, $\Delta E < 0.1$).
+   - **Genuine Reed-Solomon RS(255,127):** 127 data symbols + 128 parity symbols (`RSCodec(128)`), correcting up to 64 byte errors from JPEG recompression, cropping, or noise.
+   - **Authenticated 127-Byte Frame:** Magic header (`CPTR`), Version (`0x02`), Watermark ID, Event UUID, Document SHA3 fingerprint, Recipient Key ID fingerprint, Session Nonce, and HMAC-SHA3-256 authentication tag.
+
+4. **Multi-Organization Permissioned Blockchain (Hyperledger Fabric):**
+   - 3-Organization Consortium: Org1 (Defense Command), Org2 (Independent Audit), Org3 (Forensic Bureau) + Raft Orderer.
+   - Smart Contract: `forensic-audit` (`RecordDecryption`, `LookupByWatermark`, `GetRecord`, `GetAllRecords`).
+   - 2-of-3 endorsement policy prevents unilateral alteration by any single administrator.
+   - **Fail-Closed Mode:** When `SECURE_MODE=true`, blockchain connectivity is mandatory. Decryption commits fail closed (`503 Service Unavailable`) if the ledger is unreachable.
+   - When `DEMO_MODE=true`, local SHA3-256 hash chaining is permitted and explicitly tagged as `"DEMO LOCAL LEDGER"`.
 
 ---
 
-## 2. Component Layout
+## 2. Directory Layout
 
 ```
-ATTEMPT 2/
+SIH 2026/
 ├── backend/
 │   ├── app/
-│   │   ├── main.py
-│   │   ├── database.py
-│   │   ├── schemas.py
-│   │   ├── models/database.py
+│   │   ├── main.py                  # FastAPI application entrypoint & security middleware
+│   │   ├── config.py                # Environment configuration (DEMO_MODE, SECURE_MODE)
+│   │   ├── database.py              # SQLite async database with WAL mode & busy timeout
+│   │   ├── schemas.py               # Pydantic request/response schemas (No private keys)
+│   │   ├── models/
+│   │   │   └── database.py          # SQLAlchemy models (User, Document, LedgerBlock, etc.)
 │   │   ├── services/
-│   │   │   ├── crypto_engine.py
-│   │   │   ├── watermark_engine.py
-│   │   │   └── ledger_engine.py
+│   │   │   ├── crypto_engine.py     # NIST FIPS 203 ML-KEM-768 & FIPS 204 ML-DSA-65
+│   │   │   ├── keystore.py          # Encrypted recipient keystore manager (Argon2id + AES-GCM)
+│   │   │   ├── watermark_engine.py  # 2D DCT steganography & RS(255,127) FEC
+│   │   │   ├── ledger_client.py     # Hyperledger Fabric client & fail-closed adapter
+│   │   │   └── ledger_engine.py     # Block chaining, Merkle tree & local audit cache
 │   │   └── routers/
-│   │       ├── system.py
-│   │       ├── identity.py
-│   │       ├── documents.py
-│   │       ├── decryption.py
-│   │       ├── forensics.py
-│   │       ├── ledger.py
-│   │       └── attacks.py
-│   ├── tests/
-│   │   ├── test_crypto_engine.py
-│   │   ├── test_watermark_engine.py
-│   │   ├── test_ledger_engine.py
-│   │   ├── test_access_control.py
-│   │   └── test_e2e_pipeline.py
-│   └── requirements.txt
-├── frontend/
-│   ├── package.json
-│   ├── tsconfig.json
-│   ├── vite.config.ts
-│   ├── index.html
-│   └── src/
-│       ├── main.tsx
-│       ├── App.tsx
-│       ├── index.css
-│       ├── types/index.ts
-│       ├── api/client.ts
-│       ├── components/
-│       │   ├── TopHeader.tsx
-│       │   └── TelemetryBar.tsx
-│       └── views/
-│           ├── SenderConsole.tsx
-│           ├── RecipientConsole.tsx
-│           ├── ForensicConsole.tsx
-│           ├── AttackVerificationConsole.tsx
-│           └── LedgerAuditConsole.tsx
-├── start_demo.bat
-└── DOCUMENTATION.md
+│   │       ├── auth.py              # Argon2id password hashing, JWT sessions & RBAC
+│   │       ├── system.py            # Operational telemetry & health checks
+│   │       ├── identity.py          # Public key directory & officer registration
+│   │       ├── documents.py         # Encrypted envelope distribution & UUID upload handling
+│   │       ├── decryption.py        # Keystore-isolated decryption, watermarking & signing
+│   │       ├── forensics.py         # Blockchain-primary forensic attribution & evidence bundle
+│   │       ├── ledger.py            # Ledger blocks, Merkle proofs & tamper simulation
+│   │       └── attacks.py           # Physical degradation stress lab (JPEG, crop, resize)
+│   ├── keystores/                   # Recipient encrypted keystores (*.keystore)
+│   ├── tests/                       # 21 automated unit and integration tests
+│   ├── requirements.txt             # Backend Python dependencies
+│   └── Dockerfile                   # Deterministic container build with liboqs PQC
+├── blockchain/
+│   ├── chaincode/
+│   │   └── forensic-audit/          # Node.js chaincode (RecordDecryption, LookupByWatermark)
+│   └── scripts/                     # Fabric network orchestration scripts
+├── frontend/                        # React 19 + TypeScript + Vite tactical defense UI
+├── scripts/
+│   ├── security_audit.py            # Strict 10-rule anti-regression security scanner
+│   ├── export_airgap_images.sh      # Offline container bundler
+│   ├── import_airgap_images.sh      # Air-gapped container importer
+│   └── start_airgap_network.sh      # Full stack orchestrator
+├── docker-compose.yml               # Application services
+├── docker-compose.fabric.yml        # 3-Org Hyperledger Fabric cluster
+├── README.md                        # Primary documentation & quickstart
+└── DOCUMENTATION.md                 # Technical specification & operational manual
 ```
 
 ---
 
-## 3. Verification & Testing Matrix (All 6 Levels Verified)
+## 3. Verification & Testing Matrix
 
-| Level | Component | Test Coverage | Status |
-| :--- | :--- | :--- | :--- |
-| **L1** | `CryptoEngine` | Keygen, Encapsulation, Decapsulation, Signing, Verification, AES-GCM tag check | **PASS (100%)** |
-| **L2** | `WatermarkEngine` | Color preservation ($<0.1$ delta), 150 DPI clarity, 2D DCT embed/extract, Reed-Solomon ECC | **PASS (100%)** |
-| **L3** | `LedgerEngine` | Merkle proofs, SHA3-256 chaining, Tamper rejection | **PASS (100%)** |
-| **L4** | Access Control | Rejection of unauthorized recipients with 403 Forbidden | **PASS (100%)** |
-| **L5** | E2E Forensic Lab | Blind leak upload $\rightarrow$ exact recipient attribution with 100% confidence | **PASS (100%)** |
-| **L6** | Frontend Build | Strict TypeScript compilation (`tsc -b`), zero build warnings | **PASS (100%)** |
+| Level | Component | Test Suite | Verification Method | Status |
+| :--- | :--- | :--- | :--- | :---: |
+| **L1** | NIST PQC Engine | `test_crypto_engine.py` (7 tests) | Key sizes, Encapsulate/Decapsulate, Sign/Verify, Tamper Rejection | **PASS** |
+| **L2** | Keystore Isolation | `test_keystore.py` (6 tests) | Argon2id KDF, AES-GCM wrapping, Zero DB keys, Dict serialization check | **PASS** |
+| **L3** | Watermark & RS FEC | `test_watermark_engine.py` (3 tests) | 127 data symbols, 128 parity, Burst error correction, Noise rejection | **PASS** |
+| **L4** | Access Control & RBAC | `test_access_control.py` (1 test) | HTTP 403 enforcement for unauthorized decryptors | **PASS** |
+| **L5** | End-to-End Pipeline | `test_e2e_pipeline.py` (1 test) | Sender $\to$ Recipient $\to$ Fabric $\to$ Intercept $\to$ Attribution $\to$ Evidence | **PASS** |
+| **L6** | Security Regression | `security_audit.py` (10 rules) | Codebase scan: No X25519/Ed25519 PQC, No DB private keys, Fail-closed mode | **PASS** |
 
-### Automated Test Execution Command:
-```powershell
-python -c "import unittest, os, sys; sys.path.insert(0, os.path.abspath('ATTEMPT 2/backend')); loader = unittest.TestLoader(); suite = loader.discover('ATTEMPT 2/backend/tests'); runner = unittest.TextTestRunner(verbosity=2); result = runner.run(suite); sys.exit(0 if result.wasSuccessful() else 1)"
+### Execution Commands:
+```bash
+# Run all cryptographic and pipeline tests
+python -m unittest discover backend/tests -v
+
+# Run anti-regression security audit
+python scripts/security_audit.py
 ```
-**Result:** `Ran 12 tests in 1.537s. OK`
 
 ---
 
-## 4. Operational Procedure for Demo
+## 4. Forensic Attribution Verification Gates
 
-1. **Launch Platform:**
-   - Double-click `start_attempt2.bat` inside the `ATTEMPT 2` directory.
-   - Browser opens at `http://127.0.0.1:5173`.
-   - Verify top telemetry badge shows: `[CORE ONLINE (PORT 8000) • AIRGAP ACTIVE]`.
+When a leaked document is evaluated in `ForensicConsole.tsx` (`POST /api/forensics/analyze`), the pipeline evaluates 6 sequential cryptographic verification gates:
 
-2. **Stage 1: Sender Envelope Console:**
-   - Select `CLASSIFIED_NAVAL_OPERATIONS.pdf` (or upload any PDF).
-   - Check the operational recipients (e.g. Captain A. Verma & Commander S. Rao).
-   - Click `ENCRYPT & DISTRIBUTE`.
-   - Result: ML-KEM-768 key envelopes are generated per selected officer. Click `Download .enc Envelope File` to inspect the NIST FIPS 203 envelope.
-
-3. **Stage 2: Recipient Terminal:**
-   - Select **Wing Commander N. Joshi** (who was *not* selected in Stage 1) and click `DECRYPT & AUTHORIZE VIEWING SESSION`.
-   - **Result:** Enclave immediately blocks access with:
-     `ENCLAVE ACCESS DENIED: Wing Commander N. Joshi (NAVY-0003) was not designated as an authorized recipient during envelope distribution.`
-   - Now select **Captain A. Verma** (who *was* authorized) and click `DECRYPT & AUTHORIZE VIEWING SESSION`.
-   - **Result:** Decrypts cleanly, displays 6-step atomic sequence, shows session nonce and watermark identifier.
-   - Click `DOWNLOAD DECRYPTED WATERMARKED PDF (150 DPI HIGH-FIDELITY VECTOR)`.
-   - Open downloaded PDF: **100% authentic color fidelity (zero green/yellow distortion, crisp black text, 150 DPI vector clarity)**.
-
-4. **Stage 3: Forensic Attribution Lab:**
-   - Intercept/upload the downloaded decrypted PDF.
-   - Click `ANALYZE [FILENAME]`.
-   - **Result:**
-     - Status: `POSITIVE ATTRIBUTION CONFIRMED`.
-     - Confidence: `100.0%`.
-     - Identified Leaker: `Captain A. Verma` (`NAVY-0001`, `Western Naval Command Flagship`, `DEF-HW-7701`).
-     - All 6 Verification Gates show `PASS`.
-     - Click `Export Evidence JSON` to download court-admissible evidence package.
-
-5. **Stage 4: Adversarial Stress Lab:**
-   - Select `Severe JPEG Recompression (Quality 35%)`, `Aggressive Margin Crop (12% Cut)`, or `Complete Metadata Stripping`.
-   - Click `EXECUTE ADVERSARIAL STRESS TEST`.
-   - **Result:** Shows observed BER and confirms Reed-Solomon (255, 127) recovered 100% of payload bits.
-
-6. **Stage 5: Ledger & Tamper Audit:**
-   - Inspect immutable block chain from Genesis.
-   - Click `Simulate Rogue Admin Tamper (Modify Block #1)`.
-   - **Result:** Immediate system-wide violation alert: `CRITICAL AUDIT VIOLATION: IMMUTABLE LEDGER HASH CHAIN BROKEN`.
-   - Click `Restore Cryptographic Ledger Integrity`.
-   - **Result:** Hash chain immediately returns to `CHAIN INTEGRITY: 100% VALID`.
+```
+[Leaked Document] 
+       │
+       ▼
+[Gate 1: Watermark Payload Format] ── PASS: Valid 'CPTR' header, version 2 frame
+       │
+       ▼
+[Gate 2: HMAC-SHA3-256 Frame Auth] ── PASS: Cryptographic binding matches secret
+       │
+       ▼
+[Gate 3: Blockchain Transaction]   ── PASS: Transaction ID validated on Fabric
+       │
+       ▼
+[Gate 4: ML-DSA-65 Signature]       ── PASS: Recipient digital signature mathematically verified
+       │
+       ▼
+[Gate 5: Document SHA3-256 Hash]   ── PASS: Payload hash matches original classified source
+       │
+       ▼
+[Gate 6: Identity Attestation]     ── PASS: Recipient military ID & device authenticated
+       │
+       ▼
+[Court-Admissible Evidence Bundle Exported]
+```

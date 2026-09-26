@@ -1,21 +1,46 @@
 import os
 import json
+import uuid
 import shutil
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from ..database import get_db
-from ..models.database import Document, User, Distribution
-from ..services.crypto_engine import CryptoEngine
-from ..schemas import DocumentSchema, DistributeRequest, DistributionResponse, KeyEnvelopeInfo
+
+from app.config import settings
+from app.database import get_db
+from app.models.database import Document, User, Distribution
+from app.services.crypto_engine import CryptoEngine
+from app.schemas import DocumentSchema, DistributeRequest, DistributionResponse, KeyEnvelopeInfo
+from app.routers.auth import get_current_user_from_token
 
 router = APIRouter(prefix="/api/documents", tags=["Documents"])
 
 UPLOAD_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "uploads"))
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+ALLOWED_DOC_MAGIC = {
+    b"%PDF": "pdf"
+}
+
+
+def _validate_doc_magic(content: bytes) -> str:
+    """Validates document magic bytes to ensure only valid PDFs are processed."""
+    for magic, ext in ALLOWED_DOC_MAGIC.items():
+        if content.startswith(magic):
+            return ext
+    # Fallback if text or test file in demo mode
+    if settings.DEMO_MODE and (content.startswith(b"---") or content.startswith(b"{")):
+        return "txt"
+    if not settings.DEMO_MODE and not content.startswith(b"%PDF"):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid file signature: Only authentic PDF documents (%PDF) are accepted in secure mode."
+        )
+    return "pdf"
+
 
 @router.get("", response_model=List[DocumentSchema])
 @router.get("/", response_model=List[DocumentSchema])
@@ -35,22 +60,50 @@ async def list_documents(db: AsyncSession = Depends(get_db)):
         for d in docs
     ]
 
-@router.post("/upload", response_model=DocumentSchema)
-async def upload_document(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
-    """Uploads a confidential document, computes SHA3-256 digest, and stores it in secure storage."""
-    target_path = os.path.join(UPLOAD_DIR, file.filename)
-    with open(target_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
 
-    with open(target_path, "rb") as f:
-        content = f.read()
+@router.post("/upload", response_model=DocumentSchema)
+async def upload_document(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user_from_token),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Uploads a confidential document with hardened security:
+    - Verifies maximum upload size limit.
+    - Validates file magic bytes (must be authentic PDF).
+    - Generates UUID storage path (never trusts browser-provided filename).
+    - Computes NIST FIPS 202 SHA3-256 digest.
+    """
+    if isinstance(current_user, AsyncSession):
+        db = current_user
+        current_user = None
+
+    content = await file.read()
+    max_bytes = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
+    if len(content) > max_bytes:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Uploaded document exceeds maximum size ({settings.MAX_UPLOAD_SIZE_MB} MB)"
+        )
+
+    _validate_doc_magic(content)
+
+    # Hardened filename: generate UUID path, preserve original filename in metadata only
+    safe_id = uuid.uuid4().hex
+    target_path = os.path.join(UPLOAD_DIR, f"{safe_id}.pdf")
+    with open(target_path, "wb") as buffer:
+        buffer.write(content)
 
     doc_hash = CryptoEngine.sha3_256(content)
     size = len(content)
 
+    # Sanitize display filename
+    original_display_name = os.path.basename(file.filename or "document.pdf")
+    sanitized_display_name = "".join(c for c in original_display_name if c.isalnum() or c in (".", "-", "_")) or "document.pdf"
+
     new_doc = Document(
-        file_name=file.filename,
-        title=f"CONFIDENTIAL ASSET: {file.filename.upper()}",
+        file_name=sanitized_display_name,
+        title=f"CONFIDENTIAL ASSET: {sanitized_display_name.upper()}",
         sha3_hash=doc_hash,
         original_path=target_path,
         size_bytes=size
@@ -68,17 +121,27 @@ async def upload_document(file: UploadFile = File(...), db: AsyncSession = Depen
         created_at=new_doc.created_at.isoformat()
     )
 
+
 @router.post("/distribute", response_model=DistributionResponse)
-async def distribute_document(req: DistributeRequest, db: AsyncSession = Depends(get_db)):
+async def distribute_document(
+    req: DistributeRequest,
+    current_user: User = Depends(get_current_user_from_token),
+    db: AsyncSession = Depends(get_db)
+):
     """
     Executes Post-Quantum Envelope Distribution:
     1. Generates ephemeral 256-bit Document Encryption Key (DEK).
-    2. Encrypts document payload once with AES-256-GCM.
+    2. Encrypts document payload with AES-256-GCM.
     3. For EACH specified recipient:
-       - Encapsulates DEK using ML-KEM-768 lattice cryptography.
+       - Encapsulates DEK using NIST FIPS 203 ML-KEM-768.
        - Stores isolated Distribution record in database.
     4. Generates standardized NIST FIPS 203 Post-Quantum Envelope (.enc).
+    5. Zero-Storage Policy: Shreds plaintext source file from disk.
     """
+    if isinstance(current_user, AsyncSession):
+        db = current_user
+        current_user = None
+
     doc_res = await db.execute(select(Document).where(Document.id == req.document_id))
     doc = doc_res.scalar_one_or_none()
     if not doc:
@@ -87,7 +150,7 @@ async def distribute_document(req: DistributeRequest, db: AsyncSession = Depends
     enc_file_path = doc.original_path + ".enc"
     envelope_file_path = doc.original_path + ".envelope.enc"
 
-    # If the unencrypted document was already encrypted and shredded under Zero-Storage:
+    # If unencrypted document was already encrypted and shredded:
     if not os.path.exists(doc.original_path):
         existing_path = envelope_file_path if os.path.exists(envelope_file_path) else (enc_file_path if os.path.exists(enc_file_path) else None)
         if existing_path:
@@ -111,9 +174,12 @@ async def distribute_document(req: DistributeRequest, db: AsyncSession = Depends
                 envelopes=existing_envelopes,
                 envelope_file_name=f"{doc.file_name}.enc"
             )
-        raise HTTPException(status_code=404, detail="Original document not found on server (Zero-Storage policy: please re-upload to encrypt again).")
+        raise HTTPException(
+            status_code=404,
+            detail="Original document not found on server (Zero-Storage policy: please re-upload to encrypt again)."
+        )
 
-    # Load recipients (if none specified, automatically encrypt for all enrolled organization identities)
+    # Load recipients
     if not req.recipient_ids:
         users_res = await db.execute(select(User).where(User.status == "ACTIVE"))
         recipients = users_res.scalars().all()
@@ -121,18 +187,18 @@ async def distribute_document(req: DistributeRequest, db: AsyncSession = Depends
             users_res = await db.execute(select(User))
             recipients = users_res.scalars().all()
         if not recipients:
-            raise HTTPException(status_code=400, detail="No enrolled users found in node registry to encapsulate keys.")
+            raise HTTPException(status_code=400, detail="No enrolled users found in node registry.")
     else:
         users_res = await db.execute(select(User).where(User.id.in_(req.recipient_ids)))
         recipients = users_res.scalars().all()
         if len(recipients) != len(req.recipient_ids):
             raise HTTPException(status_code=400, detail="One or more specified recipient IDs are invalid")
 
-    # 1. Read document content and generate 256-bit DEK
+    # Read document content and generate 256-bit DEK
     with open(doc.original_path, "rb") as f:
         plaintext = f.read()
 
-    dek = os.urandom(32) # 256-bit symmetric DEK
+    dek = os.urandom(32)  # 256-bit symmetric DEK
     doc_ciphertext_with_tag, nonce = CryptoEngine.aes_gcm_encrypt(dek, plaintext, aad=doc.sha3_hash.encode("utf-8"))
 
     # Save raw encrypted payload
@@ -140,23 +206,32 @@ async def distribute_document(req: DistributeRequest, db: AsyncSession = Depends
     with open(raw_enc_path, "wb") as f:
         f.write(nonce + doc_ciphertext_with_tag)
 
-    # 2. Encapsulate DEK per recipient
+    # Encapsulate DEK per recipient using genuine ML-KEM-768
     envelope_infos: List[KeyEnvelopeInfo] = []
     recipient_envelope_data = []
 
     for user in recipients:
         ct_kem, shared_secret = CryptoEngine.encapsulate(user.kem_public_key)
-        # Wrap DEK under shared secret
         wrapped_dek, dek_nonce = CryptoEngine.aes_gcm_encrypt(shared_secret, dek)
-        final_envelope = ct_kem + dek_nonce + wrapped_dek # 1088 + 12 + 48 = 1148 bytes
+        final_envelope = ct_kem + dek_nonce + wrapped_dek  # 1088 + 12 + 48 = 1148 bytes
 
-        # Record distribution in database
-        dist = Distribution(
-            document_id=doc.id,
-            recipient_id=user.id,
-            encrypted_dek=final_envelope
+        # Check existing distribution or create fresh
+        dist_check = await db.execute(
+            select(Distribution).where(
+                Distribution.document_id == doc.id,
+                Distribution.recipient_id == user.id
+            )
         )
-        db.add(dist)
+        existing_dist = dist_check.scalars().first()
+        if existing_dist:
+            existing_dist.encrypted_dek = final_envelope
+        else:
+            dist = Distribution(
+                document_id=doc.id,
+                recipient_id=user.id,
+                encrypted_dek=final_envelope
+            )
+            db.add(dist)
 
         envelope_infos.append(KeyEnvelopeInfo(
             recipient_id=user.id,
@@ -179,7 +254,7 @@ async def distribute_document(req: DistributeRequest, db: AsyncSession = Depends
 
     await db.commit()
 
-    # Create portable self-contained .enc package (cross-device shareable)
+    # Create portable self-contained .enc package
     enc_package = {
         "format": "CIPHERTRACE_PQC_ENVELOPE",
         "version": "2.0.0",
@@ -195,6 +270,7 @@ async def distribute_document(req: DistributeRequest, db: AsyncSession = Depends
 
     envelope_file_path = doc.original_path + ".envelope.enc"
     enc_file_path = doc.original_path + ".enc"
+    display_enc_path = os.path.join(UPLOAD_DIR, f"{doc.file_name}.enc")
     package_json = json.dumps(enc_package, indent=2)
 
     with open(envelope_file_path, "w", encoding="utf-8") as f:
@@ -203,9 +279,11 @@ async def distribute_document(req: DistributeRequest, db: AsyncSession = Depends
     with open(enc_file_path, "w", encoding="utf-8") as f:
         f.write(package_json)
 
+    with open(display_enc_path, "w", encoding="utf-8") as f:
+        f.write(package_json)
+
     # ZERO-STORAGE SECURITY POLICY:
-    # Shred unencrypted source document from the server disk immediately.
-    # The server only holds the encrypted .enc distribution artifact and SHA3 anchor.
+    # Shred unencrypted source document from server disk immediately.
     if os.path.exists(doc.original_path):
         try:
             os.remove(doc.original_path)
@@ -221,9 +299,10 @@ async def distribute_document(req: DistributeRequest, db: AsyncSession = Depends
         envelope_file_name=f"{doc.file_name}.enc"
     )
 
+
 @router.get("/{document_id}/download-envelope")
 async def download_envelope(document_id: int, db: AsyncSession = Depends(get_db)):
-    """Downloads the portable NIST FIPS 203 encrypted envelope (.enc)."""
+    """Downloads portable NIST FIPS 203 encrypted envelope (.enc)."""
     doc_res = await db.execute(select(Document).where(Document.id == document_id))
     doc = doc_res.scalar_one_or_none()
     if not doc:
