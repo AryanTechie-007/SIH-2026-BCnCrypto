@@ -265,7 +265,19 @@ start_demo.bat
   * Starts the React Vite development server.
   * Automatically opens `http://127.0.0.1:5173` in your default browser.
 
-#### 5. Manual PowerShell Execution (Alternative)
+#### 5. Demonstration Accounts & 1-Click Quick Login
+When the login portal opens at `http://127.0.0.1:5173`, use the dedicated **1-Click Quick Login** cards or manual login with any of the pre-configured defense test identities:
+
+| Officer Name | Username / Alias | Navy ID | Clearance Level | Operational Role in Evaluation |
+| :--- | :--- | :--- | :--- | :--- |
+| **Captain A. Verma / Varma** | `varma` / `verma` / `@varma` | `NAVY-0001` | `LEVEL-5 TOP SECRET` | **Primary Sender & Recipient** (Uploads doc, encrypts, and decrypts) |
+| **Commander S. Rao** | `rao` / `@rao` | `NAVY-0002` | `LEVEL-4 SECRET` | **Authorized Recipient** (Included in distribution; authorized to decrypt) |
+| **Wing Commander N. Joshi** | `joshi` / `@joshi` | `NAVY-0003` | `LEVEL-3 RESTRICTED` | **Unauthorized Excluded Officer** (Used to prove strict 403 Access Denial) |
+
+* **Default Password**: `password123` (or click the **⚡ 1-Click Login** button to authenticate instantly with zero typing).
+* **Flexible Input**: Leading `@` symbols (e.g. `@varma`) and case differences are automatically normalized.
+
+#### 6. Manual PowerShell Execution (Alternative)
 * **PowerShell Window 1 (Backend)**:
   ```powershell
   cd backend
@@ -369,7 +381,11 @@ In enterprise defense deployment (e.g., the Navy or Defense Command), the archit
 
 #### 3. "403 Forbidden / ACCESS DENIED" during Decryption
 - **Cause**: This is **intended post-quantum access control**! When a file is encrypted in Stage 1, it is bound ONLY to the selected recipients' ML-KEM-768 public keys. If an unauthorized user attempts to decrypt it, the platform strictly rejects them.
-- **Fix**: Switch your active user to the recipient who was granted access during distribution (e.g., Bob or Alice), or check your own account in Stage 1 when distributing.
+- **Fix**: Switch your active user to the recipient who was granted access during distribution (e.g., Captain Verma or Commander Rao), or check your own account in Stage 1 when distributing.
+
+#### 4. "Request to /api/auth/login timed out" or Stuck on "Verifying Credentials"
+- **Cause**: An orphaned Python worker process from a previous session was holding socket port 8000 in `CLOSE_WAIT` on Windows, or the backend service was not yet up.
+- **Fix**: Launch using `start_demo.bat` (which terminates lingering process trees with `/F /T` and PowerShell socket release). Alternatively, click any of the **⚡ 1-Click Quick Login** cards on the login portal for instant access.
 
 ---
 

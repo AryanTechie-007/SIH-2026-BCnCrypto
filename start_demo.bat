@@ -81,13 +81,14 @@ echo [OK] All dependencies verified.
 :: --------------------------------------------------------
 echo [3/6] Terminating stale processes on ports 8000 and 5173...
 for %%p in (8000 5173) do (
-    for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":%%p "' ) do (
+    for /f "tokens=5" %%a in ('netstat -aon ^| findstr /r ":%%p\>"' ) do (
         if not "%%a"=="0" (
             echo Killing process %%a on port %%p...
-            taskkill /F /PID %%a >nul 2>&1
+            taskkill /F /T /PID %%a >nul 2>&1
         )
     )
 )
+powershell -Command "Get-NetTCPConnection -LocalPort 8000, 5173 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }" >nul 2>&1
 
 :: --------------------------------------------------------
 :: 4. START BACKEND

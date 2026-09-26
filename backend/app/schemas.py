@@ -15,6 +15,9 @@ class LoginRequest(BaseModel):
     username: str
     password: str
 
+class QuickLoginRequest(BaseModel):
+    officer: str
+
 class UserSchema(BaseModel):
     id: int
     username: str

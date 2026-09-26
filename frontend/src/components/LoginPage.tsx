@@ -1,12 +1,51 @@
 import React, { useState } from 'react';
 import { ApiClient } from '../api/client';
 import { UserAccount, Officer } from '../types';
-import { Lock, LogIn, UserPlus, Shield, KeyRound, AlertOctagon, ShieldCheck, Cpu } from 'lucide-react';
+import { Lock, LogIn, UserPlus, Shield, KeyRound, AlertOctagon, ShieldCheck, Cpu, Zap, ArrowRight } from 'lucide-react';
 
 interface LoginPageProps {
   onLoginSuccess: (user: UserAccount, token: string) => void;
   enrolledUsers: Officer[];
 }
+
+const DEMO_OFFICERS = [
+  {
+    key: 'varma',
+    name: 'Captain A. Verma / Varma',
+    rank: 'CAPTAIN',
+    role: 'Flagship Command',
+    navyId: 'NAVY-0001',
+    clearance: 'LEVEL-5 TOP SECRET',
+    desc: 'Primary Sender & Recipient',
+    color: '#38bdf8',
+    borderColor: 'rgba(56, 189, 248, 0.45)',
+    bgColor: 'rgba(2, 132, 199, 0.10)'
+  },
+  {
+    key: 'rao',
+    name: 'Commander S. Rao',
+    rank: 'COMMANDER',
+    role: 'Destroyer Escort',
+    navyId: 'NAVY-0002',
+    clearance: 'LEVEL-4 SECRET',
+    desc: 'Authorized Recipient (Target Decryption)',
+    color: '#34d399',
+    borderColor: 'rgba(52, 211, 153, 0.45)',
+    bgColor: 'rgba(16, 185, 129, 0.10)'
+  },
+  {
+    key: 'joshi',
+    name: 'Wing Commander N. Joshi',
+    rank: 'WING COMMANDER',
+    role: 'Air Surveillance',
+    navyId: 'NAVY-0003',
+    clearance: 'LEVEL-3 RESTRICTED',
+    desc: 'Excluded Officer (Access Denied Demo)',
+    color: '#fbbf24',
+    borderColor: 'rgba(251, 191, 36, 0.45)',
+    bgColor: 'rgba(245, 158, 11, 0.10)'
+  }
+];
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUsers }) => {
   const [tab, setTab] = useState<'login' | 'register'>('login');
@@ -16,12 +55,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
   const [rank, setRank] = useState('Officer / Analyst');
   const [deviceId, setDeviceId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [quickLoadingKey, setQuickLoadingKey] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!username.trim() || !password) {
+    const cleanUser = username.trim().replace(/^@+/, '');
+    if (!cleanUser || !password) {
       setErrorMessage('Please provide both username and password.');
       return;
     }
@@ -29,12 +70,37 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
     try {
       setIsLoading(true);
       setErrorMessage(null);
-      const res = await ApiClient.login({ username: username.trim(), password });
+      const res = await ApiClient.login({ username: cleanUser, password });
       onLoginSuccess(res.user, res.token);
     } catch (err: any) {
       setErrorMessage(err.message || 'Authentication failed. Please verify credentials.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDirectQuickLogin = async (officerKey: string, officerName: string) => {
+    try {
+      setIsLoading(true);
+      setQuickLoadingKey(officerKey);
+      setErrorMessage(null);
+      setUsername(officerKey);
+      setPassword('password123');
+
+      // Attempt 1-click quick authentication
+      let res;
+      try {
+        res = await ApiClient.quickLogin(officerKey);
+      } catch (err: any) {
+        // Fallback to standard login
+        res = await ApiClient.login({ username: officerKey, password: 'password123' });
+      }
+      onLoginSuccess(res.user, res.token);
+    } catch (err: any) {
+      setErrorMessage(err.message || `Quick login failed for ${officerName}. Ensure backend is running on port 8000.`);
+    } finally {
+      setIsLoading(false);
+      setQuickLoadingKey(null);
     }
   };
 
@@ -83,7 +149,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
       color: '#ffffff'
     }}>
       {/* Brand Header */}
-      <div style={{ textAlign: 'center', marginBottom: '28px', maxWidth: '540px' }}>
+      <div style={{ textAlign: 'center', marginBottom: '24px', maxWidth: '540px' }}>
         <div style={{
           display: 'inline-flex',
           alignItems: 'center',
@@ -96,13 +162,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
           fontSize: '11px',
           fontFamily: 'var(--font-mono)',
           fontWeight: 700,
-          marginBottom: '12px'
+          marginBottom: '10px'
         }}>
           <Shield size={13} />
           <span>CIPHERTRACE 2.0 &bull; FORENSIC SECURITY PLATFORM</span>
         </div>
         <h1 style={{
-          fontSize: '26px',
+          fontSize: '25px',
           fontWeight: 900,
           letterSpacing: '0.04em',
           color: '#ffffff',
@@ -116,14 +182,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
           lineHeight: '1.5',
           fontFamily: 'var(--font-mono)'
         }}>
-          Enter credentials to access the Post-Quantum Encryption Lab, Decryption Lab, and Forensic Leak Attribution Lab.
+          Enter credentials or use 1-click test login for Varma, Rao, or Joshi.
         </p>
       </div>
 
       {/* Main Authentication Card */}
       <div style={{
         width: '100%',
-        maxWidth: '460px',
+        maxWidth: '480px',
         backgroundColor: '#0c121e',
         border: '1px solid #1e293b',
         boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.85)',
@@ -182,7 +248,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
         </div>
 
         {/* Card Body */}
-        <div style={{ padding: '24px' }}>
+        <div style={{ padding: '22px' }}>
           {errorMessage && (
             <div className="tactical-alert tactical-alert-danger" style={{ marginBottom: '16px' }}>
               <AlertOctagon size={16} style={{ flexShrink: 0 }} />
@@ -198,56 +264,190 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
           )}
 
           {tab === 'login' ? (
-            <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '6px', fontFamily: 'var(--font-mono)' }}>
-                  OPERATOR USERNAME
-                </label>
-                <input
-                  type="text"
-                  value={username}
-                  onChange={e => setUsername(e.target.value)}
-                  placeholder="e.g. user_aryan, officer_sharma"
-                  className="tactical-input"
-                  style={{ width: '100%', padding: '10px 12px', fontSize: '12px' }}
-                  required
-                  autoFocus
-                />
+            <div>
+              {/* Quick Login Section for Varma, Rao & Joshi */}
+              <div style={{ marginBottom: '18px' }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: '8px'
+                }}>
+                  <div style={{
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    color: '#38bdf8',
+                    letterSpacing: '0.06em',
+                    fontFamily: 'var(--font-mono)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px'
+                  }}>
+                    <Zap size={13} style={{ color: '#38bdf8' }} />
+                    <span>QUICK 1-CLICK TEST LOGIN</span>
+                  </div>
+                  <span style={{ fontSize: '10px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
+                    Auto-Authenticates
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+                  {DEMO_OFFICERS.map(officer => {
+                    const isThisLoading = isLoading && quickLoadingKey === officer.key;
+                    return (
+                      <button
+                        key={officer.key}
+                        type="button"
+                        disabled={isLoading}
+                        onClick={() => handleDirectQuickLogin(officer.key, officer.name)}
+                        style={{
+                          padding: '9px 12px',
+                          backgroundColor: officer.bgColor,
+                          border: `1px solid ${officer.borderColor}`,
+                          borderRadius: '3px',
+                          cursor: isLoading ? 'not-allowed' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          textAlign: 'left',
+                          width: '100%',
+                          opacity: isLoading && !isThisLoading ? 0.5 : 1,
+                          transition: 'background-color 0.15s ease'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <div style={{
+                            width: '26px',
+                            height: '26px',
+                            borderRadius: '50%',
+                            backgroundColor: 'rgba(0,0,0,0.5)',
+                            border: `1px solid ${officer.color}`,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: officer.color,
+                            fontWeight: 900,
+                            fontSize: '11px',
+                            flexShrink: 0
+                          }}>
+                            {officer.key[0].toUpperCase()}
+                          </div>
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{ fontWeight: 800, fontSize: '12px', color: '#ffffff' }}>
+                                {officer.name}
+                              </span>
+                              <span style={{
+                                fontSize: '9px',
+                                fontFamily: 'var(--font-mono)',
+                                padding: '1px 5px',
+                                borderRadius: '2px',
+                                backgroundColor: 'rgba(0,0,0,0.5)',
+                                color: officer.color,
+                                border: `1px solid ${officer.borderColor}`
+                              }}>
+                                {officer.navyId}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: '10px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', marginTop: '2px' }}>
+                              {officer.role} &bull; <span style={{ color: officer.color }}>{officer.desc}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          padding: '4px 8px',
+                          borderRadius: '2px',
+                          backgroundColor: 'rgba(0,0,0,0.4)',
+                          border: `1px solid ${officer.borderColor}`,
+                          fontSize: '10px',
+                          fontWeight: 800,
+                          fontFamily: 'var(--font-mono)',
+                          color: officer.color,
+                          flexShrink: 0
+                        }}>
+                          {isThisLoading ? (
+                            <span>SIGNING IN...</span>
+                          ) : (
+                            <>
+                              <span>LOGIN</span>
+                              <ArrowRight size={11} />
+                            </>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  margin: '16px 0 12px 0',
+                  color: 'var(--text-dim)',
+                  fontSize: '10px',
+                  fontFamily: 'var(--font-mono)'
+                }}>
+                  <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--border-hard)' }} />
+                  <span>OR MANUAL CREDENTIALS</span>
+                  <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--border-hard)' }} />
+                </div>
               </div>
 
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '6px', fontFamily: 'var(--font-mono)' }}>
-                  PASSWORD
-                </label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder="Enter your security password"
-                  className="tactical-input"
-                  style={{ width: '100%', padding: '10px 12px', fontSize: '12px' }}
-                  required
-                />
-              </div>
+              <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '5px', fontFamily: 'var(--font-mono)' }}>
+                    OPERATOR USERNAME (e.g. varma, rao, joshi)
+                  </label>
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={e => setUsername(e.target.value)}
+                    placeholder="e.g. varma, rao, joshi, or NAVY-0001"
+                    className="tactical-input"
+                    style={{ width: '100%', padding: '9px 12px', fontSize: '12px' }}
+                    required
+                  />
+                </div>
 
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="tactical-btn tactical-btn-primary"
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  fontSize: '12px',
-                  fontWeight: 800,
-                  letterSpacing: '0.04em',
-                  justifyContent: 'center',
-                  marginTop: '6px'
-                }}
-              >
-                <LogIn size={15} />
-                <span>{isLoading ? 'VERIFYING CREDENTIALS...' : 'LOG IN'}</span>
-              </button>
-            </form>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '5px', fontFamily: 'var(--font-mono)' }}>
+                    PASSWORD (Default: password123)
+                  </label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    placeholder="Enter security password"
+                    className="tactical-input"
+                    style={{ width: '100%', padding: '9px 12px', fontSize: '12px' }}
+                    required
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="tactical-btn tactical-btn-primary"
+                  style={{
+                    width: '100%',
+                    padding: '11px',
+                    fontSize: '12px',
+                    fontWeight: 800,
+                    letterSpacing: '0.04em',
+                    justifyContent: 'center',
+                    marginTop: '4px'
+                  }}
+                >
+                  <LogIn size={15} />
+                  <span>{isLoading ? (quickLoadingKey ? `AUTHENTICATING ${quickLoadingKey.toUpperCase()}...` : 'VERIFYING CREDENTIALS...') : 'LOG IN'}</span>
+                </button>
+              </form>
+            </div>
           ) : (
             <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div>

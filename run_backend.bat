@@ -28,6 +28,13 @@ echo  Endpoint:    http://127.0.0.1:8000
 echo ========================================================
 echo.
 
+:: Clean up any lingering process on port 8000 before binding
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr /r ":8000\>"') do (
+    if not "%%a"=="0" (
+        taskkill /F /T /PID %%a >nul 2>&1
+    )
+)
+
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 if %errorlevel% neq 0 (
     echo.

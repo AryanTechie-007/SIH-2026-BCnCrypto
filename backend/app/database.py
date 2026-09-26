@@ -17,9 +17,14 @@ AsyncSessionLocal = sessionmaker(
 )
 
 async def init_db():
-    """Initializes database schema. Zero mock data seeded."""
+    """Initializes database schema and ensures defense officers are ready for operations."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    
+    # Ensure default officers exist for quick testing/demo
+    from .routers.auth import ensure_default_officers
+    async with AsyncSessionLocal() as session:
+        await ensure_default_officers(session)
 
 async def get_db():
     async with AsyncSessionLocal() as session:

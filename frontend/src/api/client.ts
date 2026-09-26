@@ -19,24 +19,43 @@ const API_ROOT = (typeof window !== 'undefined' && window.location.port === '517
     : 'http://127.0.0.1:8000/api';
 
 async function safeFetch(url: string, options?: RequestInit): Promise<Response> {
-  const timeout = options?.signal ? 0 : 30000; // Increased to 30s for PQC overhead
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeout);
+  const isAuth = url.includes('/auth/');
+  const timeoutMs = options?.signal ? 0 : (isAuth ? 8000 : 30000);
 
-  try {
-    const res = await fetch(url, {
+  const executeFetch = async (targetUrl: string, timeout: number): Promise<Response> => {
+    const controller = new AbortController();
+    const timer = timeout > 0 ? setTimeout(() => controller.abort(), timeout) : null;
+    const fetchOptions: RequestInit = {
       ...options,
       signal: options?.signal || controller.signal
-    });
-    clearTimeout(id);
-    return res;
+    };
+    try {
+      const res = await fetch(targetUrl, fetchOptions);
+      if (timer) clearTimeout(timer);
+      return res;
+    } catch (err) {
+      if (timer) clearTimeout(timer);
+      throw err;
+    }
+  };
+
+  try {
+    return await executeFetch(url, timeoutMs);
   } catch (err: any) {
-    clearTimeout(id);
+    // If relative proxy /api failed, retry direct backend port 8000 with fresh controller
+    if (url.startsWith('/api')) {
+      try {
+        const fallbackUrl = `http://127.0.0.1:8000${url}`;
+        return await executeFetch(fallbackUrl, 6000);
+      } catch {
+        // Fall through to error
+      }
+    }
     if (err.name === 'AbortError') {
-      throw new Error(`Request to ${url} timed out after ${timeout}ms.`);
+      throw new Error(`Connection to CIPHERTRACE core timed out (${timeoutMs / 1000}s). Verify the FastAPI backend is running on port 8000.`);
     }
     if (err.message && (err.message.includes('Failed to fetch') || err.message.includes('NetworkError') || err.name === 'TypeError')) {
-      throw new Error(`Cannot reach CIPHERTRACE Core at ${url}. Please ensure the FastAPI backend is running on port 8000 (run 'start_demo.bat' or 'python -m uvicorn app.main:app').`);
+      throw new Error(`Cannot reach CIPHERTRACE Core at ${url}. Please ensure the FastAPI backend is running on port 8000.`);
     }
     throw err;
   }
@@ -116,6 +135,15 @@ export const ApiClient = {
       body: JSON.stringify(data)
     });
     return handleResponse<AuthResult>(res, 'AUTH_LOGIN');
+  },
+
+  async quickLogin(officer: string): Promise<AuthResult> {
+    const res = await safeFetch(`${API_ROOT}/auth/quick-login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ officer })
+    });
+    return handleResponse<AuthResult>(res, 'AUTH_QUICK_LOGIN');
   },
 
   async getUsers(): Promise<UserAccount[]> {
