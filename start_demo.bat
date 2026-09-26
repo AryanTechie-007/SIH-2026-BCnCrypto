@@ -22,24 +22,54 @@ if %errorlevel% equ 0 (
 )
 
 :: --------------------------------------------------------
-:: 2. DEPENDENCY CHECKS
+:: 2. DEPENDENCY CHECKS & AUTO-PATH RESOLUTION
 :: --------------------------------------------------------
 echo [2/6] Validating environment and dependencies...
 
-:: Check for Python
+:: Scan for Python if not on PATH
 python --version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [ERROR] Python is not installed or not in PATH.
-    pause
-    exit /b 1
+    for %%P in (
+        "%LOCALAPPDATA%\Programs\Python\Python313",
+        "%LOCALAPPDATA%\Programs\Python\Python312",
+        "%LOCALAPPDATA%\Programs\Python\Python311",
+        "%LOCALAPPDATA%\Programs\Python\Python310",
+        "C:\Program Files\Python313",
+        "C:\Program Files\Python312",
+        "C:\Program Files\Python311",
+        "C:\Program Files\Python310"
+    ) do (
+        if exist "%%~fP\python.exe" (
+            set "PATH=%%~fP;%%~fP\Scripts;!PATH!"
+        )
+    )
 )
 
-:: Check for Node/NPM
-call npm -v >nul 2>&1
+:: Scan for Node if not on PATH
+call node -v >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [ERROR] Node.js/NPM is not installed or not in PATH.
-    pause
-    exit /b 1
+    for %%N in (
+        "C:\Program Files\nodejs",
+        "%LOCALAPPDATA%\Programs\nodejs",
+        "C:\Program Files (x86)\nodejs"
+    ) do (
+        if exist "%%~fN\node.exe" (
+            set "PATH=%%~fN;!PATH!"
+        )
+    )
+)
+
+:: Re-verify Python & Node. If missing, auto-trigger installer!
+set "NEEDS_INSTALL=0"
+python --version >nul 2>&1
+if %errorlevel% neq 0 set "NEEDS_INSTALL=1"
+call npm -v >nul 2>&1
+if %errorlevel% neq 0 set "NEEDS_INSTALL=1"
+
+if !NEEDS_INSTALL! equ 1 (
+    echo [!] Python or Node.js missing from environment.
+    echo [*] Automatically launching the automated dependency installer...
+    call setup\install_dependencies.bat
 )
 
 :: Frontend Dependencies
