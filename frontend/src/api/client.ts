@@ -20,7 +20,8 @@ const API_ROOT = (typeof window !== 'undefined' && window.location.port === '517
 
 async function safeFetch(url: string, options?: RequestInit): Promise<Response> {
   const isAuth = url.includes('/auth/');
-  const timeoutMs = options?.signal ? 0 : (isAuth ? 8000 : 30000);
+  const isHeavyCompute = url.includes('/decryption/') || url.includes('/forensics/');
+  const timeoutMs = options?.signal ? 0 : (isAuth ? 8000 : (isHeavyCompute ? 180000 : 30000));
 
   const executeFetch = async (targetUrl: string, timeout: number): Promise<Response> => {
     const controller = new AbortController();
@@ -46,7 +47,7 @@ async function safeFetch(url: string, options?: RequestInit): Promise<Response> 
     if (url.startsWith('/api')) {
       try {
         const fallbackUrl = `http://127.0.0.1:8000${url}`;
-        return await executeFetch(fallbackUrl, 6000);
+        return await executeFetch(fallbackUrl, isHeavyCompute ? 180000 : 6000);
       } catch {
         // Fall through to error
       }

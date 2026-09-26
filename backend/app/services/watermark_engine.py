@@ -1,3 +1,4 @@
+import io
 import os
 import fitz # PyMuPDF
 import cv2
@@ -78,14 +79,16 @@ class WatermarkEngine:
             merged = cv2.merge([y_out, cr, cb])
             final_img = cv2.cvtColor(merged, cv2.COLOR_YCrCb2RGB)
 
-            temp_img_path = f"temp_wm_render_{page_idx}.png"
-            Image.fromarray(final_img).save(temp_img_path, format="PNG")
+            # Keep the rendered page in memory only for the instant it's needed,
+            # then explicitly close/clear it — no disk file, and no lingering
+            # in-memory copy either, once this page is embedded into out_doc.
+            with io.BytesIO() as buf:
+                Image.fromarray(final_img).save(buf, format="PNG")
+                png_bytes = buf.getvalue()
 
             new_page = out_doc.new_page(width=rect.width, height=rect.height)
-            new_page.insert_image(rect, filename=temp_img_path)
-
-            if os.path.exists(temp_img_path):
-                os.remove(temp_img_path)
+            new_page.insert_image(rect, stream=png_bytes)
+            del png_bytes, final_img, merged, y_out
 
         out_doc.save(output_pdf_path)
         out_doc.close()
