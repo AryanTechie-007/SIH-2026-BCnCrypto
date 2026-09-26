@@ -9,12 +9,12 @@ echo  Smart India Hackathon 2026 - Defense Security Platform
 echo ================================================================
 echo.
 
-:: ------------------------------------------------------------------
-:: 1. PYTHON DETECTION, AUTO-INSTALL & PATH CONFIGURATION
-:: ------------------------------------------------------------------
+REM ------------------------------------------------------------------
+REM 1. PYTHON DETECTION, AUTO-INSTALL & PATH CONFIGURATION
+REM ------------------------------------------------------------------
 echo [1/5] Checking Python 3 installation...
 
-:: Test if python is directly executable in PATH
+REM Test if python is directly executable in PATH
 python --version >nul 2>&1
 if %errorlevel% neq 0 (
     echo [!] Python command not detected in current PATH.
@@ -22,16 +22,16 @@ if %errorlevel% neq 0 (
 
     set "FOUND_PY="
     for %%P in (
-        "%LOCALAPPDATA%\Programs\Python\Python313",
-        "%LOCALAPPDATA%\Programs\Python\Python312",
-        "%LOCALAPPDATA%\Programs\Python\Python311",
-        "%LOCALAPPDATA%\Programs\Python\Python310",
-        "C:\Program Files\Python313",
-        "C:\Program Files\Python312",
-        "C:\Program Files\Python311",
-        "C:\Program Files\Python310",
-        "C:\Python313",
-        "C:\Python312",
+        "%LOCALAPPDATA%\Programs\Python\Python313"
+        "%LOCALAPPDATA%\Programs\Python\Python312"
+        "%LOCALAPPDATA%\Programs\Python\Python311"
+        "%LOCALAPPDATA%\Programs\Python\Python310"
+        "C:\Program Files\Python313"
+        "C:\Program Files\Python312"
+        "C:\Program Files\Python311"
+        "C:\Program Files\Python310"
+        "C:\Python313"
+        "C:\Python312"
         "C:\Python311"
     ) do (
         if not defined FOUND_PY (
@@ -50,32 +50,33 @@ if %errorlevel% neq 0 (
         echo [!] Python is not installed on this machine.
         echo [+] Initiating automated silent installation of Python 3.11 with PATH configuration...
 
-        :: Try Windows Package Manager first if available
+        REM Try Windows Package Manager first if available
         set "WINGET_OK=0"
         winget --version >nul 2>&1
-        if %errorlevel% equ 0 (
-            echo [+] Installing Python 3.11 via Windows Package Manager (winget)...
+        if !errorlevel! equ 0 (
+            echo [+] Installing Python 3.11 via Windows Package Manager winget...
             winget install --id Python.Python.3.11 -e --silent --accept-package-agreements --accept-source-agreements
-            if %errorlevel% equ 0 set "WINGET_OK=1"
+            if !errorlevel! equ 0 set "WINGET_OK=1"
         )
 
-        :: Fallback: Download official python installer directly via curl.exe
+        REM Fallback: Download official python installer directly via curl.exe
         if !WINGET_OK! equ 0 (
             echo [+] Downloading official Python 3.11 installer from python.org...
             set "PY_INSTALLER=%TEMP%\python-3.11.9-amd64.exe"
             curl.exe -fSL -o "!PY_INSTALLER!" https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe
             if exist "!PY_INSTALLER!" (
-                echo [+] Executing silent installation (enabling PATH automatically)...
+                echo [+] Executing silent installation enabling PATH automatically...
                 "!PY_INSTALLER!" /quiet InstallAllUsers=0 PrependPath=1 Include_test=0 Include_pip=1
                 del "!PY_INSTALLER!" >nul 2>&1
             )
         )
 
-        :: Search again after installation
+        REM Search again after installation
+        set "FOUND_PY="
         for %%P in (
-            "%LOCALAPPDATA%\Programs\Python\Python311",
-            "%LOCALAPPDATA%\Programs\Python\Python312",
-            "%LOCALAPPDATA%\Programs\Python\Python313",
+            "%LOCALAPPDATA%\Programs\Python\Python311"
+            "%LOCALAPPDATA%\Programs\Python\Python312"
+            "%LOCALAPPDATA%\Programs\Python\Python313"
             "C:\Program Files\Python311"
         ) do (
             if not defined FOUND_PY (
@@ -90,7 +91,7 @@ if %errorlevel% neq 0 (
             set "PATH=!FOUND_PY!;!FOUND_PY!\Scripts;!PATH!"
             setx PATH "!FOUND_PY!;!FOUND_PY!\Scripts;%PATH%" >nul 2>&1
         ) else (
-            echo [WARNING] Python installation completed. If 'python' is not yet recognized,
+            echo [WARNING] Python installation completed. If python is not yet recognized,
             echo           please restart your Command Prompt or terminal.
         )
     )
@@ -103,21 +104,27 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-:: ------------------------------------------------------------------
-:: 2. INSTALL BACKEND PYTHON CRYPTOGRAPHIC PACKAGES
-:: ------------------------------------------------------------------
+REM ------------------------------------------------------------------
+REM 2. INSTALL BACKEND PYTHON CRYPTOGRAPHIC PACKAGES
+REM ------------------------------------------------------------------
 echo.
-echo [2/5] Installing Python cryptographic & backend dependencies...
+echo [2/5] Installing Python cryptographic and backend dependencies...
 python -m pip install --upgrade pip --quiet
 python -m pip install -r "%PROJECT_ROOT%\backend\requirements.txt"
 if %errorlevel% neq 0 (
     echo [WARNING] Retrying install with individual core wheels...
-    python -m pip install fastapi uvicorn cryptography pymupdf Pillow numpy scipy reedsolo python-multipart sqlalchemy aiosqlite
+    python -m pip install fastapi uvicorn cryptography pymupdf Pillow numpy scipy reedsolo python-multipart sqlalchemy greenlet aiosqlite opencv-python-headless
+    if !errorlevel! neq 0 (
+        echo [ERROR] Python package installation failed even with individual wheels.
+        echo         Copy the red error text above and share it for diagnosis.
+        pause
+        exit /b 1
+    )
 )
 
-:: ------------------------------------------------------------------
-:: 3. NODE.JS & NPM DETECTION, AUTO-INSTALL & PATH CONFIGURATION
-:: ------------------------------------------------------------------
+REM ------------------------------------------------------------------
+REM 3. NODE.JS AND NPM DETECTION, AUTO-INSTALL & PATH CONFIGURATION
+REM ------------------------------------------------------------------
 echo.
 echo [3/5] Checking Node.js and NPM...
 
@@ -167,6 +174,7 @@ if %errorlevel% neq 0 (
             )
         )
 
+        set "FOUND_NODE="
         for %%N in (
             "C:\Program Files\nodejs"
             "%LOCALAPPDATA%\Programs\nodejs"
@@ -184,8 +192,18 @@ if %errorlevel% neq 0 (
             echo [OK] Node.js successfully installed at: !FOUND_NODE!
             set "PATH=!FOUND_NODE!;!PATH!"
             setx PATH "!FOUND_NODE!;%PATH%" >nul 2>&1
+        ) else (
+            echo [WARNING] Node.js installation could not be confirmed. If node is not yet
+            echo           recognized, please restart your Command Prompt or terminal.
         )
     )
+)
+
+call node -v >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [ERROR] Unable to initialize Node.js. Please restart this script or command prompt.
+    pause
+    exit /b 1
 )
 
 echo [OK] Node.js:
@@ -193,20 +211,26 @@ call node -v
 echo [OK] NPM:
 call npm -v
 
-:: ------------------------------------------------------------------
-:: 4. INSTALL FRONTEND NPM PACKAGES
-:: ------------------------------------------------------------------
+REM ------------------------------------------------------------------
+REM 4. INSTALL FRONTEND NPM PACKAGES
+REM ------------------------------------------------------------------
 echo.
-echo [4/5] Installing Frontend React / Vite dependencies...
+echo [4/5] Installing Frontend React and Vite dependencies...
 cd /d "%PROJECT_ROOT%\frontend"
 call npm install
+if %errorlevel% neq 0 (
+    echo [ERROR] npm install failed. Check your internet connection and retry.
+    cd /d "%PROJECT_ROOT%"
+    pause
+    exit /b 1
+)
 cd /d "%PROJECT_ROOT%"
 
-:: ------------------------------------------------------------------
-:: 5. DISTRIBUTED LEDGER & DLT RUNTIME VERIFICATION
-:: ------------------------------------------------------------------
+REM ------------------------------------------------------------------
+REM 5. DISTRIBUTED LEDGER AND DLT RUNTIME VERIFICATION
+REM ------------------------------------------------------------------
 echo.
-echo [5/5] Checking Distributed Ledger & Blockchain prerequisites (Stream C DLT)...
+echo [5/5] Checking Distributed Ledger and Blockchain prerequisites Stream C DLT...
 docker --version >nul 2>&1
 if %errorlevel% equ 0 (
     echo [OK] Docker Engine detected:
@@ -214,14 +238,14 @@ if %errorlevel% equ 0 (
     if defined FABRIC_SAMPLES (
         echo [OK] Hyperledger Fabric path configured: %FABRIC_SAMPLES%
     ) else (
-        echo [INFO] FABRIC_SAMPLES is not set. To connect to an external Hyperledger Fabric network:
+        echo [INFO] FABRIC_SAMPLES is not set. To connect to an external Hyperledger Fabric network,
         echo        set FABRIC_SAMPLES=C:\path\to\fabric-samples
-        echo        Otherwise, CIPHERTRACE runs using its built-in High-Assurance Cryptographic Merkle Ledger.
+        echo        Otherwise CIPHERTRACE runs using its built-in Cryptographic Merkle Ledger.
     )
 ) else (
     echo [INFO] Docker not detected or not running.
-    echo        CIPHERTRACE will run using its built-in High-Assurance Cryptographic Merkle Ledger
-    echo        (100%% offline, FIPS 202 SHA3-256 hash-chained blocks, zero external overhead).
+    echo        CIPHERTRACE will run using its built-in Cryptographic Merkle Ledger
+    echo        100%% offline, FIPS 202 SHA3-256 hash-chained blocks, zero external overhead.
 )
 
 echo.
@@ -229,7 +253,7 @@ echo ================================================================
 echo  ALL DEPENDENCIES CONFIGURED SUCCESSFULLY!
 echo.
 echo  To start the application:
-echo  Simply run 'start_demo.bat' in the project root folder.
+echo  Simply run start_demo.bat in the project root folder.
 echo ================================================================
 echo.
 pause
