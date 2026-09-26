@@ -47,10 +47,30 @@ call npm --version
 
 :: 4. Install Frontend NPM Packages
 echo.
-echo [4/4] Installing Frontend React / Vite dependencies...
+echo [4/5] Installing Frontend React / Vite dependencies...
 cd /d "%~dp0..\frontend"
 call npm install
 cd /d "%~dp0.."
+
+:: 5. Distributed Ledger & Blockchain Runtime Verification
+echo.
+echo [5/5] Checking Distributed Ledger & Blockchain prerequisites (Stream C DLT)...
+docker --version >nul 2>&1
+if %errorlevel% equ 0 (
+    echo [OK] Docker Engine detected:
+    docker --version
+    if defined FABRIC_SAMPLES (
+        echo [OK] Hyperledger Fabric path configured: %FABRIC_SAMPLES%
+    ) else (
+        echo [INFO] FABRIC_SAMPLES is not set. To connect to an external Hyperledger Fabric network:
+        echo        set FABRIC_SAMPLES=C:\path\to\fabric-samples
+        echo        Otherwise, CIPHERTRACE runs using its built-in High-Assurance Cryptographic Merkle Ledger.
+    )
+) else (
+    echo [INFO] Docker not detected or not running.
+    echo        CIPHERTRACE will run using its built-in High-Assurance Cryptographic Merkle Ledger
+    echo        (100%% offline, FIPS 202 SHA3-256 hash-chained blocks, zero external overhead).
+)
 
 echo.
 echo ================================================================

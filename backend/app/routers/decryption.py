@@ -3,7 +3,7 @@ import json
 import uuid
 from datetime import datetime
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -175,12 +175,19 @@ async def decrypt_document(req: DecryptionRequest, db: AsyncSession = Depends(ge
     )
 
 @router.get("/download/{event_id}")
-async def download_watermarked_document(event_id: int, db: AsyncSession = Depends(get_db)):
-    """Downloads the decrypted document with invisible 2D DCT watermark."""
+async def download_watermarked_document(
+    event_id: int,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db)
+):
+    """Downloads the decrypted document with invisible 2D DCT watermark. Cleaned up immediately after delivery."""
     res = await db.execute(select(WatermarkRecord).where(WatermarkRecord.event_id == event_id))
     record = res.scalar_one_or_none()
     if not record or not os.path.exists(record.watermarked_path):
-        raise HTTPException(status_code=404, detail="Watermarked document not found")
+        raise HTTPException(status_code=404, detail="Watermarked document expired or not found")
+
+    # ZERO-STORAGE SECURITY POLICY: Clean up decrypted watermarked PDF once delivered
+    background_tasks.add_task(os.remove, record.watermarked_path)
 
     return FileResponse(
         record.watermarked_path,

@@ -60,12 +60,17 @@ CIPHERTRACE guarantees that **no recipient can access a confidential document wi
 - **Reed-Solomon ECC (255, 127)**: Corrects bit flips caused by lossy JPEG compression, screen photographs, and noise.
 - **Cropping & Geometric Resilience**: Spatial spread-spectrum distribution allows payload recovery even if page margins are trimmed.
 
-### 3. ⛓️ Permissioned Hash-Chained Merkle Ledger
-- Append-only cryptographic ledger tracking every decryption event.
-- Blocks are chained with SHA3-256 previous-block hashes and Merkle root integrity.
-- Immediate detection of database tampering or revisionist history.
+### 3. ⛓️ Hybrid Distributed Ledger Layer (Hyperledger Fabric + Merkle DLT)
+- **Hyperledger Fabric Interoperability (`Stream C DLT`)**: Fully compatible with enterprise Hyperledger Fabric v2.5.16 smart contracts (`RecordDecryption`, `LookupByWatermark`) with multi-organization majority endorsement (`Org1MSP`, `Org2MSP`).
+- **High-Assurance Air-Gapped Fallback**: Operates zero-dependency cryptographic hash-chaining (SHA3-256) and binary Merkle trees when running offline or without Docker containers.
+- **Strict Anti-Tamper Detection**: Detects any unauthorized retroactive SQL modifications or history rewrite attempts.
 
-### 4. 📴 100% Offline & Universal Operation
+### 4. 🛡️ Zero-Storage Privacy Architecture (No Server Document Hoarding)
+- **Zero Raw Document Persistence**: CIPHERTRACE is strictly an encryption, watermarking, and forensic tracing service—NOT a cloud storage repository.
+- **Immediate In-Memory/Ephemeral Lifecycle**: Once a document is encrypted into an envelope (.enc), the plaintext PDF is immediately purged from the server disk.
+- **Ephemeral Watermarked Delivery**: Decrypted watermarked PDFs are streamed to authorized recipients and cleaned up via background tasks immediately upon delivery.
+
+### 5. 📴 100% Offline & Universal Operation
 - Zero reliance on external cloud services, third-party Certificate Authorities, or internet access.
 - Deployable on local workstations, enterprise servers, isolated intranets, or air-gapped secure labs.
 

@@ -96,6 +96,34 @@ class LedgerEngine:
         new_block_index = (latest_block.id + 1) if latest_block else 0
         prev_hash = latest_block.block_hash if latest_block else self.GENESIS_PREV_HASH
 
+        # Retrieve watermark record if already persisted
+        from ..models.database import WatermarkRecord
+        from . import ledger_client
+        import uuid
+        import base64
+
+        wm_res = await db.execute(select(WatermarkRecord).where(WatermarkRecord.event_id == event.id))
+        wm = wm_res.scalar_one_or_none()
+        watermark_id = wm.watermark_hex[:20].lower() if wm else hashlib.sha256(event.session_nonce.encode()).hexdigest()[:20].lower()
+        pubkey_fp = hashlib.sha256(user.dsa_public_key).hexdigest() if user.dsa_public_key else ("0" * 64)
+        doc_hash_64 = (doc.sha3_hash[:64] if doc.sha3_hash else "0" * 64).lower()
+
+        # Hyperledger Fabric compliant audit record
+        fabric_record = {
+            "record_id": str(uuid.uuid4()),
+            "watermark_id": watermark_id,
+            "recipient_id": user.username or f"user_{user.id}",
+            "document_hash": doc_hash_64,
+            "watermarked_doc_hash": doc_hash_64,
+            "timestamp": event.timestamp.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "pqc_algorithm": "ML-DSA-65",
+            "signature": base64.b64encode(event.signature).decode("ascii"),
+            "recipient_pubkey_fingerprint": pubkey_fp
+        }
+
+        # Submit via Hyperledger Fabric / Merkle client
+        fabric_tx_id = ledger_client.submit_record(fabric_record)
+
         # Construct canonical transaction record
         tx_data = {
             "block_index": new_block_index,
@@ -109,7 +137,9 @@ class LedgerEngine:
             "session_nonce": event.session_nonce,
             "timestamp": event.timestamp.isoformat(),
             "signature_pqc_hex": event.signature.hex(),
-            "event_hash": event.event_hash
+            "event_hash": event.event_hash,
+            "fabric_tx_id": fabric_tx_id,
+            "fabric_record": fabric_record
         }
         data_str = json.dumps(tx_data, sort_keys=True)
         tx_leaf_hash = CryptoEngine.sha3_256(data_str.encode("utf-8"))

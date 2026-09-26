@@ -174,6 +174,15 @@ async def distribute_document(req: DistributeRequest, db: AsyncSession = Depends
     with open(enc_file_path, "w", encoding="utf-8") as f:
         f.write(package_json)
 
+    # ZERO-STORAGE SECURITY POLICY:
+    # Shred unencrypted source document from the server disk immediately.
+    # The server only holds the encrypted .enc distribution artifact and SHA3 anchor.
+    if os.path.exists(doc.original_path):
+        try:
+            os.remove(doc.original_path)
+        except Exception:
+            pass
+
     return DistributionResponse(
         document_id=doc.id,
         document_name=doc.file_name,
