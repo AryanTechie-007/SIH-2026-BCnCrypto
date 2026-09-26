@@ -92,33 +92,7 @@ class WatermarkEngine:
         src_doc.close()
         return output_pdf_path
 
-    def extract_watermark(self, document_path: str) -> Tuple[Union[bytes, None], Dict[str, Any]]:
-        """
-        Extracts and decodes the embedded watermark from a PDF or image file.
-        Uses multi-tile candidate window scanning and Reed-Solomon (255, 127) decoding.
-        """
-        lower_path = document_path.lower()
-        try:
-            if lower_path.endswith(('.png', '.jpg', '.jpeg', '.webp', '.bmp', '.tiff')):
-                img = Image.open(document_path).convert("RGB")
-            else:
-                doc = fitz.open(document_path)
-                if len(doc) == 0:
-                    doc.close()
-                    return None, {"error": "Empty document", "watermark_detected": False}
-                page = doc[0]
-                pix = page.get_pixmap(dpi=self.render_dpi)
-                img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-                doc.close()
-        except Exception as e:
-            return None, {
-                "error": f"Failed to parse document: {str(e)}",
-                "watermark_detected": False,
-                "confidence": 0.0,
-                "bit_error_rate": 100.0,
-                "analysis": "Unreadable or corrupted file format"
-            }
-
+    def _extract_from_image(self, img: Image.Image) -> Tuple[Union[bytes, None], Dict[str, Any]]:
         img_np = np.array(img, dtype=np.uint8)
         ycrcb = cv2.cvtColor(img_np, cv2.COLOR_RGB2YCrCb)
         y, _, _ = cv2.split(ycrcb)
@@ -142,7 +116,6 @@ class WatermarkEngine:
             }
 
         # Scan candidate 256-block windows (tiles) across the image
-        best_payload = None
         best_metrics = None
         min_ber = 100.0
 
@@ -200,3 +173,71 @@ class WatermarkEngine:
         best_metrics["ecc_corrected"] = False
         best_metrics["payload_recovery_pct"] = max(0.0, 100.0 - min_ber * 2)
         return None, best_metrics
+
+    def extract_watermark(self, document_path: str) -> Tuple[Union[bytes, None], Dict[str, Any]]:
+        """
+        Extracts and decodes the embedded watermark from a PDF or image file.
+        Includes multi-scale canonical screen capture normalization and Reed-Solomon decoding.
+        """
+        lower_path = document_path.lower()
+        is_image = lower_path.endswith(('.png', '.jpg', '.jpeg', '.webp', '.bmp', '.tiff'))
+
+        try:
+            if is_image:
+                base_img = Image.open(document_path).convert("RGB")
+            else:
+                doc = fitz.open(document_path)
+                if len(doc) == 0:
+                    doc.close()
+                    return None, {"error": "Empty document", "watermark_detected": False}
+                page = doc[0]
+                pix = page.get_pixmap(dpi=self.render_dpi)
+                base_img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                doc.close()
+        except Exception as e:
+            return None, {
+                "error": f"Failed to parse document: {str(e)}",
+                "watermark_detected": False,
+                "confidence": 0.0,
+                "bit_error_rate": 100.0,
+                "analysis": "Unreadable or corrupted file format"
+            }
+
+        # 1. Native Resolution Extraction
+        payload, metrics = self._extract_from_image(base_img)
+        if payload is not None:
+            return payload, metrics
+
+        # 2. If it's an image (e.g. screenshot), try Canonical Document Scaling
+        # Standard screen captures are rendered at 96 DPI, 120 DPI (125% scaling), or browser zoom
+        if is_image:
+            if base_img.size != (1240, 1754):
+                try:
+                    canon_img = base_img.resize((1240, 1754), Image.Resampling.LANCZOS)
+                    c_payload, c_metrics = self._extract_from_image(canon_img)
+                    if c_payload is not None:
+                        c_metrics["analysis"] = "2D DCT Lattice Extraction (Canonical Screen Normalization)"
+                        return c_payload, c_metrics
+                except Exception:
+                    pass
+
+            # 3. Detect and crop page canvas inside screenshot if viewer chrome/margins are present
+            try:
+                gray = cv2.cvtColor(np.array(base_img), cv2.COLOR_RGB2GRAY)
+                # Mask out dark PDF reader / desktop borders
+                _, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY)
+                contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                if contours:
+                    c = max(contours, key=cv2.contourArea)
+                    x, y, w, h = cv2.boundingRect(c)
+                    if w > 300 and h > 300 and (w * h) > (base_img.width * base_img.height * 0.3):
+                        cropped_page = base_img.crop((x, y, x + w, y + h))
+                        cropped_canon = cropped_page.resize((1240, 1754), Image.Resampling.LANCZOS)
+                        p_crop, m_crop = self._extract_from_image(cropped_canon)
+                        if p_crop is not None:
+                            m_crop["analysis"] = "2D DCT Lattice Extraction (Auto-Cropped Screen Normalization)"
+                            return p_crop, m_crop
+            except Exception:
+                pass
+
+        return payload, metrics
