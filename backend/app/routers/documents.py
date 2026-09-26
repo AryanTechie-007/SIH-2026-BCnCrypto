@@ -81,8 +81,37 @@ async def distribute_document(req: DistributeRequest, db: AsyncSession = Depends
     """
     doc_res = await db.execute(select(Document).where(Document.id == req.document_id))
     doc = doc_res.scalar_one_or_none()
-    if not doc or not os.path.exists(doc.original_path):
+    if not doc:
         raise HTTPException(status_code=404, detail="Target document not found")
+
+    enc_file_path = doc.original_path + ".enc"
+    envelope_file_path = doc.original_path + ".envelope.enc"
+
+    # If the unencrypted document was already encrypted and shredded under Zero-Storage:
+    if not os.path.exists(doc.original_path):
+        existing_path = envelope_file_path if os.path.exists(envelope_file_path) else (enc_file_path if os.path.exists(enc_file_path) else None)
+        if existing_path:
+            with open(existing_path, "r", encoding="utf-8") as f:
+                enc_data = json.load(f)
+            existing_envelopes = [
+                KeyEnvelopeInfo(
+                    recipient_id=r.get("recipient_id", 0),
+                    recipient_navy_id=r.get("navy_id", ""),
+                    recipient_name=r.get("name", ""),
+                    kem_algorithm=r.get("kem_algorithm", "ML-KEM-768 (NIST FIPS 203)"),
+                    kem_ciphertext_preview=f"0x{r.get('ct_kem_hex', '')[:16]}... (1088 bytes)"
+                )
+                for r in enc_data.get("recipients", [])
+            ]
+            return DistributionResponse(
+                document_id=doc.id,
+                document_name=doc.file_name,
+                document_sha3=doc.sha3_hash,
+                total_envelopes=len(existing_envelopes),
+                envelopes=existing_envelopes,
+                envelope_file_name=f"{doc.file_name}.enc"
+            )
+        raise HTTPException(status_code=404, detail="Original document not found on server (Zero-Storage policy: please re-upload to encrypt again).")
 
     # Load recipients (if none specified, automatically encrypt for all enrolled organization identities)
     if not req.recipient_ids:
@@ -201,11 +230,13 @@ async def download_envelope(document_id: int, db: AsyncSession = Depends(get_db)
         raise HTTPException(status_code=404, detail="Document not found")
 
     envelope_file_path = doc.original_path + ".envelope.enc"
-    if not os.path.exists(envelope_file_path):
+    enc_file_path = doc.original_path + ".enc"
+    target_path = envelope_file_path if os.path.exists(envelope_file_path) else (enc_file_path if os.path.exists(enc_file_path) else None)
+    if not target_path:
         raise HTTPException(status_code=404, detail="Envelope file not yet generated. Distribute document first.")
 
     return FileResponse(
-        envelope_file_path,
+        target_path,
         media_type="application/json",
         filename=f"{doc.file_name}.enc"
     )
