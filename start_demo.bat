@@ -93,13 +93,13 @@ for %%p in (8000 5173) do (
 :: 4. START BACKEND
 :: --------------------------------------------------------
 echo [4/6] Starting Backend (Port 8000)...
-start "CIPHERTRACE Backend" /D "%~dp0backend" cmd /k "cd /d "%~dp0backend" && python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+start "CIPHERTRACE Backend" "%~dp0run_backend.bat"
 
 :: --------------------------------------------------------
 :: 5. START FRONTEND
 :: --------------------------------------------------------
 echo [5/6] Starting Frontend (Port 5173)...
-start "CIPHERTRACE Frontend" /D "%~dp0frontend" cmd /k "cd /d "%~dp0frontend" && npm run dev"
+start "CIPHERTRACE Frontend" "%~dp0run_frontend.bat"
 
 :: --------------------------------------------------------
 :: 6. FINALIZATION
