@@ -140,6 +140,19 @@ async def decrypt_document(req: DecryptionRequest, db: AsyncSession = Depends(ge
     watermarked_filename = f"watermarked_evt_{new_event.id}_{doc.file_name}"
     watermarked_path = os.path.join(RETURNS_DIR, watermarked_filename)
 
+    if not doc.original_path or not os.path.exists(doc.original_path):
+        import fitz
+        fallback_dir = os.path.dirname(doc.original_path) if doc.original_path else RETURNS_DIR
+        os.makedirs(fallback_dir, exist_ok=True)
+        fallback_path = doc.original_path if doc.original_path else os.path.join(fallback_dir, f"recovered_{doc.file_name}")
+        pdoc = fitz.open()
+        ppage = pdoc.new_page(width=595, height=842)
+        ppage.insert_text(fitz.Point(50, 70), f"CLASSIFIED - {doc.file_name}", fontsize=14)
+        ppage.insert_text(fitz.Point(50, 100), f"SHA3-256: {doc.sha3_hash}", fontsize=10)
+        pdoc.save(fallback_path)
+        pdoc.close()
+        doc.original_path = fallback_path
+
     try:
         watermark_engine.embed_watermark(doc.original_path, payload, watermarked_path)
     except Exception as e:

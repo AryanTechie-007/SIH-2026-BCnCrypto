@@ -104,6 +104,7 @@ export interface ForensicAnalysisResult {
   };
   verification_gates: VerificationGates;
   overall_confidence: number;
+  match_confidence?: number;
   analysis_narrative: string;
 }
 

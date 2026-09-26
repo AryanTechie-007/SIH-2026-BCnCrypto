@@ -28,36 +28,11 @@ echo [2/6] Validating environment and dependencies...
 
 :: Scan for Python if not on PATH
 python --version >nul 2>&1
-if %errorlevel% neq 0 (
-    for %%P in (
-        "%LOCALAPPDATA%\Programs\Python\Python313",
-        "%LOCALAPPDATA%\Programs\Python\Python312",
-        "%LOCALAPPDATA%\Programs\Python\Python311",
-        "%LOCALAPPDATA%\Programs\Python\Python310",
-        "C:\Program Files\Python313",
-        "C:\Program Files\Python312",
-        "C:\Program Files\Python311",
-        "C:\Program Files\Python310"
-    ) do (
-        if exist "%%~fP\python.exe" (
-            set "PATH=%%~fP;%%~fP\Scripts;!PATH!"
-        )
-    )
-)
+if %errorlevel% neq 0 call :detect_python
 
 :: Scan for Node if not on PATH
 call node -v >nul 2>&1
-if %errorlevel% neq 0 (
-    for %%N in (
-        "C:\Program Files\nodejs",
-        "%LOCALAPPDATA%\Programs\nodejs",
-        "C:\Program Files (x86)\nodejs"
-    ) do (
-        if exist "%%~fN\node.exe" (
-            set "PATH=%%~fN;!PATH!"
-        )
-    )
-)
+if %errorlevel% neq 0 call :detect_node
 
 :: Re-verify Python & Node. If missing, auto-trigger installer!
 set "NEEDS_INSTALL=0"
@@ -66,18 +41,18 @@ if %errorlevel% neq 0 set "NEEDS_INSTALL=1"
 call npm -v >nul 2>&1
 if %errorlevel% neq 0 set "NEEDS_INSTALL=1"
 
-if !NEEDS_INSTALL! equ 1 (
+if "!NEEDS_INSTALL!"=="1" (
     echo [!] Python or Node.js missing from environment.
     echo [*] Automatically launching the automated dependency installer...
     call setup\install_dependencies.bat
 )
 
 :: Frontend Dependencies
-if not exist "frontend\node_modules" (
-    echo [SETUP] Installing frontend packages...
-    pushd "frontend"
+if not exist "frontend\node_modules\" (
+    echo [SETUP] Installing frontend node_modules...
+    pushd "%~dp0frontend"
     call npm install
-    if %errorlevel% neq 0 (
+    if !errorlevel! neq 0 (
         echo [ERROR] npm install failed. Check your internet connection.
         popd
         pause
@@ -92,8 +67,8 @@ python -c "import fastapi, uvicorn, pymupdf, cryptography" >nul 2>&1
 if %errorlevel% neq 0 (
     echo [SETUP] Missing or outdated Python packages detected. Installing...
     python -m pip install --upgrade pip
-    python -m pip install -r "backend\requirements.txt"
-    if %errorlevel% neq 0 (
+    python -m pip install -r "%~dp0backend\requirements.txt"
+    if !errorlevel! neq 0 (
         echo [ERROR] Python package installation failed.
         pause
         exit /b 1
@@ -102,13 +77,15 @@ if %errorlevel% neq 0 (
 echo [OK] All dependencies verified.
 
 :: --------------------------------------------------------
-:: 3. PORT CLEANUP
+:: 3. PORT CLEANUP (Safe check, skip PID 0)
 :: --------------------------------------------------------
 echo [3/6] Terminating stale processes on ports 8000 and 5173...
 for %%p in (8000 5173) do (
     for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":%%p "' ) do (
-        echo Killing process %%a on port %%p...
-        taskkill /F /PID %%a >nul 2>&1
+        if not "%%a"=="0" (
+            echo Killing process %%a on port %%p...
+            taskkill /F /PID %%a >nul 2>&1
+        )
     )
 )
 
@@ -116,20 +93,19 @@ for %%p in (8000 5173) do (
 :: 4. START BACKEND
 :: --------------------------------------------------------
 echo [4/6] Starting Backend (Port 8000)...
-:: Use quotes around the whole command string to handle spaces in paths
-start "CIPHERTRACE Backend" cmd /k "cd /d "%~dp0backend" && python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+start "CIPHERTRACE Backend" /D "%~dp0backend" cmd /k "python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
 
 :: --------------------------------------------------------
 :: 5. START FRONTEND
 :: --------------------------------------------------------
 echo [5/6] Starting Frontend (Port 5173)...
-start "CIPHERTRACE Frontend" cmd /k "cd /d "%~dp0frontend" && npm run dev"
+start "CIPHERTRACE Frontend" /D "%~dp0frontend" cmd /k "npm run dev"
 
 :: --------------------------------------------------------
 :: 6. FINALIZATION
 :: --------------------------------------------------------
 echo [6/6] Waiting for services to initialize...
-timeout /t 5 /nobreak >nul
+ping 127.0.0.1 -n 6 >nul
 
 echo.
 echo Opening Browser at http://127.0.0.1:5173 ...
@@ -144,3 +120,39 @@ echo ========================================================
 echo.
 echo Note: Keep the other terminal windows open to maintain the services.
 pause
+exit /b 0
+
+:: --------------------------------------------------------
+:: SUBROUTINES FOR SAFE PATH RESOLUTION
+:: --------------------------------------------------------
+:detect_python
+for %%P in (
+    "%LOCALAPPDATA%\Programs\Python\Python313"
+    "%LOCALAPPDATA%\Programs\Python\Python312"
+    "%LOCALAPPDATA%\Programs\Python\Python311"
+    "%LOCALAPPDATA%\Programs\Python\Python310"
+    "C:\Program Files\Python313"
+    "C:\Program Files\Python312"
+    "C:\Program Files\Python311"
+    "C:\Program Files\Python310"
+) do (
+    if exist "%%~fP\python.exe" (
+        set "PATH=%%~fP;%%~fP\Scripts;!PATH!"
+        goto :eof
+    )
+)
+goto :eof
+
+:detect_node
+for %%N in (
+    "C:\Program Files\nodejs"
+    "%LOCALAPPDATA%\Programs\nodejs"
+    "%ProgramFiles%\nodejs"
+    "%ProgramFiles(x86)%\nodejs"
+) do (
+    if exist "%%~fN\node.exe" (
+        set "PATH=%%~fN;!PATH!"
+        goto :eof
+    )
+)
+goto :eof

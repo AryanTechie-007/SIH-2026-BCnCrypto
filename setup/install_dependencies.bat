@@ -128,9 +128,10 @@ if %errorlevel% neq 0 (
 
     set "FOUND_NODE="
     for %%N in (
-        "C:\Program Files\nodejs",
-        "%LOCALAPPDATA%\Programs\nodejs",
-        "C:\Program Files (x86)\nodejs"
+        "C:\Program Files\nodejs"
+        "%LOCALAPPDATA%\Programs\nodejs"
+        "%ProgramFiles%\nodejs"
+        "%ProgramFiles(x86)%\nodejs"
     ) do (
         if not defined FOUND_NODE (
             if exist "%%~fN\node.exe" (
@@ -149,10 +150,10 @@ if %errorlevel% neq 0 (
 
         set "WINGET_NODE=0"
         winget --version >nul 2>&1
-        if %errorlevel% equ 0 (
+        if !errorlevel! equ 0 (
             echo [+] Installing Node.js LTS via winget...
             winget install --id OpenJS.NodeJS.LTS -e --silent --accept-package-agreements --accept-source-agreements
-            if %errorlevel% equ 0 set "WINGET_NODE=1"
+            if !errorlevel! equ 0 set "WINGET_NODE=1"
         )
 
         if !WINGET_NODE! equ 0 (
@@ -167,8 +168,10 @@ if %errorlevel% neq 0 (
         )
 
         for %%N in (
-            "C:\Program Files\nodejs",
+            "C:\Program Files\nodejs"
             "%LOCALAPPDATA%\Programs\nodejs"
+            "%ProgramFiles%\nodejs"
+            "%ProgramFiles(x86)%\nodejs"
         ) do (
             if not defined FOUND_NODE (
                 if exist "%%~fN\node.exe" (

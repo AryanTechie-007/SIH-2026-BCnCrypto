@@ -166,14 +166,14 @@ export const ForensicConsole: React.FC = () => {
 
               <div className="tactical-panel-body">
                 {/* Identified Leaker Card */}
-                {analysisResult.recipient && (
+                {analysisResult.recipient && analysisResult.overall_confidence > 0 && analysisResult.status !== 'UNATTRIBUTED' ? (
                   <div style={{ backgroundColor: '#090d15', border: '1px solid var(--border-hard)', padding: '16px', marginBottom: '16px' }}>
                     <div style={{ fontSize: '11px', color: 'var(--text-dim)', textTransform: 'uppercase', marginBottom: '8px' }}>
-                      Attributed Recipient & Device Identifier
+                      Attributed Recipient &amp; Device Identifier
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
                       <div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>NAME & ROLE:</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>NAME &amp; ROLE:</div>
                         <div style={{ fontWeight: 800, color: '#ffffff', fontSize: '14px' }}>
                           {analysisResult.recipient.name}
                         </div>
@@ -192,6 +192,20 @@ export const ForensicConsole: React.FC = () => {
                           {analysisResult.recipient.device_id}
                         </div>
                         <div style={{ fontSize: '11px', color: 'var(--text-dim)' }}>ACCESS LEVEL: {analysisResult.recipient.clearance_level}</div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ backgroundColor: '#090d15', border: '1px solid #1e293b', padding: '14px 16px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444', fontWeight: 'bold', fontSize: '13px' }}>
+                      ✕
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        ATTRIBUTION STATUS: UNATTRIBUTED
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#f87171', fontWeight: 600, marginTop: '2px' }}>
+                        All registered users cleared (0% match confidence). No valid watermark detected in uploaded media.
                       </div>
                     </div>
                   </div>

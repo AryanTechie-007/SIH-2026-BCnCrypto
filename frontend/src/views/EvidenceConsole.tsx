@@ -275,7 +275,7 @@ export const EvidenceConsole: React.FC = () => {
               </div>
 
               {/* Attributed Identity Box */}
-              {analysisResult.recipient && (
+              {analysisResult.recipient && analysisResult.overall_confidence > 0 && analysisResult.status !== 'UNATTRIBUTED' ? (
                 <div style={{
                   backgroundColor: '#070b13',
                   border: '1px solid var(--border-hard)',
@@ -315,6 +315,40 @@ export const EvidenceConsole: React.FC = () => {
                         {analysisResult.recipient.device_id}
                       </div>
                       <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>CLEARANCE: {analysisResult.recipient.clearance_level}</div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div style={{
+                  backgroundColor: '#0a0d14',
+                  border: '1px solid #1e293b',
+                  padding: '14px 16px',
+                  marginBottom: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '14px'
+                }}>
+                  <div style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '50%',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    border: '1px solid #ef4444',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#ef4444',
+                    fontWeight: 'bold',
+                    fontSize: '14px'
+                  }}>
+                    ✕
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '10px', color: '#94a3b8', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      AUDIT STATUS: NO RECIPIENT ATTRIBUTED
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#f87171', fontFamily: 'var(--font-mono)', fontWeight: 600, marginTop: '2px' }}>
+                      All registered officers cleared (0% match). No authentic cryptographic watermark detected.
                     </div>
                   </div>
                 </div>

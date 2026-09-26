@@ -215,19 +215,6 @@ async def evaluate_suspect_stream(file_name: str, file_bytes: bytes, db: AsyncSe
         )
 
     # CASE 2: No valid watermark detected or unwatermarked source file
-    default_officer = OfficerSchema(
-        id=top_user.id,
-        navy_id=top_user.navy_id,
-        name=top_user.name,
-        rank=top_user.rank,
-        command_unit=top_user.command_unit,
-        clearance_level=top_user.clearance_level,
-        device_id=top_user.device_id,
-        status=top_user.status,
-        ml_kem_pub_preview=f"0x{top_user.kem_public_key[:16].hex()}...",
-        ml_dsa_pub_preview=f"0x{top_user.dsa_public_key[:16].hex()}..."
-    ) if top_user else None
-
     failed_gates = VerificationGates(
         watermark_valid=False,
         ledger_event_exists=False,
@@ -251,8 +238,8 @@ async def evaluate_suspect_stream(file_name: str, file_bytes: bytes, db: AsyncSe
         payload_recovery_pct=0.0,
         bit_error_rate=ber,
         ecc_strategy="Reed-Solomon (255, 127)",
-        recipient=default_officer,
-        top_suspect_name=top_user.name if top_user else "None",
+        recipient=None,
+        top_suspect_name="None (Cleared)",
         match_confidence=0.0,
         decryption_event=None,
         verification_gates=failed_gates,
