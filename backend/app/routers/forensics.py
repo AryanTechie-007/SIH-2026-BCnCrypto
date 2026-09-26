@@ -151,7 +151,7 @@ async def evaluate_suspect_stream(file_name: str, file_bytes: bytes, db: AsyncSe
         gate3_sig_valid = CryptoEngine.verify(user.dsa_public_key, canonical_msg, event.signature)
         gate4_merkle_valid = (block is not None and not block.is_tampered and len(block.merkle_root) == 64)
         gate5_doc_match = (doc is not None and len(doc.sha3_hash) == 64)
-        gate6_chain_valid = chain_valid
+        gate6_chain_valid = bool(event is not None and block is not None and chain_valid and not block.is_tampered)
 
         passed_count = sum([gate1_wm_valid, gate2_event_exists, gate3_sig_valid, gate4_merkle_valid, gate5_doc_match, gate6_chain_valid])
         overall_conf = 100.0 if (is_exact and passed_count == 6) else top_conf
@@ -234,7 +234,7 @@ async def evaluate_suspect_stream(file_name: str, file_bytes: bytes, db: AsyncSe
         ml_dsa_signature_valid=False,
         merkle_inclusion_valid=False,
         document_hash_match=False,
-        ledger_chain_integrity=chain_valid
+        ledger_chain_integrity=False
     )
 
     narrative = (
