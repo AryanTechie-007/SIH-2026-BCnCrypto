@@ -297,9 +297,12 @@ async def decrypt_uploaded_envelope(
 
     # Ensure distribution record
     dist_res = await db.execute(
-        select(Distribution).where(Distribution.document_id == doc.id, Distribution.recipient_id == user.id)
+        select(Distribution).where(
+            Distribution.document_id == doc.id,
+            Distribution.recipient_id == user.id
+        ).order_by(Distribution.id.desc())
     )
-    dist = dist_res.scalar_one_or_none()
+    dist = dist_res.scalars().first()
     if not dist:
         dist = Distribution(
             document_id=doc.id,
@@ -307,6 +310,10 @@ async def decrypt_uploaded_envelope(
             encrypted_dek=ct_kem + dek_nonce + wrapped_dek
         )
         db.add(dist)
+        await db.commit()
+        await db.refresh(dist)
+    else:
+        dist.encrypted_dek = ct_kem + dek_nonce + wrapped_dek
         await db.commit()
         await db.refresh(dist)
 

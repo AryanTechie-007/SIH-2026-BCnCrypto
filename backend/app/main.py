@@ -31,11 +31,12 @@ app.add_middleware(
 # Global exception handler to guarantee structured error delivery to UI
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    # Log the actual exception internally for debugging
-    print(f"CRITICAL ERROR: {str(exc)}")
+    import traceback
+    traceback.print_exc()
+    error_msg = str(exc) or type(exc).__name__
     return JSONResponse(
         status_code=500,
-        content={"detail": "A critical internal server error occurred. Please contact the system administrator."}
+        content={"detail": f"Internal Processing Error: {error_msg}"}
     )
 
 # Include All System Routers
