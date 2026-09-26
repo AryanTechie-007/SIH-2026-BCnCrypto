@@ -84,14 +84,20 @@ async def distribute_document(req: DistributeRequest, db: AsyncSession = Depends
     if not doc or not os.path.exists(doc.original_path):
         raise HTTPException(status_code=404, detail="Target document not found")
 
+    # Load recipients (if none specified, automatically encrypt for all enrolled organization identities)
     if not req.recipient_ids:
-        raise HTTPException(status_code=400, detail="Must designate at least one operational recipient")
-
-    # Load recipients
-    users_res = await db.execute(select(User).where(User.id.in_(req.recipient_ids)))
-    recipients = users_res.scalars().all()
-    if len(recipients) != len(req.recipient_ids):
-        raise HTTPException(status_code=400, detail="One or more specified recipient IDs are invalid")
+        users_res = await db.execute(select(User).where(User.status == "ACTIVE"))
+        recipients = users_res.scalars().all()
+        if not recipients:
+            users_res = await db.execute(select(User))
+            recipients = users_res.scalars().all()
+        if not recipients:
+            raise HTTPException(status_code=400, detail="No enrolled users found in node registry to encapsulate keys.")
+    else:
+        users_res = await db.execute(select(User).where(User.id.in_(req.recipient_ids)))
+        recipients = users_res.scalars().all()
+        if len(recipients) != len(req.recipient_ids):
+            raise HTTPException(status_code=400, detail="One or more specified recipient IDs are invalid")
 
     # 1. Read document content and generate 256-bit DEK
     with open(doc.original_path, "rb") as f:

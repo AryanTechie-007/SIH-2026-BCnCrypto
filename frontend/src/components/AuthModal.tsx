@@ -237,7 +237,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   type="text"
                   value={username}
                   onChange={e => setUsername(e.target.value)}
-                  placeholder="e.g. alice, bob, aryan"
+                  placeholder="Enter username"
                   className="tactical-input"
                   style={{ width: '100%', padding: '10px 12px', fontSize: '12px' }}
                   required
@@ -280,7 +280,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     type="text"
                     value={username}
                     onChange={e => setUsername(e.target.value)}
-                    placeholder="e.g. aryan, bob, alice"
+                    placeholder="Enter username"
                     className="tactical-input"
                     style={{ width: '100%', padding: '8px 10px', fontSize: '12px' }}
                     required
@@ -294,7 +294,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     type="text"
                     value={displayName}
                     onChange={e => setDisplayName(e.target.value)}
-                    placeholder="e.g. Aryan Techie"
+                    placeholder="Enter full name"
                     className="tactical-input"
                     style={{ width: '100%', padding: '8px 10px', fontSize: '12px' }}
                     required
@@ -345,7 +345,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   type="text"
                   value={deviceId}
                   onChange={e => setDeviceId(e.target.value)}
-                  placeholder="e.g. Workstation PC, MacBook Pro (auto-generated if empty)"
+                  placeholder="Enter device name"
                   className="tactical-input"
                   style={{ width: '100%', padding: '8px 10px', fontSize: '12px' }}
                 />
@@ -382,33 +382,33 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
               <button
                 type="button"
-                onClick={() => handleQuickCreate('alice', 'Alice Morgan', 'Executive')}
+                onClick={() => handleQuickCreate('user_sender', 'Sender User', 'Executive')}
                 disabled={isLoading}
                 className="tactical-btn tactical-btn-secondary"
                 style={{ fontSize: '10px', padding: '8px 6px', justifyContent: 'center' }}
               >
                 <Zap size={11} style={{ color: '#38bdf8' }} />
-                <span>Alice (Sender)</span>
+                <span>Sender Account</span>
               </button>
               <button
                 type="button"
-                onClick={() => handleQuickCreate('bob', 'Bob Vance', 'Legal Counsel')}
+                onClick={() => handleQuickCreate('user_recipient', 'Recipient User', 'Legal Counsel')}
                 disabled={isLoading}
                 className="tactical-btn tactical-btn-secondary"
                 style={{ fontSize: '10px', padding: '8px 6px', justifyContent: 'center' }}
               >
                 <Zap size={11} style={{ color: '#10b981' }} />
-                <span>Bob (Recipient)</span>
+                <span>Recipient Account</span>
               </button>
               <button
                 type="button"
-                onClick={() => handleQuickCreate('aryan', 'Aryan Techie', 'Engineering')}
+                onClick={() => handleQuickCreate('user_personal', 'Personal User', 'Engineering')}
                 disabled={isLoading}
                 className="tactical-btn tactical-btn-secondary"
                 style={{ fontSize: '10px', padding: '8px 6px', justifyContent: 'center' }}
               >
                 <Zap size={11} style={{ color: '#f59e0b' }} />
-                <span>Aryan (Personal)</span>
+                <span>Personal Account</span>
               </button>
             </div>
           </div>

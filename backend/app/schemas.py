@@ -56,7 +56,7 @@ class DocumentSchema(BaseModel):
 
 class DistributeRequest(BaseModel):
     document_id: int
-    recipient_ids: List[int]
+    recipient_ids: Optional[List[int]] = None
 
 class KeyEnvelopeInfo(BaseModel):
     recipient_id: int

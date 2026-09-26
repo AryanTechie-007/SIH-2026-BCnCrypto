@@ -1,10 +1,12 @@
 :root {
-  --bg-core: #070a11;
-  --bg-panel: #0d121d;
-  --bg-panel-alt: #121826;
-  --bg-panel-highlight: #172033;
-  --border-hard: #1e293b;
-  --border-active: #334155;
+  --bg-core: #070a12;
+  --bg-sidebar: #090e18;
+  --bg-topbar: #0a0f1c;
+  --bg-panel: #0d1322;
+  --bg-panel-alt: #111a2d;
+  --bg-panel-highlight: #162238;
+  --border-hard: #1a253a;
+  --border-active: #2b3d5b;
   --border-focus: #0284c7;
 
   --text-bright: #ffffff;
@@ -12,14 +14,14 @@
   --text-muted: #94a3b8;
   --text-dim: #64748b;
 
-  --color-tactical-blue: #0284c7;
-  --color-tactical-cyan: #06b6d4;
-  --color-tactical-green: #10b981;
-  --color-tactical-amber: #f59e0b;
-  --color-tactical-crimson: #ef4444;
+  --color-cyan: #38bdf8;
+  --color-blue: #0284c7;
+  --color-green: #10b981;
+  --color-amber: #f59e0b;
+  --color-red: #ef4444;
 
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
 }
 
 * {
@@ -30,12 +32,31 @@
 
 body {
   background-color: var(--bg-core);
+  background-image: radial-gradient(rgba(56, 189, 248, 0.06) 1px, transparent 1px);
+  background-size: 24px 24px;
   color: var(--text-main);
   font-family: var(--font-sans);
   font-size: 13px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Custom Workstation Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #070a12;
+}
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
 }
 
 /* Monospace Technical Data */
@@ -43,7 +64,7 @@ body {
   font-family: var(--font-mono);
 }
 
-/* Strict Tactical Panels (No Glassmorphism) */
+/* Tactical & Workstation Panels */
 .tactical-panel {
   background-color: var(--bg-panel);
   border: 1px solid var(--border-hard);
@@ -60,10 +81,10 @@ body {
 }
 
 .tactical-panel-header h3 {
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   color: var(--text-bright);
 }
 
@@ -71,23 +92,27 @@ body {
   padding: 16px;
 }
 
-/* Flat Tactical Buttons (Zero Float/Hover Bounce) */
+/* Flat Tactical Buttons */
 .tactical-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 9px 14px;
-  font-size: 12px;
-  font-weight: 600;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
   border-radius: 2px;
   border: 1px solid transparent;
   cursor: pointer;
   background-color: var(--bg-panel-highlight);
   color: var(--text-bright);
-  transition: none;
+  transition: all 0.15s ease;
+}
+
+.tactical-btn:hover:not(:disabled) {
+  filter: brightness(1.15);
 }
 
 .tactical-btn:disabled {
@@ -100,80 +125,93 @@ body {
   border-color: #0284c7;
   color: #ffffff;
 }
-.tactical-btn-primary:active:not(:disabled) {
-  background-color: #075985;
+
+.tactical-btn-secondary {
+  background-color: #0f172a;
+  border-color: var(--border-hard);
+  color: var(--text-muted);
+}
+
+.tactical-btn-secondary:hover:not(:disabled) {
+  color: #ffffff;
+  border-color: var(--border-active);
 }
 
 .tactical-btn-success {
-  background-color: #047857;
+  background-color: #064e3b;
   border-color: #059669;
-  color: #ffffff;
-}
-.tactical-btn-success:active:not(:disabled) {
-  background-color: #065f46;
+  color: #a7f3d0;
 }
 
 .tactical-btn-danger {
-  background-color: #b91c1c;
-  border-color: #dc2626;
-  color: #ffffff;
-}
-.tactical-btn-danger:active:not(:disabled) {
-  background-color: #991b1b;
+  background-color: #450a0a;
+  border-color: #b91c1c;
+  color: #fecaca;
 }
 
-.tactical-btn-secondary {
-  background-color: var(--bg-panel-alt);
-  border-color: var(--border-hard);
-  color: var(--text-main);
-}
-.tactical-btn-secondary:active:not(:disabled) {
-  background-color: var(--bg-panel-highlight);
-}
-
-/* Tactical Status Badges */
-.tactical-badge {
+/* Monospace Bracketed Inspect Action */
+.btn-bracket {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 7px;
+  padding: 4px 8px;
+  font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 700;
-  font-family: var(--font-mono);
-  letter-spacing: 0.04em;
+  color: #38bdf8;
+  background: rgba(2, 132, 199, 0.08);
+  border: 1px dashed rgba(56, 189, 248, 0.4);
+  cursor: pointer;
   text-transform: uppercase;
+  border-radius: 2px;
+}
+.btn-bracket:hover {
+  background: rgba(2, 132, 199, 0.18);
+  border-color: #38bdf8;
+}
+
+/* Status Badges */
+.tactical-badge {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 3px 6px;
   border-radius: 2px;
   border: 1px solid transparent;
 }
 
 .badge-green {
-  background-color: #064e3b;
-  border-color: #047857;
+  background-color: rgba(16, 185, 129, 0.12);
+  border-color: #059669;
   color: #6ee7b7;
 }
 
 .badge-blue {
-  background-color: #082f49;
+  background-color: rgba(2, 132, 199, 0.12);
   border-color: #0284c7;
   color: #7dd3fc;
 }
 
 .badge-amber {
-  background-color: #451a03;
-  border-color: #b45309;
+  background-color: rgba(245, 158, 11, 0.12);
+  border-color: #d97706;
   color: #fcd34d;
 }
 
 .badge-red {
-  background-color: #450a0a;
-  border-color: #b91c1c;
+  background-color: rgba(239, 68, 68, 0.12);
+  border-color: #dc2626;
   color: #fca5a5;
 }
 
 .badge-slate {
-  background-color: #1e293b;
-  border-color: #334155;
-  color: #cbd5e1;
+  background-color: #111827;
+  border-color: #1f2937;
+  color: #94a3b8;
 }
 
 /* Strict Data Grid & Tables */
@@ -185,11 +223,12 @@ body {
 
 .tactical-table th {
   background-color: var(--bg-panel-alt);
-  color: var(--text-muted);
-  font-weight: 600;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-weight: 700;
   text-transform: uppercase;
-  font-size: 11px;
-  letter-spacing: 0.04em;
+  font-size: 10px;
+  letter-spacing: 0.05em;
   padding: 8px 12px;
   text-align: left;
   border-bottom: 1px solid var(--border-hard);
@@ -202,19 +241,20 @@ body {
 }
 
 .tactical-table tr:hover {
-  background-color: rgba(255, 255, 255, 0.02);
+  background-color: rgba(56, 189, 248, 0.03);
 }
 
 /* Form Controls */
 .tactical-select, .tactical-input {
   width: 100%;
-  background-color: #0a0e17;
+  background-color: #080d16;
   border: 1px solid var(--border-hard);
   color: var(--text-bright);
   padding: 8px 10px;
   font-size: 12px;
   border-radius: 2px;
   outline: none;
+  font-family: var(--font-sans);
 }
 
 .tactical-select:focus, .tactical-input:focus {

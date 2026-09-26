@@ -24,9 +24,9 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   onLogout
 }) => {
   const tabs = [
-    { id: 'sender', label: '1. SECURE DISTRIBUTION' },
-    { id: 'recipient', label: '2. RECIPIENT VAULT' },
-    { id: 'forensics', label: '3. FORENSIC AUDIT LAB' }
+    { id: 'sender', label: '1. ENCRYPTION LAB' },
+    { id: 'recipient', label: '2. DECRYPTION LAB' },
+    { id: 'forensics', label: '3. FORENSIC LEAK LAB' }
   ];
 
   const isOnline = systemHealth !== null && !healthError;

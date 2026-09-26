@@ -19,6 +19,7 @@ backend/tests/*.pdf*
 
 # Databases and runtime data
 *.db
+!backend/ciphertrace_v2.db
 *.sqlite
 *.sqlite3
 backend/ciphertrace.db

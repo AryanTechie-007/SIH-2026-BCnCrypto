@@ -19,9 +19,22 @@ const API_ROOT = (typeof window !== 'undefined' && window.location.port === '517
     : 'http://127.0.0.1:8000/api';
 
 async function safeFetch(url: string, options?: RequestInit): Promise<Response> {
+  const timeout = options?.signal ? 0 : 30000; // Increased to 30s for PQC overhead
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+
   try {
-    return await fetch(url, options);
+    const res = await fetch(url, {
+      ...options,
+      signal: options?.signal || controller.signal
+    });
+    clearTimeout(id);
+    return res;
   } catch (err: any) {
+    clearTimeout(id);
+    if (err.name === 'AbortError') {
+      throw new Error(`Request to ${url} timed out after ${timeout}ms.`);
+    }
     if (err.message && (err.message.includes('Failed to fetch') || err.message.includes('NetworkError') || err.name === 'TypeError')) {
       throw new Error(`Cannot reach CIPHERTRACE Core at ${url}. Please ensure the FastAPI backend is running on port 8000 (run 'start_demo.bat' or 'python -m uvicorn app.main:app').`);
     }
@@ -75,13 +88,13 @@ export const ApiClient = {
     return handleResponse<DocumentRecord>(res, 'UPLOAD_DOCUMENT');
   },
 
-  async distributeDocument(documentId: number, recipientIds: number[]): Promise<DistributionResult> {
+  async distributeDocument(documentId: number, recipientIds?: number[]): Promise<DistributionResult> {
     const res = await safeFetch(`${API_ROOT}/documents/distribute`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         document_id: documentId,
-        recipient_ids: recipientIds
+        ...(recipientIds && recipientIds.length > 0 ? { recipient_ids: recipientIds } : {})
       })
     });
     return handleResponse<DistributionResult>(res, 'DISTRIBUTE_DOCUMENT');
