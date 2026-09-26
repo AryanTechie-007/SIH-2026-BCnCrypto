@@ -28,7 +28,24 @@ cleanup() {
 
 trap cleanup SIGINT SIGTERM EXIT
 
-# 1. Kill any existing processes holding ports 8000 or 5173
+# 1. Environment Verification & PATH Setup
+if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
+    export PATH="$HOME/.local/bin:$PATH"
+fi
+
+if ! command -v python3 &>/dev/null || ! command -v npm &>/dev/null || [ ! -d "$DIR/frontend/node_modules" ]; then
+    echo "[!] Missing runtime dependencies or node_modules."
+    echo "[*] Automatically launching dependency installer..."
+    chmod +x "$DIR/install_dependencies.sh" "$DIR/setup/install_dependencies.sh"
+    bash "$DIR/install_dependencies.sh"
+fi
+
+# Activate virtualenv if present
+if [ -f "$DIR/.venv/bin/activate" ]; then
+    source "$DIR/.venv/bin/activate"
+fi
+
+# 2. Kill any existing processes holding ports 8000 or 5173
 if command -v fuser &>/dev/null; then
     fuser -k 8000/tcp 2>/dev/null || true
     fuser -k 5173/tcp 2>/dev/null || true
@@ -37,7 +54,7 @@ elif command -v lsof &>/dev/null; then
     lsof -ti:5173 | xargs kill -9 2>/dev/null || true
 fi
 
-# 2. Launch FastAPI Backend (Port 8000)
+# 3. Launch FastAPI Backend (Port 8000)
 echo "[1/2] Launching Post-Quantum Cryptographic Backend on port 8000..."
 cd "$DIR/backend"
 python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 &
