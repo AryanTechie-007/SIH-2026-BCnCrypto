@@ -79,6 +79,84 @@ CIPHERTRACE guarantees that **no recipient can access a confidential document wi
 
 ---
 
+## 🛠️ Software, Dependencies & Technical Specifications
+
+CIPHERTRACE is engineered with an enterprise-grade, post-quantum cryptographic stack that operates 100% offline with zero external cloud dependencies. Below is the complete manifest of software, runtimes, and libraries utilized across the platform:
+
+### 1. 💻 Core System Runtimes & Infrastructure
+| Software / Tool | Minimum Version | Category | Purpose in CIPHERTRACE |
+| :--- | :--- | :--- | :--- |
+| **Python** | `3.11+` | Backend Runtime | Core execution engine for PQC cryptography, DCT steganography, and REST APIs |
+| **Node.js** | `v18.0+` (LTS) | Frontend Runtime | JavaScript runtime powering the Vite build pipeline and development server |
+| **NPM** | `v9.0+` | Package Manager | Dependency management and script orchestration for the React client |
+| **Git** | `2.30+` | Version Control | Source code control, multi-developer collaboration, and deployment tracking |
+| **Docker** | `24.0+` *(Optional)* | Container Engine | Containerized deployment for isolated air-gapped environments |
+| **Docker Compose** | `v2.20+` *(Optional)* | Orchestration | Multi-service orchestration for automated backend + frontend container clustering |
+| **Windows PowerShell / Batch** | Windows 10/11 | OS Automation | Native 1-click startup (`start_demo.bat`) and dependency setup (`install_dependencies.bat`) |
+
+---
+
+### 2. 🐍 Backend Dependencies (`backend/requirements.txt`)
+
+#### A. Cryptography, Post-Quantum Security & Distributed Ledger
+| Package | Version / Source | Function & Technical Role |
+| :--- | :--- | :--- |
+| **`liboqs-python`** | Open Quantum Safe | **Post-Quantum Cryptography**: Direct C-bindings to NIST-standardized lattice algorithms: **ML-KEM-768** (FIPS 203 Kyber) for recipient key encapsulation and **ML-DSA-65** (FIPS 204 Dilithium) for quantum-resistant digital non-repudiation signatures. |
+| **`cryptography`** | Latest (`pyca/cryptography`) | **Symmetric & Primitive Crypto**: Hardware-accelerated **AES-256-GCM** (NIST SP 800-38D) authenticated encryption, HKDF key derivation, and cryptographic random salt generation. |
+| **`hashlib`** | Python Standard Library | **Ledger & Hashing Engine**: **SHA3-256** (FIPS 202) for Merkle leaf/root hashing, blockchain previous-block hash chaining, and HMAC-SHA3-256 session token generation. |
+| **`sqlalchemy`** | `2.0+` | **Async ORM**: Async data mapping and transactional ledger state persistence. |
+| **`aiosqlite`** | `0.19+` | **Async Database Driver**: High-concurrency, non-blocking asynchronous driver for the local SQLite tamper-evident blockchain ledger. |
+
+#### B. Steganography, Signal Processing & Forensic Analysis
+| Package | Version / Source | Function & Technical Role |
+| :--- | :--- | :--- |
+| **`scipy`** | `1.11+` (`scipy.fftpack`) | **Frequency-Domain Transformation**: Computes 2D Discrete Cosine Transforms (`dct` / `idct`) to modulate mid-frequency spatial frequencies with invisible watermark bits across the luminance ($Y$) channel. |
+| **`numpy`** | `1.24+` | **High-Performance Math**: Vectorized multidimensional matrix manipulation, coordinate transformations, and coefficient modulation matrices. |
+| **`opencv-python-headless`** | `4.8+` | **Computer Vision & Colorimetry**: Lossless RGB to YCrCb color space conversions, luminance separation, and forensic image preprocessing. |
+| **`reedsolo`** | `1.7+` | **Forward Error Correction (FEC)**: Implements Reed-Solomon **RS(255, 127)** error-correcting codes, enabling 100% watermark payload recovery even under heavy print/scan artifacts, lossy compression, or image cropping. |
+| **`pymupdf` (`fitz`)** | `1.23+` | **Document Engine**: High-fidelity PDF parsing, per-page vector-to-raster rendering, watermark injection, and multi-page PDF document reconstruction. |
+| **`Pillow` (`PIL`)** | `10.0+` | **Image Manipulation**: Raw image buffer decoding, DPI scaling, and cross-format rendering for forensic upload processing. |
+
+#### C. Web API & Network Server
+| Package | Version / Source | Function & Technical Role |
+| :--- | :--- | :--- |
+| **`fastapi`** | `0.115+` | **Asynchronous REST Framework**: Ultra-low latency API framework handling document distribution, decryption handshakes, forensic scanning, and real-time ledger auditing. |
+| **`uvicorn`** | `0.30+` (`[standard]`) | **ASGI Production Server**: High-throughput asynchronous server supporting parallel cryptographic operations. |
+| **`python-multipart`** | `0.0.9+` | **Multipart Streaming**: High-speed, streaming file upload handler for large PDF and forensic image files. |
+
+---
+
+### 3. ⚛️ Frontend Client Dependencies (`frontend/package.json`)
+
+#### A. Production Dependencies
+| Package | Version | Function & Technical Role |
+| :--- | :--- | :--- |
+| **`react`** | `^19.2.8` | **UI Architecture**: Core component library providing declarative, concurrent state management for real-time cryptographic workflows. |
+| **`react-dom`** | `^19.2.8` | **DOM Renderer**: High-performance browser DOM rendering engine for React 19. |
+| **`lucide-react`** | `^1.48.0` | **Security Iconography**: Vector iconography for cyber defense status badges, ledger block states, and cryptographic locks. |
+
+#### B. Development & Tooling Dependencies
+| Package | Version | Function & Technical Role |
+| :--- | :--- | :--- |
+| **`vite`** | `^8.3.0` | **Build System & Dev Server**: Next-generation bundler with instant Hot Module Replacement (HMR) and reverse proxy routing (`/api` -> FastAPI). |
+| **`typescript`** | `~6.0.2` | **Type Safety**: End-to-end static typing across all cryptographic models, ledger blocks, API schemas, and UI state. |
+| **`@vitejs/plugin-react`** | `^6.1.1` | **Compiler Plugin**: Official Vite plugin for React JSX/TSX Fast Refresh compilation. |
+| **`oxlint`** | `^1.81.0` | **Static Analysis**: Rust-based high-speed linter enforcing code quality and strict performance standards. |
+| **`@types/react`** | `^19.2.18` | **Type Definitions**: TypeScript definitions for React components and lifecycle hooks. |
+| **`@types/react-dom`** | `^19.2.7` | **Type Definitions**: TypeScript definitions for React DOM. |
+| **`@types/node`** | `^24.13.3` | **Environment Types**: TypeScript definitions for Node.js runtime and pathing. |
+
+---
+
+### 4. 📜 Cryptographic Standards Compliance
+- **NIST FIPS 203**: Module-Lattice-Based Key-Encapsulation Mechanism (ML-KEM / Kyber-768)
+- **NIST FIPS 204**: Module-Lattice-Based Digital Signature Algorithm (ML-DSA / Dilithium-3 / ML-DSA-65)
+- **NIST SP 800-38D**: Recommendation for Block Cipher Modes of Operation: Galois/Counter Mode (AES-256-GCM)
+- **NIST FIPS 202**: SHA-3 Standard: Permutation-Based Hash and Extendable-Output Functions (SHA3-256)
+- **CCSDS 131.0-B-3**: Reed-Solomon Forward Error Correction (RS(255, 127))
+
+---
+
 ## ⚡ How to Run Locally on Your System
 
 ### 📋 Prerequisites
