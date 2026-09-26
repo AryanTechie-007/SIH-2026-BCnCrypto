@@ -1,8 +1,8 @@
 import React from 'react';
-import { LayoutGrid, FolderLock, KeyRound, FileSearch, ShieldCheck, User } from 'lucide-react';
+import { LayoutGrid, FolderLock, KeyRound, FileSearch, ShieldCheck, User, Database } from 'lucide-react';
 import { UserAccount } from '../types';
 
-export type WorkstationModule = 'overview' | 'documents' | 'decryption' | 'evidence';
+export type WorkstationModule = 'overview' | 'documents' | 'decryption' | 'evidence' | 'ledger';
 
 interface WorkstationSidebarProps {
   activeModule: WorkstationModule;
@@ -23,7 +23,8 @@ export const WorkstationSidebar: React.FC<WorkstationSidebarProps> = ({
     { id: 'overview' as WorkstationModule, label: 'Dashboard', icon: LayoutGrid, tag: 'SYS' },
     { id: 'documents' as WorkstationModule, label: 'Encryption Lab', icon: FolderLock, tag: 'ENC' },
     { id: 'decryption' as WorkstationModule, label: 'Decryption Lab', icon: KeyRound, tag: 'DEC' },
-    { id: 'evidence' as WorkstationModule, label: 'Forensic Leak Lab', icon: FileSearch, tag: 'LEAK' }
+    { id: 'evidence' as WorkstationModule, label: 'Forensic Leak Lab', icon: FileSearch, tag: 'LEAK' },
+    { id: 'ledger' as WorkstationModule, label: 'Blockchain Ledger', icon: Database, tag: 'DLT' }
   ];
 
   return (

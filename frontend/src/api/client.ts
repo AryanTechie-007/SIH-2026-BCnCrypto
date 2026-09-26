@@ -228,6 +228,11 @@ export const ApiClient = {
     return handleResponse<any>(res, 'TAMPER_LEDGER');
   },
 
+  async getClusterNodes(): Promise<any> {
+    const res = await safeFetch(`${API_ROOT}/ledger/nodes`);
+    return handleResponse<any>(res, 'FETCH_CLUSTER_NODES');
+  },
+
   async restoreLedger(): Promise<any> {
     const res = await safeFetch(`${API_ROOT}/ledger/restore`, { method: 'POST' });
     return handleResponse<any>(res, 'RESTORE_LEDGER');

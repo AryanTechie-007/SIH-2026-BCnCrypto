@@ -7,6 +7,7 @@ import { OverviewConsole } from './views/OverviewConsole';
 import { DocumentsConsole } from './views/DocumentsConsole';
 import { DecryptionConsole } from './views/DecryptionConsole';
 import { EvidenceConsole } from './views/EvidenceConsole';
+import { LedgerAuditConsole } from './views/LedgerAuditConsole';
 import { ApiClient } from './api/client';
 import { DocumentRecord, Officer, LedgerBlock, SystemHealth, UserAccount } from './types';
 
@@ -95,7 +96,8 @@ export function App() {
     overview: 'Operational Dashboard / System Overview',
     documents: 'Encryption Lab / Confidential Ingest & Post-Quantum Encryption',
     decryption: 'Decryption Lab / Post-Quantum Decryption & Steganographic Watermark',
-    evidence: 'Forensic Leak Lab / Blind Extraction & Leak Attribution'
+    evidence: 'Forensic Leak Lab / Blind Extraction & Leak Attribution',
+    ledger: 'Distributed Blockchain Ledger / PoA Multi-Node Consensus Network'
   };
 
   // If user is not yet logged in, present the clean authentication portal first
@@ -182,6 +184,10 @@ export function App() {
 
             {activeModule === 'evidence' && (
               <EvidenceConsole />
+            )}
+
+            {activeModule === 'ledger' && (
+              <LedgerAuditConsole />
             )}
           </main>
         </div>
