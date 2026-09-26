@@ -35,7 +35,7 @@ for /f "tokens=5" %%a in ('netstat -aon ^| findstr /r ":8000\>"') do (
     )
 )
 
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 if %errorlevel% neq 0 (
     echo.
     echo [ERROR] Backend process terminated unexpectedly.
