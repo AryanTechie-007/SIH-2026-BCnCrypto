@@ -254,9 +254,11 @@ class WatermarkEngine:
                 for j in range(0, w - self.block_size, self.block_size):
                     block = y_f[i:i + self.block_size, j:j + self.block_size]
                     d_block = self._dct2(block)
-                    # Modulate mid-band frequency coefficient
+                    # Modulate low-mid band frequencies (1, 2) & (2, 1) for screen-capture resilience + (3, 3)
                     target_val = self.embed_strength if bits[bit_idx % len(bits)] == '1' else -self.embed_strength
-                    d_block[self.embed_coord] = target_val
+                    d_block[1, 2] = target_val
+                    d_block[2, 1] = target_val
+                    d_block[3, 3] = target_val
                     y_f[i:i + self.block_size, j:j + self.block_size] = self._idct2(d_block)
                     bit_idx += 1
 
@@ -288,98 +290,131 @@ class WatermarkEngine:
         y_f = y.astype(np.float32)
         h, w = y_f.shape
 
-        bit_results = []
-        for i in range(0, h - self.block_size, self.block_size):
-            for j in range(0, w - self.block_size, self.block_size):
-                block = y_f[i:i + self.block_size, j:j + self.block_size]
-                d_block = self._dct2(block)
-                val = d_block[self.embed_coord]
-                bit_results.append(('1' if val > 0 else '0', abs(val)))
-
         required_bits = self.CODEWORD_LEN * 8  # 2040 bits
-        if len(bit_results) < required_bits:
-            return None, {
+        best_overall_metrics = None
+        min_overall_ber = 100.0
+        all_candidate_streams = []
+
+        # Evaluate extraction across two candidate frequency representations:
+        # Mode A: Robust low-mid band ((1,2) + (2,1))/2 (survives screen capture, downscaling)
+        # Mode B: Standard mid-band (3,3) (for legacy documents)
+        modes = [
+            ("low_mid", lambda d: (d[1, 2] + d[2, 1]) / 2.0),
+            ("legacy_mid", lambda d: d[3, 3])
+        ]
+
+        for mode_name, get_val in modes:
+            bit_results = []
+            for i in range(0, h - self.block_size, self.block_size):
+                for j in range(0, w - self.block_size, self.block_size):
+                    block = y_f[i:i + self.block_size, j:j + self.block_size]
+                    d_block = self._dct2(block)
+                    val = get_val(d_block)
+                    bit_results.append(('1' if val > 0 else '0', abs(val)))
+
+            if len(bit_results) < required_bits:
+                continue
+
+            # Record initial stream for cross-correlation hypothesis testing
+            stream_0 = "".join([b[0] for b in bit_results[:required_bits]])
+            all_candidate_streams.append(stream_0)
+
+            max_windows = min(len(bit_results) - required_bits + 1, 2048)
+            step = 64
+
+            for offset in range(0, max_windows, step):
+                window = bit_results[offset:offset + required_bits]
+                extracted_bits = "".join([b[0] for b in window])
+                byte_list = [int(extracted_bits[k:k + 8], 2) for k in range(0, required_bits, 8)]
+                coded_payload = bytes(byte_list)
+
+                avg_magnitude = float(np.mean([b[1] for b in window]))
+                confidence = float(min(1.0, max(0.0, avg_magnitude / self.embed_strength)))
+
+                corrupted_indices = [int(idx) for idx, (b, mag) in enumerate(window) if mag < (self.embed_strength * 0.25)]
+                ber = float((len(corrupted_indices) / float(required_bits)) * 100.0)
+
+                cur_metrics = {
+                    "watermark_detected": (ber < 60.0 and avg_magnitude >= 3.0),
+                    "confidence": confidence,
+                    "bit_error_rate": ber,
+                    "corrupted_bits_count": len(corrupted_indices),
+                    "extracted_raw_hex": coded_payload.hex(),
+                    "raw_extracted_bits": extracted_bits,
+                    "ecc_strategy": self.ECC_STRATEGY,
+                    "analysis": f"2D DCT Lattice Multi-Tile Extraction (Mode: {mode_name}, Offset {offset})"
+                }
+
+                if ber < min_overall_ber:
+                    min_overall_ber = ber
+                    best_overall_metrics = cur_metrics
+
+                # In systematic RS(255, 127), the first 4 bytes of codeword are unencoded header b"CPTC"
+                # Filter before calling expensive polynomial division
+                header_matches = sum(b1 == b2 for b1, b2 in zip(coded_payload[:4], self.MAGIC_HEADER))
+                if header_matches >= 2 or offset == 0:
+                    try:
+                        decoded_tuple = self.rs.decode(coded_payload)
+                        decoded_frame = bytes(decoded_tuple[0])
+                        if len(decoded_frame) == self.FRAME_DATA_LEN and decoded_frame.startswith(self.MAGIC_HEADER):
+                            parsed = self.parse_watermark_frame(decoded_frame)
+                            # Compute exact bit error rate against corrected codeword
+                            re_encoded = self.rs.encode(decoded_frame)
+                            actual_errors = sum(bin(b1 ^ b2).count('1') for b1, b2 in zip(coded_payload, re_encoded))
+                            actual_ber = float((actual_errors / float(len(coded_payload) * 8)) * 100.0)
+
+                            cur_metrics["ecc_corrected"] = True
+                            cur_metrics["payload_recovery_pct"] = 100.0
+                            cur_metrics["watermark_detected"] = True
+                            cur_metrics["bit_error_rate"] = actual_ber
+                            cur_metrics["corrupted_bits_count"] = actual_errors
+                            cur_metrics["frame"] = parsed
+                            cur_metrics["watermark_id"] = parsed["watermark_id"] if parsed else decoded_frame[:10].hex()
+                            return decoded_frame, cur_metrics
+                    except ReedSolomonError:
+                        pass
+                    except Exception:
+                        pass
+
+        if best_overall_metrics is None:
+            best_overall_metrics = {
                 "watermark_detected": False,
                 "confidence": 0.0,
                 "bit_error_rate": 100.0,
                 "ecc_strategy": self.ECC_STRATEGY,
-                "analysis": f"Insufficient DCT blocks ({len(bit_results)} < {required_bits})"
+                "analysis": "No viable watermark signal detected",
+                "raw_extracted_bits": ""
             }
 
-        # Multi-tile scanning across document
-        best_metrics = None
-        min_ber = 100.0
-        step = 128
-        max_windows = min(len(bit_results) - required_bits + 1, 4096)
+        best_overall_metrics["ecc_corrected"] = False
+        best_overall_metrics["payload_recovery_pct"] = max(0.0, float(100.0 - min_overall_ber * 1.5))
+        best_overall_metrics["candidate_bitstreams"] = all_candidate_streams
+        return None, best_overall_metrics
 
-        for offset in range(0, max_windows, step):
-            window = bit_results[offset:offset + required_bits]
-            extracted_bits = "".join([b[0] for b in window])
-            byte_list = [int(extracted_bits[k:k + 8], 2) for k in range(0, required_bits, 8)]
-            coded_payload = bytes(byte_list)
-
-            avg_magnitude = float(np.mean([b[1] for b in window]))
-            confidence = float(min(1.0, max(0.0, avg_magnitude / self.embed_strength)))
-
-            corrupted_indices = [int(idx) for idx, (b, mag) in enumerate(window) if mag < (self.embed_strength * 0.25)]
-            ber = float((len(corrupted_indices) / float(required_bits)) * 100.0)
-
-            cur_metrics = {
-                "watermark_detected": (ber < 60.0 and avg_magnitude >= 4.0),
-                "confidence": confidence,
-                "bit_error_rate": ber,
-                "corrupted_bits_count": len(corrupted_indices),
-                "extracted_raw_hex": coded_payload.hex(),
-                "ecc_strategy": self.ECC_STRATEGY,
-                "analysis": f"2D DCT Lattice Multi-Tile Extraction (Offset {offset})"
-            }
-
-            if ber < min_ber:
-                min_ber = ber
-                best_metrics = cur_metrics
-
-            try:
-                decoded_tuple = self.rs.decode(coded_payload)
-                decoded_frame = bytes(decoded_tuple[0])
-                if len(decoded_frame) == self.FRAME_DATA_LEN and decoded_frame.startswith(self.MAGIC_HEADER):
-                    parsed = self.parse_watermark_frame(decoded_frame)
-                    cur_metrics["ecc_corrected"] = True
-                    cur_metrics["payload_recovery_pct"] = 100.0
-                    cur_metrics["watermark_detected"] = True
-                    cur_metrics["frame"] = parsed
-                    cur_metrics["watermark_id"] = parsed["watermark_id"] if parsed else decoded_frame[:10].hex()
-                    return decoded_frame, cur_metrics
-            except ReedSolomonError:
-                pass
-            except Exception:
-                pass
-
-        if best_metrics is None:
-            best_metrics = {
-                "watermark_detected": False,
-                "confidence": 0.0,
-                "bit_error_rate": 100.0,
-                "ecc_strategy": self.ECC_STRATEGY,
-                "analysis": "No viable watermark signal detected"
-            }
-
-        best_metrics["ecc_corrected"] = False
-        best_metrics["payload_recovery_pct"] = max(0.0, float(100.0 - min_ber * 1.5))
-        return None, best_metrics
-
-    def extract_watermark(self, document_path: str) -> Tuple[Union[bytes, None], Dict[str, Any]]:
+    def extract_watermark(self, document_path: Union[str, bytes]) -> Tuple[Union[bytes, None], Dict[str, Any]]:
         """
         Extracts and decodes the embedded watermark from a PDF or image file.
         Includes multi-scale canonical screen capture normalization and Reed-Solomon decoding.
         """
-        lower_path = document_path.lower()
-        is_image = lower_path.endswith(('.png', '.jpg', '.jpeg', '.webp', '.bmp', '.tiff'))
+        if isinstance(document_path, bytes):
+            is_image = document_path.startswith(b"\x89PNG") or document_path.startswith(b"\xff\xd8") or document_path.startswith(b"RIFF")
+            path_for_log = "bytes_stream"
+        else:
+            lower_path = str(document_path).lower()
+            is_image = lower_path.endswith(('.png', '.jpg', '.jpeg', '.webp', '.bmp', '.tiff'))
+            path_for_log = document_path
 
         try:
             if is_image:
-                base_img = Image.open(document_path).convert("RGB")
+                if isinstance(document_path, bytes):
+                    base_img = Image.open(io.BytesIO(document_path)).convert("RGB")
+                else:
+                    base_img = Image.open(document_path).convert("RGB")
             else:
-                doc = fitz.open(document_path)
+                if isinstance(document_path, bytes):
+                    doc = fitz.open(stream=document_path, filetype="pdf")
+                else:
+                    doc = fitz.open(document_path)
                 if len(doc) == 0:
                     doc.close()
                     return None, {"error": "Empty document", "watermark_detected": False}
@@ -414,41 +449,58 @@ class WatermarkEngine:
                         if c_payload is not None:
                             c_metrics["analysis"] = f"2D DCT Lattice Extraction (Canonical Normalization {tw}x{th})"
                             return c_payload, c_metrics
+                        if c_metrics.get("bit_error_rate", 100.0) < metrics.get("bit_error_rate", 100.0):
+                            metrics = c_metrics
                     except Exception:
                         pass
 
             # 3. Detect and crop page canvas inside viewer screenshot (dark/light borders, letterboxing)
             try:
-                gray = cv2.cvtColor(np.array(base_img), cv2.COLOR_RGB2GRAY)
-                # Try multiple threshold levels to separate outer viewer margins from page canvas
-                for thresh_val in [40, 70, 110, 160]:
+                base_np = np.array(base_img)
+                gray = cv2.cvtColor(base_np, cv2.COLOR_RGB2GRAY)
+                candidate_bitstreams = []
+
+                # Detect page region using adaptive threshold
+                for thresh_val in [70, 40]:
                     _, thresh = cv2.threshold(gray, thresh_val, 255, cv2.THRESH_BINARY)
                     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
                     if contours:
                         c = max(contours, key=cv2.contourArea)
-                        x, y, w, h = cv2.boundingRect(c)
-                        # Valid page must occupy a significant portion of screenshot
-                        if w > 250 and h > 250 and (w * h) > (base_img.width * base_img.height * 0.20):
-                            cropped_page = base_img.crop((x, y, x + w, y + h))
-
-                            # 3a. Try cropped page As-Is
+                        bx, by, bw, bh = cv2.boundingRect(c)
+                        if bw > 250 and bh > 250 and (bw * bh) > (base_img.width * base_img.height * 0.20):
+                            # Try direct cropped page first
+                            cropped_page = base_img.crop((bx, by, bx + bw, by + bh))
                             p_crop, m_crop = self._extract_from_image(cropped_page)
                             if p_crop is not None:
                                 m_crop["analysis"] = f"2D DCT Lattice Extraction (Auto-Cropped Border Removal, Thresh {thresh_val})"
                                 return p_crop, m_crop
+                            if m_crop.get("raw_extracted_bits"):
+                                candidate_bitstreams.append(m_crop["raw_extracted_bits"])
 
-                            # 3b. Try cropped page scaled to Letter / A4
-                            c_aspect = cropped_page.width / max(1, cropped_page.height)
-                            c_sizes = [(1275, 1650), (1240, 1754)] if (0.73 <= c_aspect <= 0.82) else [(1240, 1754), (1275, 1650)]
-                            for tw, th in c_sizes:
-                                try:
-                                    cropped_canon = cropped_page.resize((tw, th), Image.Resampling.LANCZOS)
-                                    p_c_scale, m_c_scale = self._extract_from_image(cropped_canon)
-                                    if p_c_scale is not None:
-                                        m_c_scale["analysis"] = f"2D DCT Lattice Extraction (Auto-Cropped Normalization {tw}x{th})"
-                                        return p_c_scale, m_c_scale
-                                except Exception:
-                                    pass
+                            # Try perspective warp across 3x3 subpixel/margin neighborhood (-1, 0, 1)
+                            for dx in [-1, 0, 1]:
+                                for dy in [-1, 0, 1]:
+                                    x1, y1 = max(0, bx + dx), max(0, by + dy)
+                                    x2, y2 = min(base_img.width, bx + bw), min(base_img.height, by + bh)
+                                    pts1 = np.float32([[x1, y1], [x2, y1], [x1, y2], [x2, y2]])
+                                    pts2 = np.float32([[0, 0], [1275, 0], [0, 1650], [1275, 1650]])
+                                    M = cv2.getPerspectiveTransform(pts1, pts2)
+                                    warped = cv2.warpPerspective(base_np, M, (1275, 1650), flags=cv2.INTER_LANCZOS4)
+                                    warped_pil = Image.fromarray(warped)
+                                    p_w, m_w = self._extract_from_image(warped_pil)
+                                    if p_w is not None:
+                                        m_w["analysis"] = f"2D DCT Lattice Extraction (Perspective Canonical Warp dx={dx}, dy={dy})"
+                                        return p_w, m_w
+                                    if m_w.get("candidate_bitstreams"):
+                                        candidate_bitstreams.extend(m_w["candidate_bitstreams"])
+                                    elif m_w.get("raw_extracted_bits"):
+                                        candidate_bitstreams.append(m_w["raw_extracted_bits"])
+                                    if m_w.get("bit_error_rate", 100.0) < metrics.get("bit_error_rate", 100.0):
+                                        metrics = m_w
+                            break
+
+                if candidate_bitstreams:
+                    metrics["candidate_bitstreams"] = candidate_bitstreams
             except Exception:
                 pass
 
