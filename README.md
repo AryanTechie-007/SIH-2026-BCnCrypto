@@ -162,100 +162,141 @@ CIPHERTRACE is engineered with an enterprise-grade, post-quantum cryptographic s
 
 ---
 
-## ⚡ How to Run Locally on Your System
+## ⚡ Installation & Execution Guides (Linux & Windows)
 
-### 📋 Prerequisites
-Make sure you have these installed on your computer:
-1. **Python 3.11 or higher**: [Download Python](https://www.python.org/downloads/) *(Important: Check "Add Python to PATH" during installation!)*
-2. **Node.js LTS (v18+)**: [Download Node.js](https://nodejs.org/)
-3. **Git**: [Download Git](https://git-scm.com/)
+CIPHERTRACE runs 100% offline on both Linux (recommended for defense/server environments) and Windows (workstations & laptops). Choose your operating system below:
 
 ---
 
-### 🚀 Method 1: The 1-Click Installer (Fastest & Recommended)
+### 🐧 Complete Linux Installation Guide (Ubuntu / Debian / RHEL / Rocky / WSL2)
 
-#### Step 1: Clone the Repository
+Linux is the industry standard for secure servers, military air-gapped workstations, and containerized node clusters.
+
+#### 1. System Package Prerequisites
+Open your terminal and install the required core runtimes:
+* **Ubuntu / Debian / Kali / Linux Mint**:
+  ```bash
+  sudo apt-get update
+  sudo apt-get install -y python3 python3-pip python3-venv nodejs npm git curl
+  ```
+* **RHEL / Rocky Linux / Fedora / CentOS**:
+  ```bash
+  sudo dnf install -y python3 python3-pip nodejs npm git curl
+  ```
+* **Arch Linux / Manjaro**:
+  ```bash
+  sudo pacman -S python python-pip nodejs npm git curl
+  ```
+
+#### 2. Clone the Repository
 ```bash
 git clone https://github.com/AryanTechie-007/SIH-2026-BCnCrypto.git
 cd SIH-2026-BCnCrypto
 ```
 
-### 🐧 Method 1: Linux / macOS 1-Click Execution (Enterprise & Server Environments)
-
-Production defense servers and workstations run Linux (Ubuntu / Debian / RHEL / Rocky Linux). We provide native executable shell scripts with automatic process isolation:
-
-#### Step 1: Clone Repository
-```bash
-git clone https://github.com/AryanTechie-007/SIH-2026-BCnCrypto.git
-cd SIH-2026-BCnCrypto
-```
-
-#### Step 2: Install All Dependencies
+#### 3. Automatic 1-Click Setup
+Run our automated setup script to install all backend cryptographic wheels and frontend npm packages:
 ```bash
 chmod +x install_dependencies.sh start_demo.sh setup/install_dependencies.sh
 ./install_dependencies.sh
 ```
-*This installs system dependencies, validates Python 3.11+, installs backend requirements, builds frontend npm packages, and verifies Docker/DLT readiness.*
 
-#### Step 3: Launch Platform
+#### 4. Launch the Platform
 ```bash
 ./start_demo.sh
 ```
-*This cleans up any lingering port bindings on 8000/5173, starts the FastAPI backend, compiles the Vite frontend, checks backend health, and opens `http://localhost:5173` in your browser.*
+* **What happens**:
+  * Automatically terminates any stale port processes on `8000` or `5173`.
+  * Starts the FastAPI cryptographic engine on `http://0.0.0.0:8000`.
+  * Starts the Vite frontend on `http://0.0.0.0:5173`.
+  * Verifies backend health and launches your default browser (`http://localhost:5173`).
+  * Press `Ctrl + C` at any time to cleanly stop all services.
+
+#### 5. Manual Terminal Execution (Alternative)
+* **Terminal 1 (Backend)**:
+  ```bash
+  cd backend
+  python3 -m pip install -r requirements.txt
+  python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+  ```
+* **Terminal 2 (Frontend)**:
+  ```bash
+  cd frontend
+  npm install
+  npm run dev -- --host 0.0.0.0 --port 5173
+  ```
 
 ---
 
-### 🪟 Method 2: Windows 1-Click Execution (Demo Workstations)
+### 🪟 Complete Windows Installation Guide (Windows 10 / Windows 11)
 
-#### Step 1: Install Dependencies
-Double-click:
+For Windows laptops, evaluation workstations, and rapid demonstrations:
+
+#### 1. System Prerequisites
+Ensure the following tools are installed on your Windows machine:
+1. **Python 3.11 or higher**: [Download from python.org](https://www.python.org/downloads/)
+   * ⚠️ **Crucial**: During installation, check the box **"Add python.exe to PATH"**!
+2. **Node.js LTS (v18+)**: [Download from nodejs.org](https://nodejs.org/) (Includes `npm`)
+3. **Git for Windows**: [Download from git-scm.com](https://git-scm.com/)
+
+#### 2. Clone the Repository
+Open PowerShell or Command Prompt:
+```powershell
+git clone https://github.com/AryanTechie-007/SIH-2026-BCnCrypto.git
+cd SIH-2026-BCnCrypto
+```
+
+#### 3. Automatic 1-Click Setup
+In Windows File Explorer, navigate to the cloned folder and **double-click**:
 ```bat
 install_dependencies.bat
 ```
-*(Or inside `setup/`, double-click `setup\install_dependencies.bat`)*
+*(Or inside `setup\`, double-click `setup\install_dependencies.bat`)*  
+This will install all required Python cryptographic packages (`liboqs-python`, `cryptography`, `pymupdf`, `scipy`, `numpy`, `reedsolo`) and compiles the frontend React modules.
 
-#### Step 2: Launch Platform
-Double-click:
+#### 4. Launch the Platform
+In the root project folder, **double-click**:
 ```bat
 start_demo.bat
 ```
-*Automatically starts both the FastAPI backend and React frontend, opening `http://127.0.0.1:5173` in your browser.*
+* **What happens**:
+  * Cleans up any orphaned processes holding ports `8000` or `5173`.
+  * Starts the FastAPI backend server in a background window.
+  * Starts the React Vite development server.
+  * Automatically opens `http://127.0.0.1:5173` in your default browser.
+
+#### 5. Manual PowerShell Execution (Alternative)
+* **PowerShell Window 1 (Backend)**:
+  ```powershell
+  cd backend
+  python -m pip install -r requirements.txt
+  python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+  ```
+* **PowerShell Window 2 (Frontend)**:
+  ```powershell
+  cd frontend
+  npm install
+  npm run dev
+  ```
 
 ---
 
-### 💻 Method 3: Manual Terminal Execution
+### 🌐 Cross-Device / LAN Wi-Fi Setup (Multi-Computer Evaluation)
 
-#### Terminal 1 — FastAPI Cryptographic Backend (Port 8000)
-```bash
-cd backend
-pip install -r requirements.txt
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-```
-- Verify Backend: Open `http://127.0.0.1:8000/docs` in your browser.
-
-#### Terminal 2 — React Web Application UI (Port 5173)
-```bash
-cd frontend
-npm install
-npm run dev
-```
-- Open UI: Navigate to `http://127.0.0.1:5173` in your browser.
-
----
-
-### 🌐 Method 4: Multi-Device / LAN Wi-Fi Access (Cross-Laptop Demo)
-To let evaluators connect from independent laptops or tablets across an isolated Wi-Fi / intranet:
-1. Find the host server's local IP address (`ipconfig` on Windows or `ip addr` on Linux).
-2. Have client devices navigate to:
+To demonstrate multi-device encryption and decryption across two independent laptops/phones on the same offline Wi-Fi:
+1. Find the host machine's IP:
+   * **Linux**: Run `ip addr show` or `hostname -I`
+   * **Windows**: Run `ipconfig` in PowerShell (look for IPv4 Address, e.g. `192.168.1.105`)
+2. On any other laptop or mobile device connected to the same Wi-Fi, open the browser to:
    ```
-   http://<HOST_LOCAL_IP>:5173
+   http://<HOST_IP_ADDRESS>:5173
    ```
    *(Example: `http://192.168.1.105:5173`)*
-3. Vite automatically proxies API requests to the host's backend with zero CORS issues!
+3. Vite reverse-proxies all API requests to the host machine backend seamlessly with zero CORS issues!
 
 ---
 
-### 🐳 Method 5: Multi-Container Docker Deployment
+### 🐳 Universal Docker Deployment (All Operating Systems)
 ```bash
 docker-compose up --build
 ```
