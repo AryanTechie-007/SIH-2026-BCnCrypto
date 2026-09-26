@@ -180,24 +180,50 @@ git clone https://github.com/AryanTechie-007/SIH-2026-BCnCrypto.git
 cd SIH-2026-BCnCrypto
 ```
 
+### 🐧 Method 1: Linux / macOS 1-Click Execution (Enterprise & Server Environments)
+
+Production defense servers and workstations run Linux (Ubuntu / Debian / RHEL / Rocky Linux). We provide native executable shell scripts with automatic process isolation:
+
+#### Step 1: Clone Repository
+```bash
+git clone https://github.com/AryanTechie-007/SIH-2026-BCnCrypto.git
+cd SIH-2026-BCnCrypto
+```
+
 #### Step 2: Install All Dependencies
+```bash
+chmod +x install_dependencies.sh start_demo.sh setup/install_dependencies.sh
+./install_dependencies.sh
+```
+*This installs system dependencies, validates Python 3.11+, installs backend requirements, builds frontend npm packages, and verifies Docker/DLT readiness.*
+
+#### Step 3: Launch Platform
+```bash
+./start_demo.sh
+```
+*This cleans up any lingering port bindings on 8000/5173, starts the FastAPI backend, compiles the Vite frontend, checks backend health, and opens `http://localhost:5173` in your browser.*
+
+---
+
+### 🪟 Method 2: Windows 1-Click Execution (Demo Workstations)
+
+#### Step 1: Install Dependencies
 Double-click:
 ```bat
 install_dependencies.bat
 ```
-*(Or inside the `setup/` subfolder, double-click `setup\install_dependencies.bat`)*  
-This automatically installs all required Python cryptographic packages and Frontend npm modules.
+*(Or inside `setup/`, double-click `setup\install_dependencies.bat`)*
 
-#### Step 3: Launch the Platform
+#### Step 2: Launch Platform
 Double-click:
 ```bat
 start_demo.bat
 ```
-This terminates any stale port processes, starts both the FastAPI backend and React frontend, and opens `http://127.0.0.1:5173` in your browser.
+*Automatically starts both the FastAPI backend and React frontend, opening `http://127.0.0.1:5173` in your browser.*
 
 ---
 
-### 💻 Method 2: Manual Terminal Execution
+### 💻 Method 3: Manual Terminal Execution
 
 #### Terminal 1 — FastAPI Cryptographic Backend (Port 8000)
 ```bash
@@ -217,22 +243,76 @@ npm run dev
 
 ---
 
-### 🌐 Method 3: Multi-Device / LAN Wi-Fi Access (Cross-Laptop Demo)
-To let friends or evaluators connect from their laptops/phones on the same Wi-Fi:
-1. Find the host laptop's local IP address (open PowerShell and run `ipconfig`).
-2. Have your friends navigate to:
+### 🌐 Method 4: Multi-Device / LAN Wi-Fi Access (Cross-Laptop Demo)
+To let evaluators connect from independent laptops or tablets across an isolated Wi-Fi / intranet:
+1. Find the host server's local IP address (`ipconfig` on Windows or `ip addr` on Linux).
+2. Have client devices navigate to:
    ```
-   http://<YOUR_LOCAL_IP>:5173
+   http://<HOST_LOCAL_IP>:5173
    ```
-   *(Example: `http://192.168.0.110:5173`)*
-3. Vite's proxy automatically routes API requests to the host's backend with zero CORS issues!
+   *(Example: `http://192.168.1.105:5173`)*
+3. Vite automatically proxies API requests to the host's backend with zero CORS issues!
 
 ---
 
-### 🐳 Method 4: Docker Container Deployment
+### 🐳 Method 5: Multi-Container Docker Deployment
 ```bash
 docker-compose up --build
 ```
+
+---
+
+## 🏛️ Enterprise Multi-Department DLT Node Topology
+
+In enterprise defense deployment (e.g., the Navy or Defense Command), the architecture maps directly to the organizational hierarchy:
+
+```
+        ┌────────────────────────────────────────────────────────┐
+        │       AIR-GAPPED PERMISSIONED DLT BACKBONE             │
+        │  (Hyperledger Fabric / Merkle Consensus Network)       │
+        └───────┬──────────────────────┬──────────────────┬──────┘
+                │                      │                  │
+                ▼                      ▼                  ▼
+       ┌─────────────────┐    ┌─────────────────┐  ┌─────────────────┐
+       │     NODE 1      │    │     NODE 2      │  │     NODE 3      │
+       │  Naval Cyber    │    │Naval Intelligence│ │  Tactical Air-  │
+       │Defense Division │    │   Directorate   │  │ Sea Recon Unit  │
+       │    (Org1MSP)    │    │    (Org2MSP)    │  │    (Org3MSP)    │
+       └────────┬────────┘    └────────┬────────┘  └────────┬────────┘
+                │                      │                    │
+        ┌───────┴───────┐      ┌───────┴───────┐    ┌───────┴───────┐
+        ▼               ▼      ▼               ▼    ▼               ▼
+     User A          User B  User C          User D User E        User F
+  (Captain Verma) (Cmdr Rao)(Lt Joshi)     (...)  (...)          (...)
+```
+
+* **Departmental Peer Nodes**: Each naval division operates an independent node/peer in the distributed consortium.
+* **Multi-User Departmental Hub**: Users (analysts, officers) connect to their respective department node.
+* **Collective Provenance**:
+  * An authorized user from any department can encrypt a document for recipients distributed across all other departments.
+  * When any recipient decrypts the file, their local node executes the atomic watermarking sequence and immediately commits the ML-DSA-65 signed decryption receipt across all consortium peer nodes.
+  * **Result**: No single department or rogue administrator can delete or alter the audit trail without being rejected by the consortium endorsement policy!
+
+---
+
+## ✅ Problem Statement Compliance Verification
+
+| Key Requirement (from SIH 2026 Problem Statement) | CIPHERTRACE Implementation | Compliance Status |
+| :--- | :--- | :---: |
+| **Unique invisible watermark at moment of decryption** | 2D DCT spread-spectrum frequency modulation dynamically injects payload into luminance ($Y$) channel during decryption. | **100% SATISFIED** |
+| **Watermark specific to recipient & decryption session** | Payload generated via HMAC-SHA3-256 combining Document SHA3, Recipient Military ID, and UUID-v4 Session Nonce. | **100% SATISFIED** |
+| **Visually identical while forensically distinct** | PSNR > 42 dB. Document looks identical to human eye but carries extractable mathematical signal. | **100% SATISFIED** |
+| **Cryptographically bind decryption event to recipient** | Recipient identity, timestamp, device ID, session nonce, and doc digest are concatenated into canonical audit message. | **100% SATISFIED** |
+| **Digital signature with recipient's private key** | Generated with **NIST FIPS 204 ML-DSA-65** private key for mathematical non-repudiation. | **100% SATISFIED** |
+| **NIST-standardized Post-Quantum Cryptography** | Key Encapsulation: **ML-KEM-768** (FIPS 203 Kyber). Digital Signatures: **ML-DSA-65** (FIPS 204 Dilithium). | **100% SATISFIED** |
+| **Immutable audit layer using Blockchain / DLT** | Hybrid architecture: Hyperledger Fabric v2.5.16 multi-org chaincode + offline binary Merkle ledger. | **100% SATISFIED** |
+| **No single admin can modify/delete audit records** | Multi-party consortium endorsement (`Org1` + `Org2`) rejects unilateral changes; Merkle roots detect tampering. | **100% SATISFIED** |
+| **Extract forensic watermark from leaked document** | Frequency-domain 2D DCT extraction with Reed-Solomon RS(255, 127) FEC recovers payload despite compression or crops. | **100% SATISFIED** |
+| **Look up watermark against immutable ledger** | Forensic Lab queries `query_record(watermark_id)` to retrieve on-chain commit block and signature proof. | **100% SATISFIED** |
+| **Cryptographically verifiable recipient identification** | Full forensic dossier returned: suspect officer name, rank, military ID, device ID, timestamp, and signature. | **100% SATISFIED** |
+| **100% Offline & Air-gapped operation** | Zero external network calls. Runs locally with zero internet access. | **100% SATISFIED** |
+| **Zero dependency on cloud KMS** | Local lattice key management; zero reliance on AWS KMS, GCP KMS, or Azure KeyVault. | **100% SATISFIED** |
+| **Zero dependency on public blockchains** | 100% permissioned defense DLT. Zero reliance on Ethereum, Bitcoin, or public networks. | **100% SATISFIED** |
 
 ---
 
