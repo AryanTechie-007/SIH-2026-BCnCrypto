@@ -379,11 +379,15 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
                   fontFamily: 'var(--font-mono)'
                 }}
               >
-                {documents.map(doc => (
-                  <option key={doc.id} value={doc.id}>
-                    DOC-{doc.id}: {doc.file_name} ({(doc.size_bytes / 1024).toFixed(1)} KB)
-                  </option>
-                ))}
+                {documents.length === 0 ? (
+                  <option value="" disabled>No documents in repository. Ingest a document in Encryption Lab or upload a .enc package above.</option>
+                ) : (
+                  documents.map(doc => (
+                    <option key={doc.id} value={doc.id}>
+                      DOC-{doc.id}: {doc.file_name} ({(doc.size_bytes / 1024).toFixed(1)} KB)
+                    </option>
+                  ))
+                )}
               </select>
             </div>
           )}
