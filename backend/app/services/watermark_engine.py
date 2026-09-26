@@ -402,33 +402,53 @@ class WatermarkEngine:
         if payload is not None:
             return payload, metrics
 
-        # 2. Canonical Document Scaling (e.g. for screen grabs)
         if is_image:
-            if base_img.size != (1240, 1754):
-                try:
-                    canon_img = base_img.resize((1240, 1754), Image.Resampling.LANCZOS)
-                    c_payload, c_metrics = self._extract_from_image(canon_img)
-                    if c_payload is not None:
-                        c_metrics["analysis"] = "2D DCT Lattice Extraction (Canonical Screen Normalization)"
-                        return c_payload, c_metrics
-                except Exception:
-                    pass
+            # 2. Canonical Aspect-Ratio Scaling (handles 96/120/200 DPI screen grabs & exports)
+            aspect = base_img.width / max(1, base_img.height)
+            canon_sizes = [(1275, 1650), (1240, 1754)] if (0.73 <= aspect <= 0.82) else [(1240, 1754), (1275, 1650)]
+            for tw, th in canon_sizes:
+                if base_img.size != (tw, th):
+                    try:
+                        canon_img = base_img.resize((tw, th), Image.Resampling.LANCZOS)
+                        c_payload, c_metrics = self._extract_from_image(canon_img)
+                        if c_payload is not None:
+                            c_metrics["analysis"] = f"2D DCT Lattice Extraction (Canonical Normalization {tw}x{th})"
+                            return c_payload, c_metrics
+                    except Exception:
+                        pass
 
-            # 3. Detect and crop page canvas inside screenshot
+            # 3. Detect and crop page canvas inside viewer screenshot (dark/light borders, letterboxing)
             try:
                 gray = cv2.cvtColor(np.array(base_img), cv2.COLOR_RGB2GRAY)
-                _, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY)
-                contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                if contours:
-                    c = max(contours, key=cv2.contourArea)
-                    x, y, w, h = cv2.boundingRect(c)
-                    if w > 300 and h > 300 and (w * h) > (base_img.width * base_img.height * 0.3):
-                        cropped_page = base_img.crop((x, y, x + w, y + h))
-                        cropped_canon = cropped_page.resize((1240, 1754), Image.Resampling.LANCZOS)
-                        p_crop, m_crop = self._extract_from_image(cropped_canon)
-                        if p_crop is not None:
-                            m_crop["analysis"] = "2D DCT Lattice Extraction (Auto-Cropped Screen Normalization)"
-                            return p_crop, m_crop
+                # Try multiple threshold levels to separate outer viewer margins from page canvas
+                for thresh_val in [40, 70, 110, 160]:
+                    _, thresh = cv2.threshold(gray, thresh_val, 255, cv2.THRESH_BINARY)
+                    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                    if contours:
+                        c = max(contours, key=cv2.contourArea)
+                        x, y, w, h = cv2.boundingRect(c)
+                        # Valid page must occupy a significant portion of screenshot
+                        if w > 250 and h > 250 and (w * h) > (base_img.width * base_img.height * 0.20):
+                            cropped_page = base_img.crop((x, y, x + w, y + h))
+
+                            # 3a. Try cropped page As-Is
+                            p_crop, m_crop = self._extract_from_image(cropped_page)
+                            if p_crop is not None:
+                                m_crop["analysis"] = f"2D DCT Lattice Extraction (Auto-Cropped Border Removal, Thresh {thresh_val})"
+                                return p_crop, m_crop
+
+                            # 3b. Try cropped page scaled to Letter / A4
+                            c_aspect = cropped_page.width / max(1, cropped_page.height)
+                            c_sizes = [(1275, 1650), (1240, 1754)] if (0.73 <= c_aspect <= 0.82) else [(1240, 1754), (1275, 1650)]
+                            for tw, th in c_sizes:
+                                try:
+                                    cropped_canon = cropped_page.resize((tw, th), Image.Resampling.LANCZOS)
+                                    p_c_scale, m_c_scale = self._extract_from_image(cropped_canon)
+                                    if p_c_scale is not None:
+                                        m_c_scale["analysis"] = f"2D DCT Lattice Extraction (Auto-Cropped Normalization {tw}x{th})"
+                                        return p_c_scale, m_c_scale
+                                except Exception:
+                                    pass
             except Exception:
                 pass
 

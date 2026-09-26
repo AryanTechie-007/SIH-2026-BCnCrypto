@@ -41,12 +41,23 @@ ALLOWED_MIME_SIGNATURES = {
 }
 
 
-def _validate_file_magic(file_bytes: bytes) -> str:
-    """Validates file magic bytes to prevent file extension spoofing."""
-    for magic, ext in ALLOWED_MIME_SIGNATURES.items():
-        if file_bytes.startswith(magic):
-            return ext
-    # Tolerant for text/enc containers or general images
+def _validate_file_magic(file_bytes: bytes, original_filename: str = "") -> str:
+    """Validates file magic bytes to prevent file extension spoofing while preserving image types."""
+    if file_bytes.startswith(b"%PDF"):
+        return "pdf"
+    if file_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "png"
+    if file_bytes.startswith(b"\xff\xd8"):
+        return "jpg"
+    if file_bytes.startswith(b"RIFF") and b"WEBP" in file_bytes[:16]:
+        return "webp"
+    if file_bytes.startswith(b"BM"):
+        return "bmp"
+    # Fallback to original extension if supported
+    lower = (original_filename or "").lower()
+    for ext in ["png", "jpg", "jpeg", "webp", "bmp", "pdf"]:
+        if lower.endswith("." + ext):
+            return "jpg" if ext == "jpeg" else ext
     if file_bytes.startswith(b"{") or file_bytes.startswith(b"---"):
         return "txt"
     return "bin"
@@ -84,7 +95,7 @@ async def evaluate_suspect_stream(file_name: str, file_bytes: bytes, db: AsyncSe
         )
 
     # 2. Safe temporary path resolution using UUID
-    safe_ext = _validate_file_magic(file_bytes)
+    safe_ext = _validate_file_magic(file_bytes, file_name)
     temp_path = os.path.join(UPLOAD_TEMP_DIR, f"{uuid.uuid4().hex}.{safe_ext}")
     try:
         with open(temp_path, "wb") as buffer:
