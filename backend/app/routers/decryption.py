@@ -36,6 +36,17 @@ DEMO_PASSWORDS = [
 ]
 
 
+def _keystore_path_for(user: User) -> str:
+    """Resolves the recipient keystore file, tolerating paths recorded on another machine."""
+    stored = user.keystore_path or ""
+    if stored and os.path.exists(stored):
+        return stored
+    # Stored path may come from another machine (e.g. a Windows absolute path); look in our KEYSTORE_DIR
+    name = stored.replace("\\", "/").rsplit("/", 1)[-1] if stored else os.path.basename(
+        KeystoreManager.get_keystore_path(user.id, user.username))
+    return os.path.join(settings.KEYSTORE_DIR, name)
+
+
 def _resolve_keystore_password(req_password: Optional[str], user: User) -> str:
     """Resolves password to unlock local encrypted recipient keystore."""
     if req_password:
@@ -43,7 +54,7 @@ def _resolve_keystore_password(req_password: Optional[str], user: User) -> str:
 
     if settings.DEMO_MODE:
         # Try known demo passwords
-        keystore_path = user.keystore_path or KeystoreManager.get_keystore_path(user.id, user.username)
+        keystore_path = _keystore_path_for(user)
         if os.path.exists(keystore_path):
             for pwd in DEMO_PASSWORDS:
                 if KeystoreManager.verify_password(keystore_path, pwd):
@@ -125,7 +136,7 @@ async def decrypt_document(
         )
 
     # Resolve keystore
-    keystore_path = user.keystore_path or KeystoreManager.get_keystore_path(user.id, user.username)
+    keystore_path = _keystore_path_for(user)
     if not os.path.exists(keystore_path):
         raise HTTPException(
             status_code=500,
@@ -366,7 +377,7 @@ async def decrypt_uploaded_envelope(
             detail=f"ACCESS DENIED: {user.name} ({user.navy_id}) was not designated as an authorized recipient in this encrypted .enc envelope."
         )
 
-    keystore_path = user.keystore_path or KeystoreManager.get_keystore_path(user.id, user.username)
+    keystore_path = _keystore_path_for(user)
     if not os.path.exists(keystore_path):
         raise HTTPException(status_code=500, detail="Recipient local keystore not found")
 
