@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ApiClient } from '../api/client';
 import { ForensicAnalysisResult } from '../types';
-import { Search, ShieldAlert, CheckCircle2, XCircle, Download, FileSearch, AlertOctagon, RefreshCw, FileText } from 'lucide-react';
+import { Search, Download, FileSearch, AlertOctagon, RefreshCw } from 'lucide-react';
 
 export const EvidenceConsole: React.FC = () => {
   const [suspectFile, setSuspectFile] = useState<File | null>(null);
@@ -41,37 +41,6 @@ export const EvidenceConsole: React.FC = () => {
   return (
     <div style={{ padding: '24px', maxWidth: '1440px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
       
-      {/* Top Header Bar */}
-      <div style={{
-        backgroundColor: 'var(--bg-panel)',
-        border: '1px solid var(--border-hard)',
-        padding: '14px 20px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        fontFamily: 'var(--font-mono)',
-        fontSize: '11px'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ color: 'var(--text-dim)' }}>FORENSIC EVALUATION LAB:</span>
-          <span style={{ color: '#ffffff', fontWeight: 700 }}>2D DCT FREQUENCY DECODING</span>
-          <span style={{
-            backgroundColor: '#1c1917',
-            color: '#f59e0b',
-            border: '1px solid #78350f',
-            padding: '2px 6px',
-            fontSize: '9px',
-            fontWeight: 700
-          }}>
-            REED-SOLOMON (255, 127) FEC
-          </span>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', color: 'var(--text-dim)' }}>
-          <span>TARGET ENGINE: <strong style={{ color: '#38bdf8' }}>BLIND EXTRACTION</strong></span>
-          <span>LEDGER ANCHOR: <strong style={{ color: '#ffffff' }}>SHA3-256</strong></span>
-        </div>
-      </div>
 
       {/* Error Message */}
       {errorMessage && (
@@ -105,7 +74,7 @@ export const EvidenceConsole: React.FC = () => {
             <div style={{
               fontSize: '12px',
               fontWeight: 800,
-              color: '#ffffff',
+              color: '#00ff66',
               letterSpacing: '0.04em',
               borderBottom: '1px solid var(--border-hard)',
               paddingBottom: '10px',
@@ -120,25 +89,25 @@ export const EvidenceConsole: React.FC = () => {
                 border: '1px dashed var(--border-hard)',
                 padding: '28px 16px',
                 textAlign: 'center',
-                backgroundColor: '#070b13',
+                backgroundColor: '#000000',
                 cursor: 'pointer',
                 transition: 'border-color 0.2s'
               }}
             >
-              <FileSearch size={32} color="#f87171" style={{ margin: '0 auto 10px' }} />
+              <FileSearch size={32} color="#00ff66" style={{ margin: '0 auto 10px' }} />
               
               {suspectFile ? (
                 <>
-                  <div style={{ fontWeight: 700, color: '#ffffff', fontSize: '12px', wordBreak: 'break-all' }}>
+                  <div style={{ fontWeight: 700, color: '#00ff66', fontSize: '12px', wordBreak: 'break-all' }}>
                     {suspectFile.name}
                   </div>
-                  <div style={{ fontSize: '11px', color: '#38bdf8', fontFamily: 'var(--font-mono)', marginTop: '4px' }}>
+                  <div style={{ fontSize: '11px', color: '#34d399', fontFamily: 'var(--font-mono)', marginTop: '4px' }}>
                     {(suspectFile.size / 1024).toFixed(1)} KB &bull; READY FOR SCAN
                   </div>
                 </>
               ) : (
                 <>
-                  <div style={{ fontWeight: 700, color: '#ffffff', fontSize: '12px' }}>
+                  <div style={{ fontWeight: 700, color: '#00ff66', fontSize: '12px' }}>
                     SELECT OR DROP LEAKED FILE
                   </div>
                   <div style={{ fontSize: '10px', color: 'var(--text-dim)', marginTop: '4px', lineHeight: '1.4' }}>
@@ -161,8 +130,8 @@ export const EvidenceConsole: React.FC = () => {
                 width: '100%',
                 marginTop: '16px',
                 padding: '12px',
-                backgroundColor: isAnalyzing || !suspectFile ? '#1e293b' : '#dc2626',
-                color: '#ffffff',
+                backgroundColor: isAnalyzing || !suspectFile ? '#042010' : '#00ff66',
+                color: isAnalyzing || !suspectFile ? '#34d399' : '#000000',
                 border: 'none',
                 fontSize: '11px',
                 fontFamily: 'var(--font-mono)',
@@ -197,16 +166,16 @@ export const EvidenceConsole: React.FC = () => {
             fontSize: '11px',
             fontFamily: 'var(--font-mono)'
           }}>
-            <div style={{ color: '#ffffff', fontWeight: 700, marginBottom: '10px', fontSize: '11px' }}>
+            <div style={{ color: '#00ff66', fontWeight: 700, marginBottom: '10px', fontSize: '11px' }}>
               THE 6 CRYPTOGRAPHIC GATES:
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', color: 'var(--text-dim)' }}>
-              <div><strong style={{ color: '#94a3b8' }}>Gate 1:</strong> Watermark &amp; RS(255,127) Parity</div>
-              <div><strong style={{ color: '#94a3b8' }}>Gate 2:</strong> Decryption Session in Ledger</div>
-              <div><strong style={{ color: '#94a3b8' }}>Gate 3:</strong> ML-DSA-65 Recipient Signature</div>
-              <div><strong style={{ color: '#94a3b8' }}>Gate 4:</strong> Merkle Inclusion Audit Proof</div>
-              <div><strong style={{ color: '#94a3b8' }}>Gate 5:</strong> Document SHA3-256 Digest Match</div>
-              <div><strong style={{ color: '#94a3b8' }}>Gate 6:</strong> Hash Chain Ledger Integrity</div>
+              <div><strong style={{ color: '#34d399' }}>Gate 1:</strong> Watermark &amp; RS(255,127) Parity</div>
+              <div><strong style={{ color: '#34d399' }}>Gate 2:</strong> Decryption Session in Ledger</div>
+              <div><strong style={{ color: '#34d399' }}>Gate 3:</strong> ML-DSA-65 Recipient Signature</div>
+              <div><strong style={{ color: '#34d399' }}>Gate 4:</strong> Merkle Inclusion Audit Proof</div>
+              <div><strong style={{ color: '#34d399' }}>Gate 5:</strong> Document SHA3-256 Digest Match</div>
+              <div><strong style={{ color: '#34d399' }}>Gate 6:</strong> Hash Chain Ledger Integrity</div>
             </div>
           </div>
 
@@ -218,7 +187,7 @@ export const EvidenceConsole: React.FC = () => {
             <div style={{
               backgroundColor: 'var(--bg-panel)',
               border: '1px solid var(--border-hard)',
-              borderLeft: `4px solid ${analysisResult.status === 'IDENTIFIED' ? '#10b981' : '#ef4444'}`,
+              borderLeft: `4px solid ${analysisResult.status === 'IDENTIFIED' ? '#00ff66' : '#ef4444'}`,
               padding: '20px'
             }}>
               {/* Card Header */}
@@ -235,13 +204,13 @@ export const EvidenceConsole: React.FC = () => {
                     fontSize: '13px',
                     fontWeight: 800,
                     letterSpacing: '0.04em',
-                    color: analysisResult.status === 'IDENTIFIED' ? '#34d399' : '#f87171'
+                    color: analysisResult.status === 'IDENTIFIED' ? '#00ff66' : '#f87171'
                   }}>
                     {analysisResult.status === 'IDENTIFIED' ? 'POSITIVE ATTRIBUTION CONFIRMED' : 'ATTRIBUTION FAILED'}
                   </div>
                   <span style={{
-                    backgroundColor: analysisResult.status === 'IDENTIFIED' ? '#064e3b' : '#7f1d1d',
-                    color: analysisResult.status === 'IDENTIFIED' ? '#6ee7b7' : '#fca5a5',
+                    backgroundColor: analysisResult.status === 'IDENTIFIED' ? '#042f1a' : '#7f1d1d',
+                    color: analysisResult.status === 'IDENTIFIED' ? '#00ff66' : '#fca5a5',
                     padding: '2px 8px',
                     fontSize: '10px',
                     fontFamily: 'var(--font-mono)',
@@ -258,9 +227,9 @@ export const EvidenceConsole: React.FC = () => {
                       display: 'flex',
                       alignItems: 'center',
                       gap: '6px',
-                      backgroundColor: '#0a1d2e',
-                      border: '1px solid #0284c7',
-                      color: '#38bdf8',
+                      backgroundColor: '#000000',
+                      border: '1px solid #00ff66',
+                      color: '#00ff66',
                       padding: '6px 12px',
                       fontSize: '11px',
                       fontFamily: 'var(--font-mono)',
@@ -277,7 +246,7 @@ export const EvidenceConsole: React.FC = () => {
               {/* Attributed Identity Box */}
               {analysisResult.recipient && analysisResult.overall_confidence > 0 && analysisResult.status !== 'UNATTRIBUTED' ? (
                 <div style={{
-                  backgroundColor: '#070b13',
+                  backgroundColor: '#000000',
                   border: '1px solid var(--border-hard)',
                   padding: '16px',
                   marginBottom: '16px'
@@ -295,15 +264,15 @@ export const EvidenceConsole: React.FC = () => {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px', fontFamily: 'var(--font-mono)' }}>
                     <div>
                       <div style={{ fontSize: '10px', color: 'var(--text-dim)' }}>NAME &amp; ROLE:</div>
-                      <div style={{ fontSize: '14px', fontWeight: 800, color: '#ffffff', marginTop: '2px' }}>
+                      <div style={{ fontSize: '14px', fontWeight: 800, color: '#00ff66', marginTop: '2px' }}>
                         {analysisResult.recipient.name}
                       </div>
-                      <div style={{ fontSize: '11px', color: '#38bdf8' }}>{analysisResult.recipient.rank}</div>
+                      <div style={{ fontSize: '11px', color: '#34d399' }}>{analysisResult.recipient.rank}</div>
                     </div>
 
                     <div>
                       <div style={{ fontSize: '10px', color: 'var(--text-dim)' }}>ACCOUNT IDENTIFIER:</div>
-                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#ffffff', marginTop: '2px' }}>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#00ff66', marginTop: '2px' }}>
                         {analysisResult.recipient.navy_id}
                       </div>
                       <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{analysisResult.recipient.command_unit}</div>
@@ -320,8 +289,8 @@ export const EvidenceConsole: React.FC = () => {
                 </div>
               ) : (
                 <div style={{
-                  backgroundColor: '#0a0d14',
-                  border: '1px solid #1e293b',
+                  backgroundColor: '#000000',
+                  border: '1px solid var(--border-hard)',
                   padding: '14px 16px',
                   marginBottom: '16px',
                   display: 'flex',
@@ -356,11 +325,11 @@ export const EvidenceConsole: React.FC = () => {
 
               {/* Narrative Summary */}
               <div style={{
-                backgroundColor: '#070b13',
-                border: '1px solid #141f32',
+                backgroundColor: '#000000',
+                border: '1px solid var(--border-hard)',
                 padding: '12px',
                 fontSize: '12px',
-                color: '#e2e8f0',
+                color: '#34d399',
                 lineHeight: '1.5',
                 marginBottom: '16px',
                 fontFamily: 'var(--font-mono)'
@@ -394,17 +363,17 @@ export const EvidenceConsole: React.FC = () => {
                       key={g.label}
                       style={{
                         padding: '8px 12px',
-                        backgroundColor: g.ok ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
-                        border: g.ok ? '1px solid #059669' : '1px solid #991b1b',
+                        backgroundColor: g.ok ? 'rgba(0, 255, 102, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+                        border: g.ok ? '1px solid #00ff66' : '1px solid #991b1b',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
                         fontSize: '11px'
                       }}
                     >
-                      <span style={{ color: g.ok ? '#e2e8f0' : '#fca5a5' }}>{g.label}</span>
+                      <span style={{ color: g.ok ? '#34d399' : '#fca5a5' }}>{g.label}</span>
                       <span style={{
-                        color: g.ok ? '#34d399' : '#f87171',
+                        color: g.ok ? '#00ff66' : '#f87171',
                         fontWeight: 800,
                         fontSize: '10px'
                       }}>
@@ -417,23 +386,23 @@ export const EvidenceConsole: React.FC = () => {
 
               {/* Technical Telemetry */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', fontSize: '11px', fontFamily: 'var(--font-mono)' }}>
-                <div style={{ backgroundColor: '#070b13', padding: '10px', border: '1px solid var(--border-hard)' }}>
+                <div style={{ backgroundColor: '#000000', padding: '10px', border: '1px solid var(--border-hard)' }}>
                   <div style={{ color: 'var(--text-dim)', fontSize: '10px' }}>RECOVERED PAYLOAD:</div>
-                  <div style={{ color: '#34d399', fontWeight: 700, marginTop: '2px', wordBreak: 'break-all' }}>
+                  <div style={{ color: '#00ff66', fontWeight: 700, marginTop: '2px', wordBreak: 'break-all' }}>
                     {analysisResult.extracted_payload_hex || 'N/A'}
                   </div>
                 </div>
 
-                <div style={{ backgroundColor: '#070b13', padding: '10px', border: '1px solid var(--border-hard)' }}>
+                <div style={{ backgroundColor: '#000000', padding: '10px', border: '1px solid var(--border-hard)' }}>
                   <div style={{ color: 'var(--text-dim)', fontSize: '10px' }}>BIT ERROR RATE (BER):</div>
-                  <div style={{ color: '#38bdf8', fontWeight: 700, marginTop: '2px' }}>
+                  <div style={{ color: '#00ff66', fontWeight: 700, marginTop: '2px' }}>
                     {analysisResult.bit_error_rate.toFixed(2)}%
                   </div>
                 </div>
 
-                <div style={{ backgroundColor: '#070b13', padding: '10px', border: '1px solid var(--border-hard)' }}>
+                <div style={{ backgroundColor: '#000000', padding: '10px', border: '1px solid var(--border-hard)' }}>
                   <div style={{ color: 'var(--text-dim)', fontSize: '10px' }}>ECC RECOVERY:</div>
-                  <div style={{ color: '#ffffff', fontWeight: 700, marginTop: '2px' }}>
+                  <div style={{ color: '#00ff66', fontWeight: 700, marginTop: '2px' }}>
                     {analysisResult.payload_recovery_pct.toFixed(1)}%
                   </div>
                 </div>
@@ -453,7 +422,7 @@ export const EvidenceConsole: React.FC = () => {
               fontFamily: 'var(--font-mono)'
             }}>
               <FileSearch size={40} color="var(--text-dim)" style={{ opacity: 0.3, marginBottom: '16px' }} />
-              <div style={{ fontSize: '13px', fontWeight: 700, color: '#ffffff', marginBottom: '6px' }}>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#00ff66', marginBottom: '6px' }}>
                 AWAITING SUSPECT ARTIFACT INGESTION
               </div>
               <div style={{ fontSize: '11px', color: 'var(--text-dim)', maxWidth: '360px', lineHeight: '1.5' }}>

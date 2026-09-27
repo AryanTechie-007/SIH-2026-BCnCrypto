@@ -79,14 +79,6 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
                 <span style={{ color: '#ffffff', fontWeight: 700 }}>{currentUser.name}</span>
                 <span style={{ color: 'var(--text-dim)', marginLeft: '6px' }}>@{currentUser.username} [{currentUser.rank}]</span>
               </div>
-              <button
-                onClick={onOpenAuth}
-                className="tactical-btn tactical-btn-secondary"
-                style={{ padding: '2px 6px', fontSize: '10px', marginLeft: '4px' }}
-                title="Switch Account"
-              >
-                Switch
-              </button>
               {onLogout && (
                 <button
                   onClick={onLogout}

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ApiClient } from '../api/client';
 import { UserAccount } from '../types';
-import { ShieldCheck, Lock, User, Key, Cpu, X, AlertOctagon, UserPlus, LogIn, Zap } from 'lucide-react';
+import { ShieldCheck, Lock, X, AlertOctagon, UserPlus, LogIn, Cpu } from 'lucide-react';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -75,43 +75,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
-  const handleQuickCreate = async (quickUsername: string, quickName: string, quickRank: string) => {
-    try {
-      setIsLoading(true);
-      setErrorMessage(null);
-      const demoPwds: Record<string, string> = {
-        verma: 'CommanderVerma2026!',
-        varma: 'CommanderVerma2026!',
-        rao: 'LieutenantRao2026!',
-        joshi: 'CommanderJoshi2026!'
-      };
-      const demoPwd = demoPwds[quickUsername.toLowerCase()] || 'CommanderVerma2026!';
-
-      // Try logging in first in case already created
-      try {
-        const loginRes = await ApiClient.login({ username: quickUsername, password: demoPwd });
-        onLoginSuccess(loginRes.user, loginRes.token);
-        onClose();
-        return;
-      } catch {
-        // If not created yet, register
-        const regRes = await ApiClient.register({
-          username: quickUsername,
-          password: demoPwd,
-          display_name: quickName,
-          rank: quickRank,
-          device_id: `DEV-${quickUsername.toUpperCase()}`
-        });
-        onLoginSuccess(regRes.user, regRes.token);
-        onClose();
-      }
-    } catch (err: any) {
-      setErrorMessage(err.message || `Failed to setup ${quickUsername}`);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
     <div style={{
       position: 'fixed',
@@ -119,7 +82,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: 'rgba(5, 8, 14, 0.88)',
+      backgroundColor: 'rgba(0, 0, 0, 0.92)',
       backdropFilter: 'blur(4px)',
       display: 'flex',
       alignItems: 'center',
@@ -130,9 +93,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       <div style={{
         width: '100%',
         maxWidth: '480px',
-        backgroundColor: '#0c121e',
-        border: '1px solid var(--border-active)',
-        boxShadow: '0 20px 40px rgba(0, 0, 0, 0.8)'
+        backgroundColor: '#000000',
+        border: '1px solid var(--border-hard)',
+        boxShadow: '0 20px 40px rgba(0, 0, 0, 0.95)'
       }}>
         {/* Header */}
         <div style={{
@@ -141,12 +104,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          backgroundColor: '#070b13'
+          backgroundColor: '#000000'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div style={{
-              backgroundColor: '#0284c7',
-              color: '#ffffff',
+              backgroundColor: '#00ff66',
+              color: '#000000',
               padding: '4px',
               display: 'flex',
               alignItems: 'center',
@@ -155,8 +118,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <Lock size={16} />
             </div>
             <div>
-              <div style={{ fontSize: '13px', fontWeight: 800, letterSpacing: '0.04em', color: '#ffffff' }}>
-                SECURE USER AUTHENTICATION
+              <div style={{ fontSize: '13px', fontWeight: 800, letterSpacing: '0.04em', color: '#00ff66' }}>
+                SECURE OPERATOR AUTHENTICATION
               </div>
               <div style={{ fontSize: '10px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
                 NIST FIPS 203 / 204 POST-QUANTUM IDENTITY & VAULT ACCESS
@@ -180,7 +143,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         </div>
 
         {/* Tab Toggle */}
-        <div style={{ display: 'flex', borderBottom: '1px solid var(--border-hard)', backgroundColor: '#090e18' }}>
+        <div style={{ display: 'flex', borderBottom: '1px solid var(--border-hard)', backgroundColor: '#000000' }}>
           <button
             onClick={() => { setTab('login'); setErrorMessage(null); }}
             style={{
@@ -189,10 +152,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               fontSize: '11px',
               fontWeight: 700,
               letterSpacing: '0.05em',
-              background: tab === 'login' ? '#0f172a' : 'transparent',
-              color: tab === 'login' ? '#38bdf8' : 'var(--text-muted)',
+              background: tab === 'login' ? '#042f1a' : 'transparent',
+              color: tab === 'login' ? '#00ff66' : 'var(--text-muted)',
               border: 'none',
-              borderBottom: tab === 'login' ? '2px solid #38bdf8' : '2px solid transparent',
+              borderBottom: tab === 'login' ? '2px solid #00ff66' : '2px solid transparent',
               cursor: 'pointer'
             }}
           >
@@ -207,10 +170,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               fontSize: '11px',
               fontWeight: 700,
               letterSpacing: '0.05em',
-              background: tab === 'register' ? '#0f172a' : 'transparent',
-              color: tab === 'register' ? '#38bdf8' : 'var(--text-muted)',
+              background: tab === 'register' ? '#042f1a' : 'transparent',
+              color: tab === 'register' ? '#00ff66' : 'var(--text-muted)',
               border: 'none',
-              borderBottom: tab === 'register' ? '2px solid #38bdf8' : '2px solid transparent',
+              borderBottom: tab === 'register' ? '2px solid #00ff66' : '2px solid transparent',
               cursor: 'pointer'
             }}
           >
@@ -333,7 +296,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     value={rank}
                     onChange={e => setRank(e.target.value)}
                     className="tactical-input"
-                    style={{ width: '100%', padding: '8px 10px', fontSize: '12px', backgroundColor: '#090e18', color: '#ffffff' }}
+                    style={{ width: '100%', padding: '8px 10px', fontSize: '12px', backgroundColor: '#000000', color: '#00ff66' }}
                   >
                     <option value="Executive">Executive</option>
                     <option value="Legal Counsel">Legal Counsel</option>
@@ -361,8 +324,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
               <div style={{
                 padding: '8px 12px',
-                backgroundColor: '#08111e',
-                border: '1px solid #14233c',
+                backgroundColor: '#000000',
+                border: '1px solid var(--border-hard)',
                 fontSize: '10px',
                 color: 'var(--text-dim)',
                 fontFamily: 'var(--font-mono)'
@@ -381,45 +344,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </button>
             </form>
           )}
-
-          {/* Quick Setup Shortcuts for Testing */}
-          <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--border-hard)' }}>
-            <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-dim)', letterSpacing: '0.05em', marginBottom: '8px' }}>
-              ⚡ QUICK TESTING ACCOUNTS (1-CLICK)
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-              <button
-                type="button"
-                onClick={() => handleQuickCreate('user_sender', 'Sender User', 'Executive')}
-                disabled={isLoading}
-                className="tactical-btn tactical-btn-secondary"
-                style={{ fontSize: '10px', padding: '8px 6px', justifyContent: 'center' }}
-              >
-                <Zap size={11} style={{ color: '#38bdf8' }} />
-                <span>Sender Account</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickCreate('user_recipient', 'Recipient User', 'Legal Counsel')}
-                disabled={isLoading}
-                className="tactical-btn tactical-btn-secondary"
-                style={{ fontSize: '10px', padding: '8px 6px', justifyContent: 'center' }}
-              >
-                <Zap size={11} style={{ color: '#10b981' }} />
-                <span>Recipient Account</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickCreate('user_personal', 'Personal User', 'Engineering')}
-                disabled={isLoading}
-                className="tactical-btn tactical-btn-secondary"
-                style={{ fontSize: '10px', padding: '8px 6px', justifyContent: 'center' }}
-              >
-                <Zap size={11} style={{ color: '#f59e0b' }} />
-                <span>Personal Account</span>
-              </button>
-            </div>
-          </div>
         </div>
       </div>
     </div>

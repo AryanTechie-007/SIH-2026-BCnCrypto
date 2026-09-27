@@ -1,15 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { WorkstationSidebar, WorkstationModule } from './components/WorkstationSidebar';
-import { WorkstationHeader } from './components/WorkstationHeader';
 import { AuthModal } from './components/AuthModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { OverviewConsole } from './views/OverviewConsole';
 import { DocumentsConsole } from './views/DocumentsConsole';
 import { DecryptionConsole } from './views/DecryptionConsole';
 import { EvidenceConsole } from './views/EvidenceConsole';
-import { LedgerAuditConsole } from './views/LedgerAuditConsole';
 import { ApiClient } from './api/client';
-import { DocumentRecord, Officer, LedgerBlock, SystemHealth, UserAccount } from './types';
+import { DocumentRecord, Officer, LedgerBlock, UserAccount } from './types';
 
 import { LoginPage } from './components/LoginPage';
 
@@ -20,7 +18,6 @@ export function App() {
   const [activeModule, setActiveModule] = useState<WorkstationModule>('overview');
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
-  const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null);
   const [isOnline, setIsOnline] = useState<boolean>(true);
 
   // Global operational records
@@ -50,7 +47,6 @@ export function App() {
       ]);
 
       if (h.status === 'fulfilled') {
-        setSystemHealth(h.value);
         setIsOnline(true);
       } else {
         setIsOnline(false);
@@ -92,14 +88,6 @@ export function App() {
     }
   };
 
-  const moduleTitles: Record<WorkstationModule, string> = {
-    overview: 'Operational Dashboard / System Overview',
-    documents: 'Encryption Lab / Confidential Ingest & Post-Quantum Encryption',
-    decryption: 'Decryption Lab / Post-Quantum Decryption & Steganographic Watermark',
-    evidence: 'Forensic Leak Lab / Blind Extraction & Leak Attribution',
-    ledger: 'Distributed Blockchain Ledger / PoA Multi-Node Consensus Network'
-  };
-
   // If user is not yet logged in, present the clean authentication portal first
   if (!currentUser) {
     return (
@@ -123,8 +111,9 @@ export function App() {
           activeModule={activeModule}
           setActiveModule={setActiveModule}
           currentUser={currentUser}
-          blocksCount={blocks.length}
           isOnline={isOnline}
+          onOpenAuth={() => setIsAuthOpen(true)}
+          onLogout={handleLogout}
         />
 
         {/* Main Viewport */}
@@ -135,16 +124,6 @@ export function App() {
           minWidth: 0,
           overflow: 'hidden'
         }}>
-          {/* Top Workstation Header (Matching Images 1, 2, 4) */}
-          <WorkstationHeader
-            activeModuleTitle={moduleTitles[activeModule]}
-            currentUser={currentUser}
-            systemHealth={systemHealth}
-            onOpenAuth={() => setIsAuthOpen(true)}
-            onLogout={handleLogout}
-            onRefreshHealth={refreshAllData}
-          />
-
           {/* Content Viewport with Smooth Scroll */}
           <main style={{
             flex: 1,
@@ -184,10 +163,6 @@ export function App() {
 
             {activeModule === 'evidence' && (
               <EvidenceConsole />
-            )}
-
-            {activeModule === 'ledger' && (
-              <LedgerAuditConsole />
             )}
           </main>
         </div>

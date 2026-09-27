@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ApiClient } from '../api/client';
 import { Officer, DocumentRecord, DecryptionResult, UserAccount } from '../types';
-import { Upload, Key, FileCheck, CheckCircle2, Download, AlertOctagon, RefreshCw, Shield, ChevronRight } from 'lucide-react';
+import { Upload, Key, FileCheck, Download, AlertOctagon, RefreshCw } from 'lucide-react';
 
 interface DecryptionConsoleProps {
   documents: DocumentRecord[];
@@ -16,7 +16,7 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
   officers,
   currentUser,
   onDecryptionSuccess,
-  onOpenAuth
+  onOpenAuth: _onOpenAuth
 }) => {
   const [decryptMode, setDecryptMode] = useState<'envelope_file' | 'repository'>('envelope_file');
   const [selectedDocId, setSelectedDocId] = useState<number | null>(documents.length > 0 ? documents[0].id : null);
@@ -31,20 +31,16 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
   const [activeStage, setActiveStage] = useState<number>(0);
   const [decryptionResult, setDecryptionResult] = useState<DecryptionResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [pipelineId, setPipelineId] = useState<string>('PIPE-' + Math.floor(1000 + Math.random() * 9000) + '-MLKEM');
-  const [countdown, setCountdown] = useState<string>('12:00');
 
-  // Match recipient to current user or first available officer
+  // Strictly bind recipient identity to the currently authenticated operator session
   useEffect(() => {
     if (currentUser) {
-      const match = officers.find(o => o.username === currentUser.username || o.navy_id === currentUser.navy_id);
+      const match = officers.find(o => o.username === currentUser.username || o.navy_id === currentUser.navy_id || o.id === currentUser.id);
       if (match) {
         setSelectedRecipientId(match.id);
-        return;
+      } else if (currentUser.id) {
+        setSelectedRecipientId(currentUser.id);
       }
-    }
-    if (officers.length > 0 && selectedRecipientId === null) {
-      setSelectedRecipientId(officers[0].id);
     }
   }, [currentUser, officers]);
 
@@ -78,13 +74,6 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
       const text = await file.text();
       const json = JSON.parse(text);
       setParsedEnvelope(json);
-      // If envelope contains recipients, auto-select if current user is in it
-      if (json.envelopes && Array.isArray(json.envelopes)) {
-        const allowedIds = json.envelopes.map((env: any) => env.recipient_id);
-        if (selectedRecipientId && !allowedIds.includes(selectedRecipientId)) {
-          setSelectedRecipientId(allowedIds[0] || null);
-        }
-      }
     } catch {
       setParsedEnvelope(null);
       setErrorMessage("Could not parse file as JSON. Please ensure you uploaded a valid .enc package.");
@@ -101,7 +90,6 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
       setIsDecrypting(true);
       setErrorMessage(null);
       setDecryptionResult(null);
-      setPipelineId('PIPE-' + Math.floor(1000 + Math.random() * 9000) + '-MLKEM');
 
       // Stage progression animation
       setActiveStage(2);
@@ -147,51 +135,24 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
     }
   };
 
-  const selectedOfficer = officers.find(o => o.id === selectedRecipientId);
-  const activeDocument = documents.find(d => d.id === selectedDocId);
+  const selectedOfficer = officers.find(o => o.id === selectedRecipientId) || (currentUser ? (currentUser as unknown as Officer) : undefined);
 
   // Check if selected recipient is authorized in parsed envelope
   const isRecipientInEnvelope = () => {
-    if (!parsedEnvelope || !parsedEnvelope.envelopes) return true;
-    return parsedEnvelope.envelopes.some((env: any) => env.recipient_id === selectedRecipientId);
+    if (!parsedEnvelope) return true;
+    const envList = parsedEnvelope.recipients || parsedEnvelope.envelopes;
+    if (!envList || !Array.isArray(envList)) return true;
+    return envList.some((env: any) => 
+      env.recipient_id === selectedRecipientId || 
+      (currentUser && env.username === currentUser.username) ||
+      (currentUser && env.navy_id === currentUser.navy_id)
+    );
   };
 
   return (
     <div style={{ padding: '24px', maxWidth: '1440px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      
-      {/* Top Pipeline Execution Header (Matching Image 4) */}
-      <div style={{
-        backgroundColor: 'var(--bg-panel)',
-        border: '1px solid var(--border-hard)',
-        padding: '14px 20px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        fontFamily: 'var(--font-mono)',
-        fontSize: '11px'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ color: 'var(--text-dim)' }}>DECRYPTION LAB PIPELINE:</span>
-          <span style={{ color: '#ffffff', fontWeight: 700 }}>{pipelineId}</span>
-          <span style={{
-            backgroundColor: '#0a1d2e',
-            color: '#38bdf8',
-            border: '1px solid #0284c7',
-            padding: '2px 6px',
-            fontSize: '9px',
-            fontWeight: 700
-          }}>
-            ISOLATED ENCLAVE 0
-          </span>
-        </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', color: 'var(--text-dim)' }}>
-          <span>STAGE: <strong style={{ color: '#38bdf8' }}>0{activeStage || 1} OF 07</strong></span>
-          <span>SESSION CACHE LIFESPAN: <strong style={{ color: '#ffffff' }}>12:00</strong></span>
-        </div>
-      </div>
-
-      {/* 7-Step Pipeline Breadcrumb Bar (Matching Image 4) */}
+      {/* 7-Step Pipeline Breadcrumb Bar */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(7, 1fr)',
@@ -204,7 +165,6 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
           const stepNum = idx + 1;
           const isDone = activeStage > stepNum;
           const isCurrent = activeStage === stepNum;
-          const isPending = activeStage < stepNum;
 
           return (
             <div
@@ -214,21 +174,21 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 padding: '6px 10px',
-                backgroundColor: isCurrent ? 'rgba(2, 132, 199, 0.15)' : isDone ? 'rgba(16, 185, 129, 0.1)' : '#070b13',
-                border: isCurrent ? '1px solid #38bdf8' : isDone ? '1px solid #059669' : '1px solid var(--border-hard)',
+                backgroundColor: isCurrent ? 'rgba(0, 255, 102, 0.15)' : isDone ? 'rgba(0, 255, 102, 0.06)' : '#000000',
+                border: isCurrent ? '1px solid #00ff66' : isDone ? '1px solid #059669' : '1px solid var(--border-hard)',
                 fontSize: '11px',
                 fontFamily: 'var(--font-mono)'
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ color: isCurrent ? '#38bdf8' : isDone ? '#34d399' : 'var(--text-dim)', fontWeight: 700 }}>
+                <span style={{ color: isCurrent ? '#00ff66' : isDone ? '#34d399' : 'var(--text-dim)', fontWeight: 700 }}>
                   {stage.num}
                 </span>
-                <span style={{ color: isCurrent ? '#ffffff' : isDone ? '#e2e8f0' : 'var(--text-dim)', fontSize: '11px' }}>
+                <span style={{ color: isCurrent ? '#00ff66' : isDone ? '#34d399' : 'var(--text-dim)', fontSize: '11px' }}>
                   {stage.name}
                 </span>
               </div>
-              <span style={{ fontSize: '10px', color: isDone ? '#34d399' : isCurrent ? '#38bdf8' : 'var(--text-dim)' }}>
+              <span style={{ fontSize: '10px', color: isDone ? '#34d399' : isCurrent ? '#00ff66' : 'var(--text-dim)' }}>
                 {isDone ? '✓' : isCurrent ? '■' : '·'}
               </span>
             </div>
@@ -253,7 +213,7 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
         </div>
       )}
 
-      {/* Main Two-Column Stage & Audit View (Matching Image 4) */}
+      {/* Main Two-Column Stage & Audit View */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '16px', alignItems: 'start' }}>
         
         {/* Left Column: Security Parameter & Stage Audit */}
@@ -266,10 +226,10 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
           gap: '18px'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-hard)', paddingBottom: '12px' }}>
-            <div style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '0.04em', color: '#ffffff' }}>
+            <div style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '0.04em', color: '#00ff66' }}>
               SECURITY PARAMETER &amp; STAGE AUDIT
             </div>
-            <span style={{ fontSize: '10px', color: '#38bdf8', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
+            <span style={{ fontSize: '10px', color: '#00ff66', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
               LIVE TELEMETRY
             </span>
           </div>
@@ -283,9 +243,9 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
                 padding: '8px',
                 fontSize: '11px',
                 fontFamily: 'var(--font-mono)',
-                backgroundColor: decryptMode === 'envelope_file' ? '#0a1d2e' : 'transparent',
-                border: decryptMode === 'envelope_file' ? '1px solid #0284c7' : '1px solid var(--border-hard)',
-                color: decryptMode === 'envelope_file' ? '#38bdf8' : 'var(--text-dim)',
+                backgroundColor: decryptMode === 'envelope_file' ? '#042f1a' : 'transparent',
+                border: decryptMode === 'envelope_file' ? '1px solid #00ff66' : '1px solid var(--border-hard)',
+                color: decryptMode === 'envelope_file' ? '#00ff66' : 'var(--text-dim)',
                 cursor: 'pointer',
                 fontWeight: decryptMode === 'envelope_file' ? 700 : 500
               }}
@@ -299,9 +259,9 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
                 padding: '8px',
                 fontSize: '11px',
                 fontFamily: 'var(--font-mono)',
-                backgroundColor: decryptMode === 'repository' ? '#0a1d2e' : 'transparent',
-                border: decryptMode === 'repository' ? '1px solid #0284c7' : '1px solid var(--border-hard)',
-                color: decryptMode === 'repository' ? '#38bdf8' : 'var(--text-dim)',
+                backgroundColor: decryptMode === 'repository' ? '#042f1a' : 'transparent',
+                border: decryptMode === 'repository' ? '1px solid #00ff66' : '1px solid var(--border-hard)',
+                color: decryptMode === 'repository' ? '#00ff66' : 'var(--text-dim)',
                 cursor: 'pointer',
                 fontWeight: decryptMode === 'repository' ? 700 : 500
               }}
@@ -315,7 +275,7 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
             <div style={{
               border: '1px dashed var(--border-hard)',
               padding: '16px',
-              backgroundColor: '#070b13',
+              backgroundColor: '#000000',
               textAlign: 'center'
             }}>
               <input
@@ -331,9 +291,9 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '8px',
-                  backgroundColor: '#0a1d2e',
-                  border: '1px solid #0284c7',
-                  color: '#38bdf8',
+                  backgroundColor: '#042f1a',
+                  border: '1px solid #00ff66',
+                  color: '#00ff66',
                   padding: '8px 16px',
                   fontSize: '11px',
                   fontFamily: 'var(--font-mono)',
@@ -347,8 +307,8 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
               </label>
 
               {uploadedEncFile ? (
-                <div style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: '#ffffff', marginTop: '6px' }}>
-                  FILE LOADED: <span style={{ color: '#38bdf8' }}>{uploadedEncFile.name}</span> ({(uploadedEncFile.size / 1024).toFixed(1)} KB)
+                <div style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: '#00ff66', marginTop: '6px' }}>
+                  FILE LOADED: <span style={{ color: '#00ff66' }}>{uploadedEncFile.name}</span> ({(uploadedEncFile.size / 1024).toFixed(1)} KB)
                   {parsedEnvelope && (
                     <div style={{ color: 'var(--text-muted)', fontSize: '10px', marginTop: '4px' }}>
                       Target: DOC-{parsedEnvelope.document_id} &bull; Authorized Envelopes: {parsedEnvelope.envelopes?.length || 0}
@@ -372,15 +332,15 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
                 style={{
                   width: '100%',
                   padding: '8px 10px',
-                  backgroundColor: '#070b13',
+                  backgroundColor: '#000000',
                   border: '1px solid var(--border-hard)',
-                  color: '#ffffff',
+                  color: '#00ff66',
                   fontSize: '11px',
                   fontFamily: 'var(--font-mono)'
                 }}
               >
                 {documents.length === 0 ? (
-                  <option value="" disabled>No documents in repository. Ingest a document in Encryption Lab or upload a .enc package above.</option>
+                  <option value="" disabled>No documents in repository. Upload &amp; Encrypt a document in Encryption Lab or upload a .enc package above.</option>
                 ) : (
                   documents.map(doc => (
                     <option key={doc.id} value={doc.id}>
@@ -392,7 +352,7 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
             </div>
           )}
 
-          {/* Recipient Identity Selection */}
+          {/* Recipient Identity Section - Bound to Authenticated Session */}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
               <div style={{ fontSize: '10px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
@@ -402,7 +362,7 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
                 <span style={{
                   fontSize: '9px',
                   fontFamily: 'var(--font-mono)',
-                  color: isRecipientInEnvelope() ? '#34d399' : '#f87171',
+                  color: isRecipientInEnvelope() ? '#00ff66' : '#f87171',
                   fontWeight: 700
                 }}>
                   {isRecipientInEnvelope() ? '■ ENVELOPE PERMITTED' : '⚠ KEY NOT IN ENVELOPE'}
@@ -410,91 +370,57 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
               )}
             </div>
 
-            <select
-              value={selectedRecipientId || ''}
-              onChange={e => setSelectedRecipientId(Number(e.target.value))}
-              style={{
-                width: '100%',
-                padding: '8px 10px',
-                backgroundColor: '#070b13',
-                border: '1px solid var(--border-hard)',
-                color: '#ffffff',
-                fontSize: '11px',
+            {/* Authenticated Operator Identity Badge (Strictly Locked) */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '10px 14px',
+              backgroundColor: '#000000',
+              border: isRecipientInEnvelope() ? '1px solid var(--border-hard)' : '1px solid #7f1d1d',
+              borderLeft: isRecipientInEnvelope() ? '4px solid #00ff66' : '4px solid #ef4444',
+              gap: '12px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                <div style={{
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: '50%',
+                  backgroundColor: '#00ff66',
+                  color: '#000000',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '12px',
+                  fontWeight: 800,
+                  flexShrink: 0
+                }}>
+                  {selectedOfficer?.name ? selectedOfficer.name.charAt(0).toUpperCase() : (currentUser?.name?.charAt(0) || 'U')}
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ color: '#00ff66', fontWeight: 700, fontSize: '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {selectedOfficer?.name || currentUser?.name || 'Authenticated Operator'} ({selectedOfficer?.navy_id || currentUser?.navy_id || 'ID-PENDING'})
+                  </div>
+                  <div style={{ color: 'var(--text-dim)', fontSize: '10px', fontFamily: 'var(--font-mono)' }}>
+                    ROLE: <span style={{ color: '#34d399' }}>{selectedOfficer?.rank || currentUser?.rank || 'OFFICER'}</span> &bull; CLEARANCE: <span style={{ color: '#00ff66' }}>{selectedOfficer?.clearance_level || currentUser?.clearance_level || 'TOP SECRET'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {!isRecipientInEnvelope() && (
+              <div style={{
+                marginTop: '6px',
+                padding: '6px 10px',
+                backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                border: '1px solid #ef4444',
+                color: '#fca5a5',
+                fontSize: '10px',
                 fontFamily: 'var(--font-mono)'
-              }}
-            >
-              {officers.map(officer => (
-                <option key={officer.id} value={officer.id}>
-                  {officer.name} ({officer.navy_id}) — {officer.rank} [{officer.clearance_level}]
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Cryptographic Telemetry Parameters (Matching Image 4) */}
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '12px',
-            backgroundColor: '#070b13',
-            border: '1px solid var(--border-hard)',
-            padding: '14px',
-            fontSize: '11px',
-            fontFamily: 'var(--font-mono)'
-          }}>
-            <div>
-              <div style={{ color: 'var(--text-dim)', fontSize: '10px', marginBottom: '2px' }}>
-                AUTHORIZED RECIPIENT BINDING
+              }}>
+                ⚠ ACCESS RESTRICTED: The uploaded package does not contain a post-quantum key envelope for @{currentUser?.username}. Log into the authorized recipient's account to decrypt.
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ color: '#ffffff', fontWeight: 700 }}>
-                  {selectedOfficer ? `${selectedOfficer.navy_id} - ${selectedOfficer.name}` : 'Unselected'}
-                </span>
-                <span style={{ color: '#34d399', fontSize: '10px' }}>
-                  {selectedOfficer?.clearance_level || 'VERIFIED'}
-                </span>
-              </div>
-            </div>
-
-            <div style={{ borderTop: '1px solid #141f32', paddingTop: '8px' }}>
-              <div style={{ color: 'var(--text-dim)', fontSize: '10px', marginBottom: '2px' }}>
-                POST-QUANTUM CRYPTOGRAPHIC ENGINE
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ color: '#94a3b8' }}>Kyber / ML-KEM-768 Shared Key Decapsulation (FIPS 203)</span>
-                <span style={{ color: '#38bdf8', fontWeight: 700 }}>ARMED</span>
-              </div>
-            </div>
-
-            <div style={{ borderTop: '1px solid #141f32', paddingTop: '8px' }}>
-              <div style={{ color: 'var(--text-dim)', fontSize: '10px', marginBottom: '2px' }}>
-                DYNAMIC WATERMARK INSERTION
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ color: '#94a3b8' }}>2D DCT Multi-Band Frequency Transform (Blind Extraction)</span>
-                <span style={{ color: '#34d399', fontWeight: 700 }}>READY</span>
-              </div>
-            </div>
-
-            <div style={{ borderTop: '1px solid #141f32', paddingTop: '8px' }}>
-              <div style={{ color: 'var(--text-dim)', fontSize: '10px', marginBottom: '2px' }}>
-                DUAL POST-QUANTUM ENDORSEMENT
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ color: '#94a3b8' }}>ML-DSA-65 Recipient Sign (NIST FIPS 204)</span>
-                <span style={{ color: '#38bdf8', fontWeight: 700 }}>VERIFIED</span>
-              </div>
-            </div>
-
-            <div style={{ borderTop: '1px solid #141f32', paddingTop: '8px' }}>
-              <div style={{ color: 'var(--text-dim)', fontSize: '10px', marginBottom: '2px' }}>
-                LOCAL TRANSACTION BROADCAST STATE
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ color: '#94a3b8' }}>Tamper-Evident SHA3-256 Hash Chain Ledger</span>
-                <span style={{ color: '#10b981', fontWeight: 700 }}>SYNCHRONIZED</span>
-              </div>
-            </div>
+            )}
           </div>
 
           {/* Action Button */}
@@ -503,8 +429,8 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
             disabled={isDecrypting || (!uploadedEncFile && decryptMode === 'envelope_file')}
             style={{
               padding: '14px',
-              backgroundColor: isDecrypting ? '#1e293b' : '#0284c7',
-              color: '#ffffff',
+              backgroundColor: isDecrypting ? '#042010' : '#00ff66',
+              color: isDecrypting ? '#34d399' : '#000000',
               border: 'none',
               fontSize: '12px',
               fontFamily: 'var(--font-mono)',
@@ -531,7 +457,7 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
           </button>
         </div>
 
-        {/* Right Column: Decryption Complete & Sealed Audit (Matching Image 4) */}
+        {/* Right Column: Decryption Complete & Sealed Audit */}
         <div style={{
           backgroundColor: 'var(--bg-panel)',
           border: '1px solid var(--border-hard)',
@@ -541,12 +467,12 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
           gap: '18px'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-hard)', paddingBottom: '12px' }}>
-            <div style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '0.04em', color: '#ffffff' }}>
+            <div style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '0.04em', color: '#00ff66' }}>
               DECRYPTION COMPLETE
             </div>
             <span style={{
               fontSize: '10px',
-              color: decryptionResult ? '#34d399' : 'var(--text-dim)',
+              color: decryptionResult ? '#00ff66' : 'var(--text-dim)',
               fontFamily: 'var(--font-mono)',
               fontWeight: 700
             }}>
@@ -564,57 +490,57 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
                 fontSize: '11px',
                 fontFamily: 'var(--font-mono)'
               }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #141f32', paddingBottom: '6px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-hard)', paddingBottom: '6px' }}>
                   <span style={{ color: 'var(--text-dim)' }}>Document:</span>
-                  <span style={{ color: '#ffffff', fontWeight: 700 }}>DOC-{decryptionResult.document_id}</span>
+                  <span style={{ color: '#00ff66', fontWeight: 700 }}>DOC-{decryptionResult.document_id}</span>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #141f32', paddingBottom: '6px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-hard)', paddingBottom: '6px' }}>
                   <span style={{ color: 'var(--text-dim)' }}>Recipient:</span>
-                  <span style={{ color: '#38bdf8', fontWeight: 700 }}>
+                  <span style={{ color: '#00ff66', fontWeight: 700 }}>
                     {decryptionResult.recipient_name} ({decryptionResult.recipient_navy_id})
                   </span>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #141f32', paddingBottom: '6px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-hard)', paddingBottom: '6px' }}>
                   <span style={{ color: 'var(--text-dim)' }}>Session ID:</span>
-                  <span style={{ color: '#94a3b8' }}>{decryptionResult.session_nonce.slice(0, 16)}...</span>
+                  <span style={{ color: '#34d399' }}>{decryptionResult.session_nonce.slice(0, 16)}...</span>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #141f32', paddingBottom: '6px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-hard)', paddingBottom: '6px' }}>
                   <span style={{ color: 'var(--text-dim)' }}>Watermark ID:</span>
-                  <span style={{ color: '#34d399', fontWeight: 700 }}>{decryptionResult.watermark_id}</span>
+                  <span style={{ color: '#00ff66', fontWeight: 700 }}>{decryptionResult.watermark_id}</span>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #141f32', paddingBottom: '6px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-hard)', paddingBottom: '6px' }}>
                   <span style={{ color: 'var(--text-dim)' }}>Signature:</span>
-                  <span style={{ color: '#38bdf8' }}>Valid (ML-DSA-65 NIST FIPS 204)</span>
+                  <span style={{ color: '#00ff66' }}>Valid (ML-DSA-65 NIST FIPS 204)</span>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #141f32', paddingBottom: '6px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-hard)', paddingBottom: '6px' }}>
                   <span style={{ color: 'var(--text-dim)' }}>Ledger Status:</span>
-                  <span style={{ color: '#10b981', fontWeight: 700 }}>
+                  <span style={{ color: '#00ff66', fontWeight: 700 }}>
                     Committed to Local Block #{decryptionResult.ledger_block_index}
                   </span>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #141f32', paddingBottom: '6px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-hard)', paddingBottom: '6px' }}>
                   <span style={{ color: 'var(--text-dim)' }}>Block Hash:</span>
                   <span style={{ color: 'var(--text-muted)' }}>{decryptionResult.ledger_block_hash.slice(0, 20)}...</span>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #141f32', paddingBottom: '6px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-hard)', paddingBottom: '6px' }}>
                   <span style={{ color: 'var(--text-dim)' }}>Timestamp:</span>
-                  <span style={{ color: '#ffffff' }}>{decryptionResult.timestamp}</span>
+                  <span style={{ color: '#00ff66' }}>{decryptionResult.timestamp}</span>
                 </div>
 
-                <div style={{ borderTop: '1px solid #141f32', paddingTop: '8px' }}>
+                <div style={{ borderTop: '1px solid var(--border-hard)', paddingTop: '8px' }}>
                   <span style={{ color: 'var(--text-dim)', fontSize: '10px' }}>CRYPTO CHECKSUM (SHA3-256 ROOT):</span>
                   <div style={{
-                    color: '#94a3b8',
+                    color: '#34d399',
                     fontSize: '10px',
                     wordBreak: 'break-all',
-                    backgroundColor: '#070b13',
+                    backgroundColor: '#000000',
                     padding: '6px',
                     marginTop: '4px',
                     border: '1px solid var(--border-hard)'
@@ -624,7 +550,7 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
                 </div>
               </div>
 
-              {/* Post-Commit Operational Actions (Matching Image 4) */}
+              {/* Post-Commit Operational Actions */}
               <div style={{
                 marginTop: '10px',
                 borderTop: '1px solid var(--border-hard)',
@@ -643,8 +569,8 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
                     `CIPHERTRACE_DOC_${decryptionResult.document_id}_${decryptionResult.recipient_navy_id}.pdf`
                   )}
                   style={{
-                    backgroundColor: '#059669',
-                    color: '#ffffff',
+                    backgroundColor: '#00ff66',
+                    color: '#000000',
                     border: 'none',
                     padding: '12px',
                     fontSize: '12px',
@@ -665,8 +591,8 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
                   onClick={() => ApiClient.downloadEvidencePackage(decryptionResult.event_id)}
                   style={{
                     backgroundColor: 'transparent',
-                    border: '1px solid var(--border-hard)',
-                    color: 'var(--text-dim)',
+                    border: '1px solid #00ff66',
+                    color: '#00ff66',
                     padding: '8px',
                     fontSize: '11px',
                     fontFamily: 'var(--font-mono)',
@@ -686,7 +612,7 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
                 fontSize: '10px',
                 color: 'var(--text-dim)',
                 fontFamily: 'var(--font-mono)',
-                backgroundColor: '#070b13',
+                backgroundColor: '#000000',
                 padding: '10px',
                 border: '1px solid var(--border-hard)',
                 lineHeight: '1.4'
@@ -707,7 +633,7 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
               fontFamily: 'var(--font-mono)'
             }}>
               <Key size={36} color="var(--text-dim)" style={{ opacity: 0.3, marginBottom: '16px' }} />
-              <div style={{ color: '#ffffff', fontWeight: 700, marginBottom: '6px' }}>
+              <div style={{ color: '#00ff66', fontWeight: 700, marginBottom: '6px' }}>
                 SEALED AUDIT AWAITING PIPELINE EXECUTION
               </div>
               <div style={{ maxWidth: '320px', lineHeight: '1.5' }}>

@@ -26,11 +26,7 @@ os.makedirs(RETURNS_DIR, exist_ok=True)
 watermark_engine = WatermarkEngine()
 ledger_engine = LedgerEngine()
 
-# Standard demo credentials for automated demo convenience
 DEMO_PASSWORDS = [
-    "CommanderVerma2026!",
-    "LieutenantRao2026!",
-    "CommanderJoshi2026!",
     "password123",
     "OfficerAuth2026!"
 ]

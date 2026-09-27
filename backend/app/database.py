@@ -32,14 +32,9 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
 
 
 async def init_db():
-    """Initializes database schema and ensures defense officers are ready for operations."""
+    """Initializes database schema."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-
-    # Ensure default officers exist for testing/demo
-    from .routers.auth import ensure_default_officers
-    async with AsyncSessionLocal() as session:
-        await ensure_default_officers(session)
 
 
 async def get_db():

@@ -153,66 +153,8 @@ def require_role(allowed_roles: List[str]):
 
 
 async def ensure_default_officers(db: AsyncSession):
-    """Guarantees the 3 canonical defense officers exist in the database with encrypted keystores."""
-    officers = [
-        ("verma", "Captain A. Verma", "NAVY-0001", "CAPTAIN", "FLAGSHIP COMMAND", "LEVEL-5 TOP SECRET", "DEF-HW-7701", "RECIPIENT", "CommanderVerma2026!"),
-        ("rao", "Commander S. Rao", "NAVY-0002", "COMMANDER", "DESTROYER ESCORT", "LEVEL-4 SECRET", "DEF-HW-7702", "ADMIN", "LieutenantRao2026!"),
-        ("joshi", "Wing Commander N. Joshi", "NAVY-0003", "WING COMMANDER", "AIR SURVEILLANCE", "LEVEL-3 RESTRICTED", "DEF-HW-7703", "ADMIN", "CommanderJoshi2026!"),
-    ]
-    for uname, name, navy_id, rank, unit, clearance, dev_id, role, default_pwd in officers:
-        res = await db.execute(select(User).where((User.username == uname) | (User.navy_id == navy_id)))
-        existing = res.scalar_one_or_none()
-        if not existing:
-            k_pub, k_priv = CryptoEngine.generate_kem_keypair()
-            s_pub, s_priv = CryptoEngine.generate_signing_keypair()
-
-            # Reserve next ID or generate keystore
-            temp_id = abs(hash(uname)) % 1000 + 10
-            keystore_path, kem_key_id, dsa_key_id = KeystoreManager.create_keystore(
-                user_id=temp_id,
-                username=uname,
-                password=default_pwd,
-                kem_private_key=k_priv,
-                dsa_private_key=s_priv,
-                kem_public_key=k_pub,
-                dsa_public_key=s_pub
-            )
-
-            new_user = User(
-                username=uname,
-                password_hash=hash_password(default_pwd),
-                name=name,
-                navy_id=navy_id,
-                rank=rank,
-                command_unit=unit,
-                clearance_level=clearance,
-                device_id=dev_id,
-                role=role,
-                kem_public_key=k_pub,
-                kem_key_id=kem_key_id,
-                dsa_public_key=s_pub,
-                dsa_key_id=dsa_key_id,
-                key_version=1,
-                key_status="ACTIVE",
-                keystore_path=keystore_path,
-                status="ACTIVE"
-            )
-            db.add(new_user)
-            await db.flush()
-            # If real ID differs, update keystore path if desired
-            if new_user.id != temp_id:
-                real_path, _, _ = KeystoreManager.create_keystore(
-                    user_id=new_user.id,
-                    username=uname,
-                    password=default_pwd,
-                    kem_private_key=k_priv,
-                    dsa_private_key=s_priv,
-                    kem_public_key=k_pub,
-                    dsa_public_key=s_pub
-                )
-                new_user.keystore_path = real_path
-
-    await db.commit()
+    """No-op: All user creation is explicit upon registration."""
+    pass
 
 
 @router.post("/register", response_model=AuthResponse)
@@ -313,32 +255,14 @@ async def quick_login(req: QuickLoginRequest, response: Response, db: AsyncSessi
         )
 
     officer_key = req.officer.strip().lower().lstrip('@')
-    target_username = (
-        "verma" if officer_key in ["varma", "verma", "captain verma", "captain varma", "captain a. verma", "captain a. varma"] else
-        "rao" if officer_key in ["rao", "cmdr rao", "commander rao", "commander s. rao"] else
-        "joshi" if officer_key in ["joshi", "lt joshi", "wing commander joshi", "wing commander n. joshi"] else
-        officer_key
-    )
 
     res = await db.execute(
         select(User).where(
-            (User.username == target_username) |
             (User.username == officer_key) |
             (User.navy_id == officer_key.upper())
         )
     )
     user = res.scalar_one_or_none()
-
-    if not user:
-        await ensure_default_officers(db)
-        res = await db.execute(
-            select(User).where(
-                (User.username == target_username) |
-                (User.username == officer_key) |
-                (User.navy_id == officer_key.upper())
-            )
-        )
-        user = res.scalar_one_or_none()
 
     if not user:
         raise HTTPException(status_code=404, detail=f"Operator '{officer_key}' not found in registry.")
@@ -370,13 +294,6 @@ async def login(req: LoginRequest, response: Response, db: AsyncSession = Depend
     raw_user = req.username.strip().lstrip('@')
     cleaned_username = raw_user.lower()
 
-    if cleaned_username in ["varma", "captain varma", "captain a. varma"]:
-        cleaned_username = "verma"
-    elif cleaned_username in ["cmdr rao", "commander rao", "commander s. rao"]:
-        cleaned_username = "rao"
-    elif cleaned_username in ["wing commander joshi", "wg cdr joshi"]:
-        cleaned_username = "joshi"
-
     res = await db.execute(
         select(User).where(
             (User.username == cleaned_username) |
@@ -385,17 +302,6 @@ async def login(req: LoginRequest, response: Response, db: AsyncSession = Depend
         )
     )
     user = res.scalar_one_or_none()
-
-    if not user:
-        if settings.DEMO_MODE:
-            await ensure_default_officers(db)
-            res = await db.execute(
-                select(User).where(
-                    (User.username == cleaned_username) |
-                    (User.navy_id == raw_user.upper())
-                )
-            )
-            user = res.scalar_one_or_none()
 
     if not user:
         raise HTTPException(status_code=401, detail="Invalid username or password")

@@ -166,31 +166,13 @@ export const WorkstationHeader: React.FC<WorkstationHeaderProps> = ({
                 <div style={{ fontWeight: 800, color: '#ffffff', fontSize: '12px' }}>
                   {currentUser.name}
                 </div>
-                <div style={{ color: '#38bdf8', fontSize: '10px' }}>
-                  @{currentUser.username} &bull; {currentUser.rank}
-                </div>
-                <div style={{ color: 'var(--text-dim)', fontSize: '9px', marginTop: '2px' }}>
-                  ID: {currentUser.navy_id}
-                </div>
               </div>
 
-              <div style={{ fontSize: '10px', color: 'var(--text-dim)' }}>
-                <div>Device: <span style={{ color: '#ffffff' }}>{currentUser.device_id}</span></div>
-                <div style={{ marginTop: '2px' }}>Clearance: <span style={{ color: '#34d399' }}>{currentUser.clearance_level}</span></div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
-                <button
-                  onClick={() => { setShowProfileMenu(false); onOpenAuth(); }}
-                  className="tactical-btn tactical-btn-secondary"
-                  style={{ flex: 1, padding: '6px', fontSize: '10px', justifyContent: 'center' }}
-                >
-                  Switch
-                </button>
+              <div style={{ marginTop: '4px' }}>
                 <button
                   onClick={() => { setShowProfileMenu(false); onLogout(); }}
                   className="tactical-btn tactical-btn-danger"
-                  style={{ flex: 1, padding: '6px', fontSize: '10px', justifyContent: 'center' }}
+                  style={{ width: '100%', padding: '6px', fontSize: '10px', justifyContent: 'center' }}
                 >
                   <LogOut size={11} />
                   <span>Sign Out</span>

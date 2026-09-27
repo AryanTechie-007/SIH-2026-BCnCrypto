@@ -1,22 +1,22 @@
 :root {
-  --bg-core: #070a12;
-  --bg-sidebar: #090e18;
-  --bg-topbar: #0a0f1c;
-  --bg-panel: #0d1322;
-  --bg-panel-alt: #111a2d;
-  --bg-panel-highlight: #162238;
-  --border-hard: #1a253a;
-  --border-active: #2b3d5b;
-  --border-focus: #0284c7;
+  --bg-core: #000000;
+  --bg-sidebar: #000000;
+  --bg-topbar: #000000;
+  --bg-panel: #030803;
+  --bg-panel-alt: #060e06;
+  --bg-panel-highlight: #0b1a0b;
+  --border-hard: #123016;
+  --border-active: #00ff66;
+  --border-focus: #00ff66;
 
-  --text-bright: #ffffff;
-  --text-main: #e2e8f0;
-  --text-muted: #94a3b8;
-  --text-dim: #64748b;
+  --text-bright: #00ff66;
+  --text-main: #34d399;
+  --text-muted: #10b981;
+  --text-dim: #059669;
 
-  --color-cyan: #38bdf8;
-  --color-blue: #0284c7;
-  --color-green: #10b981;
+  --color-cyan: #00ff66;
+  --color-blue: #10b981;
+  --color-green: #00ff66;
   --color-amber: #f59e0b;
   --color-red: #ef4444;
 
@@ -32,7 +32,7 @@
 
 body {
   background-color: var(--bg-core);
-  background-image: radial-gradient(rgba(56, 189, 248, 0.06) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(0, 255, 102, 0.08) 1px, transparent 1px);
   background-size: 24px 24px;
   color: var(--text-main);
   font-family: var(--font-sans);
@@ -49,14 +49,14 @@ body {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #070a12;
+  background: #000000;
 }
 ::-webkit-scrollbar-thumb {
-  background: #1e293b;
+  background: #123016;
   border-radius: 2px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #334155;
+  background: #00ff66;
 }
 
 /* Monospace Technical Data */
@@ -104,7 +104,7 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.04em;
   border-radius: 2px;
-  border: 1px solid transparent;
+  border: 1px solid var(--border-hard);
   cursor: pointer;
   background-color: var(--bg-panel-highlight);
   color: var(--text-bright);
@@ -113,6 +113,7 @@ body {
 
 .tactical-btn:hover:not(:disabled) {
   filter: brightness(1.15);
+  border-color: var(--border-active);
 }
 
 .tactical-btn:disabled {
@@ -121,32 +122,38 @@ body {
 }
 
 .tactical-btn-primary {
-  background-color: #0369a1;
-  border-color: #0284c7;
-  color: #ffffff;
+  background-color: #042f1a;
+  border-color: #00ff66;
+  color: #00ff66;
+}
+
+.tactical-btn-primary:hover:not(:disabled) {
+  background-color: #00ff66;
+  color: #000000;
+  filter: none;
 }
 
 .tactical-btn-secondary {
-  background-color: #0f172a;
+  background-color: #000000;
   border-color: var(--border-hard);
   color: var(--text-muted);
 }
 
 .tactical-btn-secondary:hover:not(:disabled) {
-  color: #ffffff;
+  color: #00ff66;
   border-color: var(--border-active);
 }
 
 .tactical-btn-success {
-  background-color: #064e3b;
-  border-color: #059669;
-  color: #a7f3d0;
+  background-color: #042f1a;
+  border-color: #00ff66;
+  color: #00ff66;
 }
 
 .tactical-btn-danger {
-  background-color: #450a0a;
+  background-color: #3b0707;
   border-color: #b91c1c;
-  color: #fecaca;
+  color: #fca5a5;
 }
 
 /* Monospace Bracketed Inspect Action */
@@ -158,16 +165,16 @@ body {
   font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 700;
-  color: #38bdf8;
-  background: rgba(2, 132, 199, 0.08);
-  border: 1px dashed rgba(56, 189, 248, 0.4);
+  color: #00ff66;
+  background: rgba(0, 255, 102, 0.08);
+  border: 1px dashed rgba(0, 255, 102, 0.4);
   cursor: pointer;
   text-transform: uppercase;
   border-radius: 2px;
 }
 .btn-bracket:hover {
-  background: rgba(2, 132, 199, 0.18);
-  border-color: #38bdf8;
+  background: rgba(0, 255, 102, 0.2);
+  border-color: #00ff66;
 }
 
 /* Status Badges */
@@ -185,15 +192,15 @@ body {
 }
 
 .badge-green {
-  background-color: rgba(16, 185, 129, 0.12);
-  border-color: #059669;
-  color: #6ee7b7;
+  background-color: rgba(0, 255, 102, 0.12);
+  border-color: #00ff66;
+  color: #00ff66;
 }
 
 .badge-blue {
-  background-color: rgba(2, 132, 199, 0.12);
-  border-color: #0284c7;
-  color: #7dd3fc;
+  background-color: rgba(0, 255, 102, 0.1);
+  border-color: #059669;
+  color: #34d399;
 }
 
 .badge-amber {
@@ -209,9 +216,9 @@ body {
 }
 
 .badge-slate {
-  background-color: #111827;
-  border-color: #1f2937;
-  color: #94a3b8;
+  background-color: #000000;
+  border-color: #123016;
+  color: #10b981;
 }
 
 /* Strict Data Grid & Tables */
@@ -241,13 +248,13 @@ body {
 }
 
 .tactical-table tr:hover {
-  background-color: rgba(56, 189, 248, 0.03);
+  background-color: rgba(0, 255, 102, 0.05);
 }
 
 /* Form Controls */
 .tactical-select, .tactical-input {
   width: 100%;
-  background-color: #080d16;
+  background-color: #000000;
   border: 1px solid var(--border-hard);
   color: var(--text-bright);
   padding: 8px 10px;
@@ -273,21 +280,21 @@ body {
 }
 
 .tactical-alert-danger {
-  background-color: #1c0f13;
+  background-color: #150303;
   border: 1px solid #7f1d1d;
   border-left: 4px solid #ef4444;
   color: #fca5a5;
 }
 
 .tactical-alert-success {
-  background-color: #0a1f18;
+  background-color: #020f04;
   border: 1px solid #065f46;
-  border-left: 4px solid #10b981;
-  color: #6ee7b7;
+  border-left: 4px solid #00ff66;
+  color: #34d399;
 }
 
 .tactical-alert-warning {
-  background-color: #21190a;
+  background-color: #160e02;
   border: 1px solid #78350f;
   border-left: 4px solid #f59e0b;
   color: #fde68a;
