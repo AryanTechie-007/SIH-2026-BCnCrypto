@@ -189,6 +189,42 @@ class HybridPQCEngine:
         return decryptor.update(encrypted_data["payload"]) + decryptor.finalize()
 
 
+class QuantumCrypto:
+    """
+    QuantumCrypto Engine implementing NIST ML-KEM-768 with HKDF-SHA256 and AES-256-GCM.
+    Returns hex-encoded bundles suitable for mobile client consumption and web APIs.
+    """
+    def __init__(self, kem_name: str = "ML-KEM-768"):
+        self.kemalg = kem_name
+
+    def encrypt_file(self, data: bytes) -> Dict[str, str]:
+        with KeyEncapsulation(self.kemalg) as server_kem:
+            # 1. Generate Quantum Keypair
+            public_key = server_kem.generate_keypair()
+            
+            # 2. Encapsulate to get Shared Secret
+            ciphertext_pqc, shared_secret = server_kem.encap_secret(public_key)
+            
+            # 3. Derive Symmetric Key (KDF)
+            key = HKDF(
+                algorithm=hashes.SHA256(),
+                length=32, salt=None, info=b"sih-pqc"
+            ).derive(shared_secret)
+
+            # 4. AES-GCM Encryption
+            aesgcm = AESGCM(key)
+            iv = os.urandom(12)
+            encrypted_payload = aesgcm.encrypt(iv, data, None)
+            
+            return {
+                "pqc_public_key": public_key.hex(),
+                "pqc_ciphertext": ciphertext_pqc.hex(),
+                "iv": iv.hex(),
+                "blob": encrypted_payload.hex(),
+                "key_hex": key.hex()
+            }
+
+
 class CryptoEngine:
     """
     Cryptographic Engine implementing genuine NIST FIPS 203 and FIPS 204 standards.
