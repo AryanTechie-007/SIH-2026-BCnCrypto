@@ -16,7 +16,37 @@ echo [1/5] Checking Python 3 installation...
 
 REM Test if python is directly executable in PATH
 python --version >nul 2>&1
-if %errorlevel% neq 0 (
+if %errorlevel% equ 0 (
+    for /f "tokens=2 delims= " %%V in ('python --version 2^>^&1') do set "DETECTED_PY_VER=%%V"
+    for /f "tokens=1,2 delims=." %%a in ("!DETECTED_PY_VER!") do (
+        set "PY_MAJ=%%a"
+        set "PY_MIN=%%b"
+    )
+    if "!PY_MAJ!"=="3" if !PY_MIN! geq 14 (
+        echo [!] Detected Python !DETECTED_PY_VER!
+        echo [!] Notice: Python 3.14+ lacks upstream pre-compiled C-extension wheels on PyPI.
+        echo [*] Checking for compatible Python 3.11, 3.12, or 3.13 on this machine...
+        set "ALT_PY="
+        for %%P in (
+            "%LOCALAPPDATA%\Programs\Python\Python313"
+            "%LOCALAPPDATA%\Programs\Python\Python312"
+            "%LOCALAPPDATA%\Programs\Python\Python311"
+            "C:\Program Files\Python313"
+            "C:\Program Files\Python312"
+            "C:\Program Files\Python311"
+        ) do (
+            if not defined ALT_PY (
+                if exist "%%~fP\python.exe" set "ALT_PY=%%~fP"
+            )
+        )
+        if defined ALT_PY (
+            echo [OK] Using compatible Python installation: !ALT_PY!
+            set "PATH=!ALT_PY!;!ALT_PY!\Scripts;!PATH!"
+        ) else (
+            echo [INFO] Using pure-Python universal compatibility wheel for NIST PQC mlkem.
+        )
+    )
+) else (
     echo [!] Python command not detected in current PATH.
     echo [*] Scanning standard Windows installation locations...
 
@@ -26,6 +56,7 @@ if %errorlevel% neq 0 (
         "%LOCALAPPDATA%\Programs\Python\Python312"
         "%LOCALAPPDATA%\Programs\Python\Python311"
         "%LOCALAPPDATA%\Programs\Python\Python310"
+        "%LOCALAPPDATA%\Microsoft\WindowsApps"
         "C:\Program Files\Python313"
         "C:\Program Files\Python312"
         "C:\Program Files\Python311"
@@ -110,16 +141,24 @@ REM ------------------------------------------------------------------
 echo.
 echo [2/5] Installing Python cryptographic and backend dependencies...
 python -m pip install --upgrade pip --quiet
-python -m pip install -r "%PROJECT_ROOT%\backend\requirements.txt"
+
+REM Use pre-packaged pure Python universal wheels to eliminate MSVC C++ compiler requirement
+python -m pip install --find-links "%PROJECT_ROOT%\setup\wheels" -r "%PROJECT_ROOT%\backend\requirements.txt"
 if %errorlevel% neq 0 (
-    echo [WARNING] Retrying install with individual core wheels...
-    python -m pip install fastapi uvicorn cryptography pymupdf Pillow numpy scipy reedsolo python-multipart sqlalchemy greenlet aiosqlite opencv-python-headless
+    echo [WARNING] Retrying install with individual packages and local wheels...
+    python -m pip install --find-links "%PROJECT_ROOT%\setup\wheels" fastapi uvicorn cryptography pymupdf Pillow numpy scipy reedsolo python-multipart sqlalchemy greenlet aiosqlite opencv-python-headless dilithium-py argon2-cffi pyjwt customtkinter requests mlkem
     if !errorlevel! neq 0 (
         echo [ERROR] Python package installation failed even with individual wheels.
         echo         Copy the red error text above and share it for diagnosis.
         pause
         exit /b 1
     )
+)
+
+echo [*] Validating NIST Post-Quantum Cryptography Engine...
+python -c "import sys; sys.path.insert(0, 'backend'); from app.services.crypto_engine import CryptoEngine; CryptoEngine.verify_pqc_availability(); print('[+] NIST PQC Self-Test PASSED')"
+if %errorlevel% neq 0 (
+    echo [WARNING] NIST PQC self-test returned non-zero. Please check backend dependencies.
 )
 
 REM ------------------------------------------------------------------

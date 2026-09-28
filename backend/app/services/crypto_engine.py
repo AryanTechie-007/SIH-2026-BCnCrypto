@@ -76,7 +76,10 @@ if KeyEncapsulation is None:
                 self._param = _PARAM_ML_KEM_1024
             else:
                 self._param = _PARAM_ML_KEM_768
-            self._kem = _ML_KEM(self._param)
+            try:
+                self._kem = _ML_KEM(self._param)
+            except Exception:
+                self._kem = _ML_KEM(self._param, fast=False)
 
         def __enter__(self):
             return self

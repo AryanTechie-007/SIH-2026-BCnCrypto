@@ -1,4 +1,5 @@
 @echo off
+setlocal enabledelayedexpansion
 title CIPHERTRACE 2.0 - Backend API
 cd /d "%~dp0backend"
 
@@ -10,6 +11,7 @@ if %errorlevel% neq 0 (
         "%LOCALAPPDATA%\Programs\Python\Python312"
         "%LOCALAPPDATA%\Programs\Python\Python311"
         "%LOCALAPPDATA%\Programs\Python\Python310"
+        "%LOCALAPPDATA%\Microsoft\WindowsApps"
         "C:\Program Files\Python313"
         "C:\Program Files\Python312"
         "C:\Program Files\Python311"

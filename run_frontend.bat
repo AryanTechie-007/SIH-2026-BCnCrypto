@@ -1,4 +1,5 @@
 @echo off
+setlocal enabledelayedexpansion
 title CIPHERTRACE 2.0 - Frontend UI
 cd /d "%~dp0frontend"
 

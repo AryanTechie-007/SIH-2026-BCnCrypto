@@ -28,7 +28,14 @@ echo [2/6] Validating environment and dependencies...
 
 :: Scan for Python if not on PATH
 python --version >nul 2>&1
-if %errorlevel% neq 0 call :detect_python
+if %errorlevel% neq 0 (
+    call :detect_python
+) else (
+    for /f "tokens=2 delims= " %%V in ('python --version 2^>^&1') do set "CHECK_PY_VER=%%V"
+    for /f "tokens=1,2 delims=." %%a in ("!CHECK_PY_VER!") do (
+        if "%%a"=="3" if %%b geq 14 call :detect_python
+    )
+)
 
 :: Scan for Node if not on PATH
 call node -v >nul 2>&1
@@ -67,7 +74,7 @@ python -c "import fastapi, uvicorn, fitz, cryptography, sqlalchemy, greenlet, ai
 if %errorlevel% neq 0 (
     echo [SETUP] Missing or outdated Python packages detected. Installing...
     python -m pip install --upgrade pip
-    python -m pip install -r "%~dp0backend\requirements.txt"
+    python -m pip install --find-links "%~dp0setup\wheels" -r "%~dp0backend\requirements.txt"
     if !errorlevel! neq 0 (
         echo [ERROR] Python package installation failed.
         pause
@@ -94,13 +101,13 @@ powershell -Command "Get-NetTCPConnection -LocalPort 8000, 5173 -ErrorAction Sil
 :: 4. START BACKEND
 :: --------------------------------------------------------
 echo [4/6] Starting Backend (Port 8000)...
-start "CIPHERTRACE Backend" "%~dp0run_backend.bat"
+start "CIPHERTRACE Backend" cmd /c "%~dp0run_backend.bat"
 
 :: --------------------------------------------------------
 :: 5. START FRONTEND
 :: --------------------------------------------------------
 echo [5/6] Starting Frontend (Port 5173)...
-start "CIPHERTRACE Frontend" "%~dp0run_frontend.bat"
+start "CIPHERTRACE Frontend" cmd /c "%~dp0run_frontend.bat"
 
 :: --------------------------------------------------------
 :: 6. FINALIZATION
@@ -132,6 +139,7 @@ for %%P in (
     "%LOCALAPPDATA%\Programs\Python\Python312"
     "%LOCALAPPDATA%\Programs\Python\Python311"
     "%LOCALAPPDATA%\Programs\Python\Python310"
+    "%LOCALAPPDATA%\Microsoft\WindowsApps"
     "C:\Program Files\Python313"
     "C:\Program Files\Python312"
     "C:\Program Files\Python311"
