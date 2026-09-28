@@ -3,17 +3,75 @@
 ## 🌟 SIH 2026 Innovation
 This system is designed for high-security defense environments where traditional RSA/ECC encryption is vulnerable to future Quantum computing threats.
 
-### 🛠 Key Features
-- **Hybrid PQC:** Implements NIST FIPS 203 (ML-KEM) combined with X25519 to ensure security even if one algorithm is compromised.
-- **Dynamic AI Policy:** The system reads the document and automatically scales encryption strength based on content sensitivity.
-- **Forensic Watermarking:** Uses DCT-domain steganography with Reed-Solomon Error Correction to track leaks back to specific devices.
-- **Immutable Ledger:** All access logs are hashed and stored in a chain-of-custody ledger.
+### 🏛️ The Three Pillars of QuantumGuard
+1. **The Backend (AI/PQC Brain):** FastAPI engine orchestrating NIST FIPS 203 ML-KEM + X25519 Hybrid Encryption, real-time Dynamic AI Sensitivity Classification, and Forensic Bit-Error-Rate (BER) confidence scoring.
+2. **The Desktop App (Command Center):** CustomTkinter modern dark-themed "Defense-Grade" workstation app featuring real-time AI Sensitivity gauge, file encryption, and chain-of-custody audit logs.
+3. **The Android Port (Field Access):** Native Kotlin client with biometric authentication, FLAG_SECURE display protection, and on-device hybrid decryption.
 
-### 🚀 Setup
-1. `pip install -r requirements.txt`
-2. Install `liboqs` for Post-Quantum support (with automatic pure-Python NIST FIPS 203/204 fallback for air-gapped/offline systems).
-3. Run `python -m uvicorn app.main:app --reload` (or `python main.py` in `backend/`) for the backend.
-4. Open the Android / Frontend folder for the client application.
+---
+
+### 🛠 Key Features
+- **Hybrid PQC:** Implements NIST FIPS 203 (ML-KEM-512 / 768 / 1024) combined with classical Curve25519 (X25519) to ensure security even if one algorithm is compromised.
+- **Dynamic AI Policy:** The system reads the document and automatically scales encryption strength based on content sensitivity (`TOP_SECRET` forces ML-KEM-1024 + MFA, `CONFIDENTIAL` enforces ML-KEM-768 + Biometrics).
+- **Forensic Watermarking:** Uses 2D DCT-domain spread-spectrum steganography with Reed-Solomon RS(255,127) Forward Error Correction to track leaks back to specific devices.
+- **Signal-to-Noise Confidence Scoring:** Real-time BER and SNR confidence scoring providing court-admissible forensic evidence packages.
+- **Immutable Ledger:** All access logs and decryption events are committed to immutable smart contracts (`contracts/DocumentLedger.sol` and Hyperledger Fabric).
+
+---
+
+### 📂 Project Directory Structure
+
+```text
+/QuantumGuard-SIH2026
+│
+├── /backend            # Python FastAPI + NIST PQC Engine
+│   ├── main.py         # Entrypoint server launcher
+│   ├── /services
+│   │   ├── crypto_engine.py  # Hybrid PQC (ML-KEM + X25519) & NIST FIPS 203/204
+│   │   ├── ai_engine.py      # Dynamic Content Sensitivity Classifier
+│   │   └── forensics.py      # Forensic Auditor & Confidence Scoring
+│   └── requirements.txt
+│
+├── /desktop            # CustomTkinter Desktop Command Center
+│   ├── main_app.py     # Dark-themed UI with real-time AI Sensitivity Gauge
+│   └── assets/         # UI assets and logos
+│
+├── /android            # Native Kotlin Android Mobile App
+│   ├── /app/src/main/java/com/sih2026/quantumguard/HybridSecurityManager.kt
+│   └── build.gradle.kts
+│
+├── /contracts          # Blockchain Chain-of-Custody Logic
+│   └── DocumentLedger.sol
+│
+├── /frontend           # React + TypeScript Web Console (Optional)
+├── setup.sh            # One-click dependency installer (Linux / Mac)
+├── setup.bat           # One-click dependency installer (Windows)
+├── requirements.txt    # Unified dependencies
+└── README.md           # Defense Documentation
+```
+
+---
+
+### 🚀 One-Click Setup & Launch
+
+#### Step 1: Install Dependencies
+* **Linux / Mac:** `./setup.sh`
+* **Windows:** Run `setup.bat` (or `pip install -r requirements.txt`)
+
+#### Step 2: Start Backend Server
+```bash
+python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
+# or directly:
+cd backend && python main.py
+```
+
+#### Step 3: Launch Desktop Command Center
+```bash
+python desktop/main_app.py
+```
+
+#### Step 4: Open Android Mobile App
+Open the `./android` folder in **Android Studio** and run on device/emulator.
 
 ---
 
@@ -67,7 +125,7 @@ QuantumGuard guarantees that **no recipient can access a confidential document w
                     Forensic Attribution Lab
                     1. Render & 2D DCT Extraction
                     2. RS(255,127) Syndrome Decoding
-                    3. Fabric LookupByWatermark Query
+                    3. Fabric / Ledger LookupByWatermark
                     4. ML-DSA-65 Cryptographic Verification
                     5. Document SHA3-256 Hash Verification
                     6. Forensic Auditor Dynamic Confidence Score
@@ -80,8 +138,8 @@ QuantumGuard guarantees that **no recipient can access a confidential document w
 
 ### 1. ⚛️ Genuine NIST Post-Quantum & Hybrid Cryptography
 * **Hybrid PQC Engine (`HybridPQCEngine`)**: Combines NIST FIPS 203 (ML-KEM-512 / 768 / 1024) with classical Curve25519 (X25519) Diffie-Hellman using HKDF-SHA256. Guarantees confidentiality even if one cryptographic primitive is compromised.
-* **ML-KEM-768 (NIST FIPS 203)**: Module-Lattice-Based Key-Encapsulation Mechanism. Protects symmetric Document Encryption Keys (DEKs) against "harvest-now, decrypt-later" quantum adversary threats. (1184-byte public key, 2400-byte private key, 1088-byte ciphertext).
-* **ML-DSA-65 (NIST FIPS 204)**: Module-Lattice-Based Digital Signature Algorithm. Produces mathematically non-repudiable digital signatures during recipient decryption events. (1952-byte public key, 4032-byte private key, 3309-byte signature).
+* **ML-KEM-768 (NIST FIPS 203)**: Module-Lattice-Based Key-Encapsulation Mechanism. Protects symmetric Document Encryption Keys (DEKs) against "harvest-now, decrypt-later" quantum adversary threats.
+* **ML-DSA-65 (NIST FIPS 204)**: Module-Lattice-Based Digital Signature Algorithm. Produces mathematically non-repudiable digital signatures during recipient decryption events.
 * **AES-256-GCM (NIST SP 800-38D)**: Authenticated symmetric encryption for confidential document payloads.
 * **SHA3-256 (NIST FIPS 202)**: Permutation-based hashing for canonical serialization, Merkle roots, block hash chains, and HMAC-SHA3-256 watermark payload authentication.
 
@@ -96,23 +154,9 @@ QuantumGuard guarantees that **no recipient can access a confidential document w
 * Calculates court-admissible confidence scoring ($\text{Confidence} = \max(0, 100 - (\text{BER} \times 500))$).
 * Determines evidentiary admissibility (`VALID` vs. `QUESTIONABLE`) and reconstruction success rate.
 
-### 4. 🔐 Zero Plaintext Private Key Storage (Client Keystore Isolation)
-* **No Database Private Keys**: The application database (`ciphertrace_v2.db`) stores only public keys, public key fingerprints (`kem_key_id`, `dsa_key_id`), key status, and role metadata. Raw private keys never touch SQLite.
-* **Recipient Encrypted Keystore**: Private keys are stored in encrypted offline keystores (`Argon2id` KDF with 64 MB memory, 3 iterations, 4 parallel lanes + `AES-256-GCM`).
-* **Client-Side Enclave Boundary**: Keystores are unlocked exclusively on the recipient device during viewing. Decapsulation and signing occur within the keystore boundary; raw private keys are explicitly zeroed from memory immediately after use.
-
-### 5. 👁️ Robust 2D DCT Steganography & True RS(255,127) FEC
-* **Luminance Modulation**: Documents are rendered at deterministic 150 DPI; the luminance ($Y$) channel is decomposed into $8 \times 8$ blocks and mid-frequency DCT coefficients $(3,3)$ are modulated to ensure visual imperceptibility ($\text{PSNR} > 42\text{ dB}$, $\Delta E < 0.1$).
-* **Full Reed-Solomon RS(255,127)**: Uses 127 data symbols and 128 parity symbols (`RSCodec(128)` over $\text{GF}(2^8)$). Capable of correcting up to 64 corrupted symbol errors.
-
-### 6. ⛓️ Permissioned Hyperledger Fabric Blockchain (3-Org Consortium)
-* **Air-Gapped Consortium Network**:
-  * **Org1 (Defense Tactical Command)**: Operational command peer node.
-  * **Org2 (Independent Audit Authority)**: Compliance & inspector peer node.
-  * **Org3 (Forensic Investigation Bureau)**: Forensic investigator peer node.
-  * **Raft Ordering Service**: Crash fault-tolerant consensus ordering.
-* **Smart Contract (`forensic-audit`)**: Implements `RecordDecryption`, `LookupByWatermark`, `GetRecord`, and `GetAllRecords`.
-* **2-of-3 Endorsement Policy**: Requires endorsement from at least 2 independent organizations before a decryption record is committed to the blockchain.
+### 4. 📱 Android Field Client (`HybridSecurityManager`)
+* **Hardware Shielding:** Enforces `FLAG_SECURE` window policies to prevent screenshotting, screen capture, and display tampering on mobile devices.
+* **On-Device Hybrid Decryption:** Unpacks quantum and classical secret envelopes directly on endpoint memory.
 
 ---
 
@@ -120,13 +164,13 @@ QuantumGuard guarantees that **no recipient can access a confidential document w
 
 | Component | Library / Tool | Standard / Specification |
 | :--- | :--- | :--- |
+| **Desktop UI** | `customtkinter` | Modern Defense-Grade Dark UI |
+| **Mobile Client** | Kotlin / Android Jetpack | Material 3 + Biometrics |
 | **Post-Quantum KEM** | `liboqs` / `mlkem` | NIST FIPS 203 (ML-KEM-512 / 768 / 1024) |
 | **Post-Quantum Signatures** | `liboqs` / `dilithium-py` | NIST FIPS 204 (ML-DSA-65) |
 | **Classical Asymmetric** | `cryptography` (X25519) | RFC 7748 |
 | **Hybrid Key Derivation** | HKDF-SHA256 | RFC 5869 |
 | **Authenticated Cipher** | AES-256-GCM | NIST SP 800-38D |
-| **Hashing & Integrity** | SHA3-256 / HMAC-SHA3 | NIST FIPS 202 |
-| **Local Keystore KDF** | `argon2-cffi` | RFC 9106 (Argon2id) |
-| **Steganography & DCT** | `scipy`, `numpy`, `opencv` | 2D Discrete Cosine Transform |
+| **Smart Contracts** | Solidity & Chaincode | Immutable Chain-of-Custody |
 | **Forward Error Correction**| `reedsolo` | Reed-Solomon RS(255, 127) over GF(2^8) |
 | **Web API Engine** | `fastapi`, `uvicorn` | ASGI High-Performance Async |

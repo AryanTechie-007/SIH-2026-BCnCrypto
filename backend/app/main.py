@@ -1,7 +1,7 @@
 import os
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request, Response, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -102,7 +102,7 @@ app.include_router(attacks.router)
 async def root():
     backend_info = CryptoEngine.get_backend_info()
     return {
-        "platform": "CIPHERTRACE 2.0",
+        "platform": "CIPHERTRACE 2.0 (QuantumGuard)",
         "status": "OPERATIONAL",
         "mode": settings.get_mode_label(),
         "cryptography": {
@@ -113,6 +113,42 @@ async def root():
         },
         "documentation": "/docs"
     }
+
+
+@app.post("/analyze")
+@app.post("/api/analyze")
+async def analyze_document(file: UploadFile = File(...)):
+    """
+    Dynamic AI Content Classifier & Sensitivity Analyzer for Desktop & Mobile clients.
+    Extracts text from uploaded documents (PDF, TXT, MD, etc.) and determines defense classification policy.
+    """
+    from app.services.ai_engine import DocumentIntelligence
+    classifier = DocumentIntelligence()
+
+    content = await file.read()
+    text = ""
+    # Extract text if PDF
+    if (file.filename and file.filename.lower().endswith(".pdf")) or content.startswith(b"%PDF"):
+        try:
+            import fitz
+            doc = fitz.open(stream=content, filetype="pdf")
+            for page in doc:
+                text += page.get_text() + " "
+        except Exception:
+            text = content.decode("utf-8", errors="ignore")
+    else:
+        text = content.decode("utf-8", errors="ignore")
+
+    result = classifier.classify_and_configure(text)
+    return {
+        "status": "ANALYZED",
+        "file_name": file.filename or "uploaded_document",
+        "size_bytes": len(content),
+        "label": result["label"],
+        "policy": result["policy"],
+        "text_sample": text[:200]
+    }
+
 
 
 if __name__ == "__main__":
