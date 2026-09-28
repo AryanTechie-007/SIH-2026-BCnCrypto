@@ -1,10 +1,11 @@
 @echo off
+chcp 65001 >nul
 setlocal enabledelayedexpansion
 cd /d "%~dp0.."
 set "PROJECT_ROOT=%cd%"
 
 echo ================================================================
-echo  CIPHERTRACE / QUANTUMGUARD - Dependency & Setup Uninstaller
+echo  CIPHERTRACE / QUANTUMGUARD - Dependency and Setup Uninstaller
 echo  Smart India Hackathon 2026 - Clean Slate Test Utility
 echo ================================================================
 echo.
@@ -28,7 +29,7 @@ if /i "%CONFIRM%"=="N" (
 
 echo.
 REM ------------------------------------------------------------------
-REM 1. TERMINATE RUNNING PROCESSES (PORTS 8000 & 5173)
+REM 1. TERMINATE RUNNING PROCESSES (PORTS 8000 AND 5173)
 REM ------------------------------------------------------------------
 echo [1/5] Stopping any active services on ports 8000 and 5173...
 for %%p in (8000 5173) do (
@@ -43,7 +44,7 @@ powershell -Command "Get-NetTCPConnection -LocalPort 8000, 5173 -ErrorAction Sil
 echo [OK] Ports 8000 and 5173 cleared.
 
 REM ------------------------------------------------------------------
-REM 2. REMOVE FRONTEND NODE_MODULES & DIST
+REM 2. REMOVE FRONTEND NODE_MODULES AND DIST
 REM ------------------------------------------------------------------
 echo.
 echo [2/5] Removing frontend node_modules and build artifacts...
@@ -80,7 +81,7 @@ if %errorlevel% equ 0 (
 )
 
 REM ------------------------------------------------------------------
-REM 4. CLEAN PYTHON CACHES & BUILD ARTIFACTS
+REM 4. CLEAN PYTHON CACHES AND BUILD ARTIFACTS
 REM ------------------------------------------------------------------
 echo.
 echo [4/5] Cleaning Python bytecode caches and pytest cache...
@@ -95,7 +96,7 @@ del /s /q "%PROJECT_ROOT%\*.pyo" >nul 2>&1
 echo [OK] Python caches cleared.
 
 REM ------------------------------------------------------------------
-REM 5. CLEAR TEMPORARY UPLOADS & RUNTIME ARTIFACTS
+REM 5. CLEAR TEMPORARY UPLOADS AND RUNTIME ARTIFACTS
 REM ------------------------------------------------------------------
 echo.
 echo [5/5] Cleaning temporary runtime forensic uploads...
