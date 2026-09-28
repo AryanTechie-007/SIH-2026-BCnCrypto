@@ -323,6 +323,18 @@ Peer: Org1 (Defense)            Peer: Org2 (Audit)            Peer: Org3 (Forens
 
 ---
 
+## 📱 Android Mobile Shipping (`Port-To-App`)
+
+A complete, production-grade native Android client port is maintained in the dedicated [`Port-To-App/`](file:///c:/Users/Aryan/Projects/SIH-2026-BCnCrypto-main/Port-To-App/) directory:
+
+- **100% Non-Disruptive**: The web application and existing backend remain completely untouched and operational for web-based testing.
+- **Native Kotlin & Jetpack Compose**: Built with modern Android architecture, Material 3, and military-grade cyber styling.
+- **Zero-PQC-Client Security**: All heavy PQC key decapsulation (ML-KEM-768) and signing (ML-DSA-65) execute strictly within the backend's secure Keystore boundary.
+- **Mobile Hardening**: Features `FLAG_SECURE` screen shielding against unauthorized screenshots/recordings, Android Keystore backed JWT storage, and `BiometricPrompt` authorization for decryption events.
+- **Full Architecture & Sync Guides**: See [`Port-To-App/README.md`](file:///c:/Users/Aryan/Projects/SIH-2026-BCnCrypto-main/Port-To-App/README.md) and [`Port-To-App/docs/`](file:///c:/Users/Aryan/Projects/SIH-2026-BCnCrypto-main/Port-To-App/docs/).
+
+---
+
 ## 👥 Authors & Acknowledgments
 Developed for **Smart India Hackathon (SIH 2026)** by **Team Ve Ni Di**.
 * Architecture: Air-gapped Post-Quantum Cryptography & Permissioned DLT
