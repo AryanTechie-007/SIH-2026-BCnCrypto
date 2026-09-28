@@ -158,24 +158,26 @@ export const ApiClient = {
     return handleResponse<UserAccount>(res, 'FETCH_CURRENT_USER');
   },
 
-  async decryptDocument(documentId: number, recipientId: number, deviceId?: string): Promise<DecryptionResult> {
+  async decryptDocument(documentId: number, recipientId: number, deviceId?: string, keystorePassword?: string): Promise<DecryptionResult> {
     const res = await safeFetch(`${API_ROOT}/decryption/decrypt`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         document_id: documentId,
         recipient_id: recipientId,
-        device_id: deviceId
+        device_id: deviceId,
+        keystore_password: keystorePassword || undefined
       })
     });
     return handleResponse<DecryptionResult>(res, 'DECRYPT_DOCUMENT');
   },
 
-  async decryptEnvelopeFile(file: File, recipientId: number, deviceId?: string): Promise<DecryptionResult> {
+  async decryptEnvelopeFile(file: File, recipientId: number, deviceId?: string, keystorePassword?: string): Promise<DecryptionResult> {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('recipient_id', recipientId.toString());
     if (deviceId) formData.append('device_id', deviceId);
+    if (keystorePassword) formData.append('keystore_password', keystorePassword);
 
     const res = await safeFetch(`${API_ROOT}/decryption/decrypt-envelope`, {
       method: 'POST',

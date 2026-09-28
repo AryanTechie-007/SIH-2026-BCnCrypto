@@ -21,7 +21,8 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
   const [decryptMode, setDecryptMode] = useState<'envelope_file' | 'repository'>('envelope_file');
   const [selectedDocId, setSelectedDocId] = useState<number | null>(documents.length > 0 ? documents[0].id : null);
   const [selectedRecipientId, setSelectedRecipientId] = useState<number | null>(null);
-  
+  const [keystorePassword, setKeystorePassword] = useState('');
+
   // File upload state
   const [uploadedEncFile, setUploadedEncFile] = useState<File | null>(null);
   const [parsedEnvelope, setParsedEnvelope] = useState<any | null>(null);
@@ -105,7 +106,7 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
           setActiveStage(0);
           return;
         }
-        result = await ApiClient.decryptEnvelopeFile(uploadedEncFile, selectedRecipientId);
+        result = await ApiClient.decryptEnvelopeFile(uploadedEncFile, selectedRecipientId, undefined, keystorePassword);
       } else {
         if (!selectedDocId) {
           setErrorMessage("Please select a document from the repository to decrypt.");
@@ -113,7 +114,7 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
           setActiveStage(0);
           return;
         }
-        result = await ApiClient.decryptDocument(selectedDocId, selectedRecipientId);
+        result = await ApiClient.decryptDocument(selectedDocId, selectedRecipientId, undefined, keystorePassword);
       }
 
       // Finish stages
@@ -126,6 +127,7 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
       setActiveStage(7);
 
       setDecryptionResult(result);
+      setKeystorePassword('');
       if (onDecryptionSuccess) onDecryptionSuccess();
     } catch (err: any) {
       setErrorMessage(err.message || 'Decryption failed. Recipient may not be authorized for this document.');
@@ -421,6 +423,31 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
                 ⚠ ACCESS RESTRICTED: The uploaded package does not contain a post-quantum key envelope for @{currentUser?.username}. Log into the authorized recipient's account to decrypt.
               </div>
             )}
+          </div>
+
+          {/* Keystore Password - unlocks the recipient's ML-KEM-768 / ML-DSA-65 private keys */}
+          <div>
+            <div style={{ fontSize: '10px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', marginBottom: '6px' }}>
+              KEYSTORE PASSWORD (YOUR ACCOUNT PASSWORD):
+            </div>
+            <input
+              type="password"
+              autoComplete="current-password"
+              value={keystorePassword}
+              onChange={e => setKeystorePassword(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && !isDecrypting) handleExecuteDecrypt(); }}
+              placeholder="Enter password to unlock your private keys"
+              style={{
+                width: '100%',
+                boxSizing: 'border-box',
+                padding: '8px 10px',
+                backgroundColor: '#000000',
+                border: '1px solid var(--border-hard)',
+                color: '#00ff66',
+                fontSize: '11px',
+                fontFamily: 'var(--font-mono)'
+              }}
+            />
           </div>
 
           {/* Action Button */}
