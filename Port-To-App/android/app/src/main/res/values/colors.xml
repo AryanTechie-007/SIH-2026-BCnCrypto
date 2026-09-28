@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg_dark">#0A0D14</color>
+    <color name="surface_dark">#121824</color>
+    <color name="primary_cyan">#00F0FF</color>
+    <color name="accent_emerald">#00FF88</color>
+    <color name="accent_crimson">#FF3366</color>
+    <color name="text_primary">#F0F4FC</color>
+    <color name="text_secondary">#8A9BB8</color>
+</resources>
