@@ -1,0 +1,3 @@
+@echo off
+echo Opening CIPHERTRACE Android project in Android Studio...
+start "" "C:\Program Files\Android\Android Studio\bin\studio64.exe" "%~dp0android"

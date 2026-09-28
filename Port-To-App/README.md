@@ -70,18 +70,35 @@ Port-To-App/
 
 ## 🚀 Quick Start for Android Development
 
-### 1. Open in Android Studio
-1. Open **Android Studio** (Koala / Ladybug or newer recommended).
-2. Choose **Open an Existing Project** and navigate to `Port-To-App/android`.
-3. Gradle will automatically sync dependencies.
+### 1. Enable USB Debugging on Your Phone
+To deploy directly from your PC to your physical phone:
+1. On your phone, go to **Settings > About phone**.
+2. Tap **Build number** 7 times rapidly until it says *"You are now a developer!"*.
+3. Go back to **Settings > System > Developer options** (or **Additional settings > Developer options**).
+4. Turn on **USB Debugging** (and if on Xiaomi/MIUI, also enable *"Install via USB"* and *"USB debugging (Security settings)"*).
+5. Plug the phone into your PC via USB cable. When prompted on the phone with *"Allow USB debugging?"*, check *"Always allow from this computer"* and tap **Allow**.
 
-### 2. Connect to Local Backend
+### 2. Verify Phone Connection
+Double-click [`test_phone_connection.bat`](file:///c:/Users/Aryan/Projects/SIH-2026-BCnCrypto-main/Port-To-App/test_phone_connection.bat) or run:
+```cmd
+adb devices
+adb reverse tcp:8000 tcp:8000
+```
+*(Running `adb reverse` allows the phone to access your laptop's backend at `http://127.0.0.1:8000` directly over the USB cable!)*
+
+### 3. Open and Run in Android Studio
+1. Launch Android Studio directly by double-clicking [`launch_android_studio.bat`](file:///c:/Users/Aryan/Projects/SIH-2026-BCnCrypto-main/Port-To-App/launch_android_studio.bat) (or open `Port-To-App/android`).
+2. Your physical phone will appear in the top device selector dropdown.
+3. Click the green **Run (▶)** button or press `Shift + F10`.
+4. The app installs and boots immediately on your phone!
+
+### 4. Connect to Local Backend
 1. Start your local CIPHERTRACE backend:
    ```cmd
    run_backend.bat
    ```
-2. When testing in the **Android Emulator**, the app automatically connects to `http://10.0.2.2:8000`.
-3. When testing on a **physical device over Wi-Fi**, open **Settings** inside the app and enter your PC's LAN IP (e.g. `http://192.168.1.10:8000`).
+2. With USB cable connected and `adb reverse` active, the app connects directly to `http://127.0.0.1:8000/`.
+3. Over Wi-Fi, open the **Settings** screen in the app and set your laptop's IP (e.g., `http://10.31.2.3:8000/`).
 
 ---
 
