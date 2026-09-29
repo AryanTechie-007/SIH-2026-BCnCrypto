@@ -154,10 +154,8 @@ export const DocumentsConsole: React.FC<DocumentsConsoleProps> = ({
             <thead>
               <tr>
                 <th style={{ width: '80px' }}>ID</th>
-                <th>File Name & Title</th>
-                <th>Specs</th>
-                <th>SHA3-256 Tamper Anchor</th>
-                <th style={{ textAlign: 'right' }}>Action</th>
+                <th>File Name &amp; Title</th>
+                <th style={{ textAlign: 'right' }}>Specs</th>
               </tr>
             </thead>
             <tbody>
@@ -181,26 +179,15 @@ export const DocumentsConsole: React.FC<DocumentsConsoleProps> = ({
                         {(doc.size_bytes / 1024).toFixed(1)} KB &bull; PDF
                       </div>
                     </td>
-                    <td>
-                      <span className="tactical-badge badge-blue">AES-256 + KEM</span>
-                    </td>
-                    <td className="font-mono" style={{ color: 'var(--text-muted)', fontSize: '11px' }}>
-                      {doc.sha3_hash.slice(0, 16)}...
-                    </td>
                     <td style={{ textAlign: 'right' }}>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setSelectedDocId(doc.id); }}
-                        className="btn-bracket"
-                      >
-                        INSPECT
-                      </button>
+                      <span className="tactical-badge badge-blue">AES-256 + KEM</span>
                     </td>
                   </tr>
                 );
               })}
               {filteredDocs.length === 0 && (
                 <tr>
-                  <td colSpan={5} style={{ textAlign: 'center', padding: '30px', color: 'var(--text-dim)' }}>
+                  <td colSpan={3} style={{ textAlign: 'center', padding: '30px', color: 'var(--text-dim)' }}>
                     No documents found. Click "Upload &amp; Encrypt" above to add one.
                   </td>
                 </tr>
@@ -209,12 +196,12 @@ export const DocumentsConsole: React.FC<DocumentsConsoleProps> = ({
           </table>
         </div>
 
-        {/* Right-Hand Inspector Drawer */}
+        {/* Right-Hand Distribution Drawer */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {activeDoc ? (
             <div className="tactical-panel" style={{ borderLeft: '4px solid #38bdf8' }}>
               <div className="tactical-panel-header">
-                <h3>INSPECTOR: DOC-{String(activeDoc.id).padStart(4, '0')}</h3>
+                <h3>DOC-{String(activeDoc.id).padStart(4, '0')}</h3>
                 <span className="tactical-badge badge-blue">RESTRICTED</span>
               </div>
 
@@ -231,12 +218,6 @@ export const DocumentsConsole: React.FC<DocumentsConsoleProps> = ({
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                     <span style={{ color: 'var(--text-muted)' }}>File Size:</span>
                     <span className="font-mono">{(activeDoc.size_bytes / 1024).toFixed(1)} KB</span>
-                  </div>
-                  <div style={{ marginTop: '6px' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>SHA3-256 Digest:</span>
-                    <div className="font-mono" style={{ color: '#38bdf8', fontSize: '10px', wordBreak: 'break-all', marginTop: '2px', backgroundColor: 'var(--bg-input)', padding: '5px 8px', border: '1px solid var(--border-hard)', borderRadius: '3px' }}>
-                      {activeDoc.sha3_hash}
-                    </div>
                   </div>
                 </div>
 
@@ -380,7 +361,7 @@ export const DocumentsConsole: React.FC<DocumentsConsoleProps> = ({
             </div>
           ) : (
             <div className="tactical-panel" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-dim)' }}>
-              Select a document from the archive to inspect details and distribute.
+              Select a document from the archive to configure recipient distribution and encrypt.
             </div>
           )}
         </div>

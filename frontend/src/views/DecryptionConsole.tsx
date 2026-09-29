@@ -18,8 +18,6 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
   onDecryptionSuccess,
   onOpenAuth: _onOpenAuth
 }) => {
-  const [decryptMode, setDecryptMode] = useState<'envelope_file' | 'repository'>('envelope_file');
-  const [selectedDocId, setSelectedDocId] = useState<number | null>(documents.length > 0 ? documents[0].id : null);
   const [selectedRecipientId, setSelectedRecipientId] = useState<number | null>(null);
   const [keystorePassword, setKeystorePassword] = useState('');
 
@@ -44,13 +42,6 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
       }
     }
   }, [currentUser, officers]);
-
-  // Keep selectedDocId valid
-  useEffect(() => {
-    if (documents.length > 0 && selectedDocId === null) {
-      setSelectedDocId(documents[0].id);
-    }
-  }, [documents]);
 
   const stages = [
     { num: '01', name: 'Selection' },
@@ -97,25 +88,13 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
       await new Promise(r => setTimeout(r, 120));
       setActiveStage(3);
 
-      let result: DecryptionResult;
-
-      if (decryptMode === 'envelope_file') {
-        if (!uploadedEncFile) {
-          setErrorMessage("Please upload an encrypted .enc package file first.");
-          setIsDecrypting(false);
-          setActiveStage(0);
-          return;
-        }
-        result = await ApiClient.decryptEnvelopeFile(uploadedEncFile, selectedRecipientId, undefined, keystorePassword);
-      } else {
-        if (!selectedDocId) {
-          setErrorMessage("Please select a document from the repository to decrypt.");
-          setIsDecrypting(false);
-          setActiveStage(0);
-          return;
-        }
-        result = await ApiClient.decryptDocument(selectedDocId, selectedRecipientId, undefined, keystorePassword);
+      if (!uploadedEncFile) {
+        setErrorMessage("Please upload an encrypted .enc package file first.");
+        setIsDecrypting(false);
+        setActiveStage(0);
+        return;
       }
+      const result = await ApiClient.decryptEnvelopeFile(uploadedEncFile, selectedRecipientId, undefined, keystorePassword);
 
       // Finish stages
       setActiveStage(4);
@@ -229,128 +208,58 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
             </span>
           </div>
 
-          {/* Mode Selector Tabs */}
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button
-              onClick={() => setDecryptMode('envelope_file')}
+          {/* Encrypted Package File Upload Input */}
+          <div style={{
+            border: '1px dashed var(--border-hard)',
+            padding: '20px 16px',
+            backgroundColor: 'var(--bg-input)',
+            textAlign: 'center',
+            borderRadius: '4px'
+          }}>
+            <input
+              type="file"
+              id="enc-file-input"
+              accept=".enc,.json"
+              onChange={handleEncFileUpload}
+              style={{ display: 'none' }}
+            />
+            <label
+              htmlFor="enc-file-input"
               style={{
-                flex: 1,
-                padding: '8px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                border: '1px solid #38bdf8',
+                color: '#38bdf8',
+                padding: '9px 18px',
                 fontSize: '11px',
                 fontFamily: 'var(--font-mono)',
-                backgroundColor: decryptMode === 'envelope_file' ? 'rgba(56, 189, 248, 0.12)' : 'transparent',
-                border: decryptMode === 'envelope_file' ? '1px solid #38bdf8' : '1px solid var(--border-hard)',
-                color: decryptMode === 'envelope_file' ? '#38bdf8' : 'var(--text-dim)',
+                fontWeight: 700,
                 cursor: 'pointer',
                 borderRadius: '3px',
-                fontWeight: decryptMode === 'envelope_file' ? 700 : 500
+                marginBottom: '10px'
               }}
             >
-              DECRYPT UPLOADED .ENC PACKAGE
-            </button>
-            <button
-              onClick={() => setDecryptMode('repository')}
-              style={{
-                flex: 1,
-                padding: '8px',
-                fontSize: '11px',
-                fontFamily: 'var(--font-mono)',
-                backgroundColor: decryptMode === 'repository' ? 'rgba(56, 189, 248, 0.12)' : 'transparent',
-                border: decryptMode === 'repository' ? '1px solid #38bdf8' : '1px solid var(--border-hard)',
-                color: decryptMode === 'repository' ? '#38bdf8' : 'var(--text-dim)',
-                cursor: 'pointer',
-                borderRadius: '3px',
-                fontWeight: decryptMode === 'repository' ? 700 : 500
-              }}
-            >
-              DECRYPT REPOSITORY DOCUMENT
-            </button>
-          </div>
+              <Upload size={14} />
+              SELECT .ENC PACKAGE TO DECRYPT
+            </label>
 
-          {/* Mode 1: Encrypted File Upload Input */}
-          {decryptMode === 'envelope_file' ? (
-            <div style={{
-              border: '1px dashed var(--border-hard)',
-              padding: '16px',
-              backgroundColor: 'var(--bg-input)',
-              textAlign: 'center',
-              borderRadius: '4px'
-            }}>
-              <input
-                type="file"
-                id="enc-file-input"
-                accept=".enc,.json"
-                onChange={handleEncFileUpload}
-                style={{ display: 'none' }}
-              />
-              <label
-                htmlFor="enc-file-input"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  backgroundColor: 'rgba(56, 189, 248, 0.1)',
-                  border: '1px solid #38bdf8',
-                  color: '#38bdf8',
-                  padding: '8px 16px',
-                  fontSize: '11px',
-                  fontFamily: 'var(--font-mono)',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  borderRadius: '3px',
-                  marginBottom: '10px'
-                }}
-              >
-                <Upload size={14} />
-                SELECT .ENC PACKAGE TO DECRYPT
-              </label>
-
-              {uploadedEncFile ? (
-                <div style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: '#38bdf8', marginTop: '6px' }}>
-                  FILE LOADED: <span style={{ color: '#ffffff', fontWeight: 600 }}>{uploadedEncFile.name}</span> ({(uploadedEncFile.size / 1024).toFixed(1)} KB)
-                  {parsedEnvelope && (
-                    <div style={{ color: 'var(--text-muted)', fontSize: '10px', marginTop: '4px' }}>
-                      Target: DOC-{parsedEnvelope.document_id} &bull; Authorized Envelopes: {parsedEnvelope.envelopes?.length || 0}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div style={{ fontSize: '11px', color: 'var(--text-dim)' }}>
-                  Upload the .enc package generated during document distribution
-                </div>
-              )}
-            </div>
-          ) : (
-            <div>
-              <div style={{ fontSize: '10px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', marginBottom: '6px' }}>
-                SELECT CLASSIFIED REPOSITORY ASSET:
-              </div>
-              <select
-                value={selectedDocId || ''}
-                onChange={e => setSelectedDocId(Number(e.target.value))}
-                style={{
-                  width: '100%',
-                  padding: '8px 10px',
-                  backgroundColor: 'var(--bg-input)',
-                  border: '1px solid var(--border-hard)',
-                  color: '#e2e8f0',
-                  fontSize: '11px',
-                  fontFamily: 'var(--font-mono)',
-                  borderRadius: '3px'
-                }}
-              >
-                {documents.length === 0 ? (
-                  <option value="" disabled>No documents in repository. Upload &amp; Encrypt a document in Encryption Lab or upload a .enc package above.</option>
-                ) : (
-                  documents.map(doc => (
-                    <option key={doc.id} value={doc.id}>
-                      DOC-{doc.id}: {doc.file_name} ({(doc.size_bytes / 1024).toFixed(1)} KB)
-                    </option>
-                  ))
+            {uploadedEncFile ? (
+              <div style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: '#38bdf8', marginTop: '6px' }}>
+                FILE LOADED: <span style={{ color: '#ffffff', fontWeight: 600 }}>{uploadedEncFile.name}</span> ({(uploadedEncFile.size / 1024).toFixed(1)} KB)
+                {parsedEnvelope && (
+                  <div style={{ color: 'var(--text-muted)', fontSize: '10px', marginTop: '4px' }}>
+                    Target: DOC-{parsedEnvelope.document_id} &bull; Authorized Envelopes: {parsedEnvelope.envelopes?.length || 0}
+                  </div>
                 )}
-              </select>
-            </div>
-          )}
+              </div>
+            ) : (
+              <div style={{ fontSize: '11px', color: 'var(--text-dim)' }}>
+                Upload the .enc package generated during document distribution
+              </div>
+            )}
+          </div>
 
           {/* Recipient Identity Section - Bound to Authenticated Session */}
           <div>
@@ -478,7 +387,7 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
           {/* Action Button */}
           <button
             onClick={handleExecuteDecrypt}
-            disabled={isDecrypting || (!uploadedEncFile && decryptMode === 'envelope_file')}
+            disabled={isDecrypting || !uploadedEncFile}
             style={{
               padding: '14px',
               backgroundColor: isDecrypting ? '#1e293b' : '#0284c7',
@@ -488,7 +397,7 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
               fontFamily: 'var(--font-mono)',
               fontWeight: 800,
               letterSpacing: '0.04em',
-              cursor: isDecrypting || (!uploadedEncFile && decryptMode === 'envelope_file') ? 'not-allowed' : 'pointer',
+              cursor: isDecrypting || !uploadedEncFile ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
