@@ -1,5 +1,5 @@
 #!/bin/bash
-echo "🛡️ Initializing QuantumGuard Environment..."
+echo "🛡️ Initializing CIPHERTRACE 2.0 Environment..."
 
 # Install System Dependencies for PQC (liboqs) if apt-get is available
 if command -v apt-get &> /dev/null; then
