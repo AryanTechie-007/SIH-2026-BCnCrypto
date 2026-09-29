@@ -24,9 +24,10 @@ export const OverviewConsole: React.FC<OverviewConsoleProps> = ({
     <div style={{ padding: '24px', maxWidth: '1440px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
       {/* Welcome Operator Hero Header */}
       <div style={{
-        backgroundColor: '#000000',
+        backgroundColor: 'var(--bg-panel)',
         border: '1px solid var(--border-hard)',
-        borderLeft: '5px solid #00ff66',
+        borderLeft: '4px solid #38bdf8',
+        borderRadius: '4px',
         padding: '18px 22px',
         display: 'flex',
         alignItems: 'center',
@@ -35,10 +36,10 @@ export const OverviewConsole: React.FC<OverviewConsoleProps> = ({
         gap: '14px'
       }}>
         <div>
-          <div style={{ fontSize: '11px', color: '#00ff66', fontFamily: 'var(--font-mono)', fontWeight: 700, marginBottom: '4px' }}>
-            OPERATOR WORKSPACE
+          <div style={{ fontSize: '11px', color: '#38bdf8', fontFamily: 'var(--font-mono)', fontWeight: 600, letterSpacing: '0.04em', marginBottom: '4px' }}>
+            OPERATOR WORKSPACE // SECURE CONTEXT
           </div>
-          <h1 style={{ fontSize: '22px', fontWeight: 900, letterSpacing: '0.03em', color: '#00ff66', margin: 0 }}>
+          <h1 style={{ fontSize: '20px', fontWeight: 800, letterSpacing: '0.01em', color: '#ffffff', margin: 0 }}>
             Welcome, {currentUser?.name || 'Operator'}
           </h1>
         </div>
@@ -50,9 +51,9 @@ export const OverviewConsole: React.FC<OverviewConsoleProps> = ({
             style={{
               padding: '8px 14px',
               fontSize: '11px',
-              backgroundColor: 'rgba(0, 255, 102, 0.15)',
-              border: '1px solid #00ff66',
-              color: '#00ff66',
+              backgroundColor: 'rgba(56, 189, 248, 0.1)',
+              border: '1px solid rgba(56, 189, 248, 0.4)',
+              color: '#38bdf8',
               display: 'flex',
               alignItems: 'center',
               gap: '6px'
@@ -125,25 +126,25 @@ export const OverviewConsole: React.FC<OverviewConsoleProps> = ({
               return (
                 <tr key={b.block_index}>
                   <td className="font-mono">
-                    <span style={{ color: '#00ff66', fontWeight: 700 }}>#{b.block_index}</span> &bull; {b.timestamp ? b.timestamp.slice(11, 19) : '--:--:--'}
+                    <span style={{ color: '#38bdf8', fontWeight: 600 }}>#{b.block_index}</span> &bull; <span style={{ color: 'var(--text-dim)' }}>{b.timestamp ? b.timestamp.slice(11, 19) : '--:--:--'}</span>
                   </td>
                   <td>
-                    <span style={{ fontWeight: 600, color: '#00ff66' }}>
+                    <span style={{ fontWeight: 600, color: 'var(--text-bright)' }}>
                       {eventType}
                     </span>
                   </td>
-                  <td className="font-mono">
+                  <td className="font-mono" style={{ color: 'var(--text-main)' }}>
                     {subject}
                   </td>
                   <td style={{ color: 'var(--text-muted)' }}>
                     {docTarget}
                   </td>
-                  <td className="font-mono" style={{ fontSize: '11px', color: '#34d399' }}>
+                  <td className="font-mono" style={{ fontSize: '11px', color: '#94a3b8' }}>
                     ML-KEM-768 / AES-256-GCM
                   </td>
                   <td>
                     <span className="tactical-badge badge-green">
-                      ■ VERIFIED
+                      VERIFIED
                     </span>
                   </td>
                   <td style={{ textAlign: 'right' }}>
@@ -160,7 +161,7 @@ export const OverviewConsole: React.FC<OverviewConsoleProps> = ({
             {userBlocks.length === 0 && (
               <tr>
                 <td colSpan={7} style={{ textAlign: 'center', padding: '24px', color: 'var(--text-dim)' }}>
-                  No cryptographic events logged yet. Decrypt a document to record an event.
+                  No cryptographic events logged yet. Encrypt or decrypt a document to record an event.
                 </td>
               </tr>
             )}

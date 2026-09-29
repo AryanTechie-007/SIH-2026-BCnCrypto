@@ -110,7 +110,7 @@ export const DocumentsConsole: React.FC<DocumentsConsoleProps> = ({
               backgroundColor: 'transparent',
               border: 'none',
               outline: 'none',
-              color: '#00ff66',
+              color: 'var(--text-main)',
               fontSize: '12px',
               fontFamily: 'var(--font-mono)'
             }}
@@ -127,7 +127,7 @@ export const DocumentsConsole: React.FC<DocumentsConsoleProps> = ({
       </div>
 
       {uploadStatus && (
-        <div style={{ color: '#00ff66', fontSize: '11px', fontFamily: 'var(--font-mono)', padding: '0 4px' }}>
+        <div style={{ color: '#38bdf8', fontSize: '11px', fontFamily: 'var(--font-mono)', padding: '0 4px' }}>
           ℹ️ {uploadStatus}
         </div>
       )}
@@ -169,22 +169,22 @@ export const DocumentsConsole: React.FC<DocumentsConsoleProps> = ({
                     onClick={() => { setSelectedDocId(doc.id); setDistributionResult(null); }}
                     style={{
                       cursor: 'pointer',
-                      backgroundColor: isSelected ? 'rgba(0, 255, 102, 0.1)' : 'transparent'
+                      backgroundColor: isSelected ? 'rgba(56, 189, 248, 0.08)' : 'transparent'
                     }}
                   >
-                    <td className="font-mono" style={{ color: isSelected ? '#00ff66' : 'var(--text-dim)', fontWeight: 700 }}>
+                    <td className="font-mono" style={{ color: isSelected ? '#38bdf8' : 'var(--text-dim)', fontWeight: 600 }}>
                       DOC-{String(doc.id).padStart(4, '0')}
                     </td>
                     <td>
-                      <div style={{ fontWeight: 700, color: '#00ff66' }}>{doc.file_name}</div>
-                      <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                      <div style={{ fontWeight: 600, color: '#ffffff' }}>{doc.file_name}</div>
+                      <div style={{ fontSize: '10px', color: 'var(--text-dim)' }}>
                         {(doc.size_bytes / 1024).toFixed(1)} KB &bull; PDF
                       </div>
                     </td>
                     <td>
-                      <span className="tactical-badge badge-green">AES-256 + KEM</span>
+                      <span className="tactical-badge badge-blue">AES-256 + KEM</span>
                     </td>
-                    <td className="font-mono" style={{ color: '#34d399', fontSize: '11px' }}>
+                    <td className="font-mono" style={{ color: 'var(--text-muted)', fontSize: '11px' }}>
                       {doc.sha3_hash.slice(0, 16)}...
                     </td>
                     <td style={{ textAlign: 'right' }}>
@@ -212,21 +212,21 @@ export const DocumentsConsole: React.FC<DocumentsConsoleProps> = ({
         {/* Right-Hand Inspector Drawer */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {activeDoc ? (
-            <div className="tactical-panel" style={{ borderLeft: '4px solid #00ff66' }}>
+            <div className="tactical-panel" style={{ borderLeft: '4px solid #38bdf8' }}>
               <div className="tactical-panel-header">
                 <h3>INSPECTOR: DOC-{String(activeDoc.id).padStart(4, '0')}</h3>
-                <span className="tactical-badge badge-green">RESTRICTED</span>
+                <span className="tactical-badge badge-blue">RESTRICTED</span>
               </div>
 
               <div className="tactical-panel-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px', fontSize: '11px' }}>
                 {/* Forensic Identity */}
                 <div style={{ borderBottom: '1px solid var(--border-hard)', paddingBottom: '10px' }}>
-                  <div style={{ color: 'var(--text-dim)', fontWeight: 700, marginBottom: '6px' }}>
+                  <div style={{ color: 'var(--text-dim)', fontWeight: 700, marginBottom: '6px', fontFamily: 'var(--font-mono)' }}>
                     DOCUMENT METADATA:
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                     <span style={{ color: 'var(--text-muted)' }}>File Name:</span>
-                    <strong style={{ color: '#00ff66' }}>{activeDoc.file_name}</strong>
+                    <strong style={{ color: '#ffffff' }}>{activeDoc.file_name}</strong>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                     <span style={{ color: 'var(--text-muted)' }}>File Size:</span>
@@ -234,7 +234,7 @@ export const DocumentsConsole: React.FC<DocumentsConsoleProps> = ({
                   </div>
                   <div style={{ marginTop: '6px' }}>
                     <span style={{ color: 'var(--text-muted)' }}>SHA3-256 Digest:</span>
-                    <div className="font-mono" style={{ color: '#00ff66', fontSize: '10px', wordBreak: 'break-all', marginTop: '2px', backgroundColor: '#000000', padding: '4px 6px', border: '1px solid var(--border-hard)' }}>
+                    <div className="font-mono" style={{ color: '#38bdf8', fontSize: '10px', wordBreak: 'break-all', marginTop: '2px', backgroundColor: 'var(--bg-input)', padding: '5px 8px', border: '1px solid var(--border-hard)', borderRadius: '3px' }}>
                       {activeDoc.sha3_hash}
                     </div>
                   </div>
@@ -243,12 +243,13 @@ export const DocumentsConsole: React.FC<DocumentsConsoleProps> = ({
                 {/* Cryptographic Policy Info */}
                 <div style={{
                   padding: '10px 12px',
-                  backgroundColor: '#000000',
+                  backgroundColor: 'var(--bg-input)',
                   border: '1px solid var(--border-hard)',
+                  borderRadius: '4px',
                   fontSize: '11px',
                   fontFamily: 'var(--font-mono)'
                 }}>
-                  <div style={{ color: '#00ff66', fontWeight: 800, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <div style={{ color: '#38bdf8', fontWeight: 700, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <ShieldCheck size={14} />
                     <span>COMMON ENCRYPTION &bull; UNIQUE DECRYPTION</span>
                   </div>
@@ -266,7 +267,7 @@ export const DocumentsConsole: React.FC<DocumentsConsoleProps> = ({
                       style={{
                         background: 'none',
                         border: 'none',
-                        color: showCustomRecipients ? '#00ff66' : 'var(--text-dim)',
+                        color: showCustomRecipients ? '#38bdf8' : 'var(--text-dim)',
                         fontSize: '10px',
                         fontFamily: 'var(--font-mono)',
                         cursor: 'pointer',
@@ -277,7 +278,7 @@ export const DocumentsConsole: React.FC<DocumentsConsoleProps> = ({
                       {showCustomRecipients ? '▼ Hide Recipient Filter (Universal Active)' : '▶ Advanced: Restrict Specific Recipients (Optional)'}
                     </button>
                     {showCustomRecipients && (
-                      <span style={{ fontSize: '9px', color: '#00ff66', fontFamily: 'var(--font-mono)' }}>
+                      <span style={{ fontSize: '9px', color: '#38bdf8', fontFamily: 'var(--font-mono)' }}>
                         {selectedRecipientIds.length} of {officers.length} selected
                       </span>
                     )}
@@ -285,8 +286,9 @@ export const DocumentsConsole: React.FC<DocumentsConsoleProps> = ({
 
                   {showCustomRecipients && (
                     <div style={{
-                      backgroundColor: '#000000',
+                      backgroundColor: 'var(--bg-input)',
                       border: '1px solid var(--border-hard)',
+                      borderRadius: '4px',
                       padding: '8px',
                       marginBottom: '8px'
                     }}>
@@ -314,9 +316,10 @@ export const DocumentsConsole: React.FC<DocumentsConsoleProps> = ({
                               key={u.id}
                               onClick={() => toggleRecipient(u.id)}
                               style={{
-                                padding: '4px 6px',
-                                backgroundColor: isChecked ? 'rgba(0, 255, 102, 0.12)' : 'transparent',
-                                border: isChecked ? '1px solid #00ff66' : '1px solid var(--border-hard)',
+                                padding: '5px 8px',
+                                backgroundColor: isChecked ? 'rgba(56, 189, 248, 0.08)' : 'transparent',
+                                border: isChecked ? '1px solid #38bdf8' : '1px solid var(--border-hard)',
+                                borderRadius: '3px',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'space-between',
@@ -325,8 +328,8 @@ export const DocumentsConsole: React.FC<DocumentsConsoleProps> = ({
                               }}
                             >
                               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                {isChecked ? <CheckSquare size={12} color="#00ff66" /> : <Square size={12} color="var(--text-dim)" />}
-                                <span style={{ color: isChecked ? '#00ff66' : 'var(--text-muted)' }}>{u.name}</span>
+                                {isChecked ? <CheckSquare size={12} color="#38bdf8" /> : <Square size={12} color="var(--text-dim)" />}
+                                <span style={{ color: isChecked ? '#ffffff' : 'var(--text-muted)' }}>{u.name}</span>
                               </div>
                               <span style={{ color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', fontSize: '9px' }}>
                                 @{u.username || u.navy_id}
@@ -357,12 +360,13 @@ export const DocumentsConsole: React.FC<DocumentsConsoleProps> = ({
                 {/* Download Button if generated */}
                 {distributionResult && (
                   <div style={{
-                    padding: '10px',
-                    backgroundColor: '#020f04',
-                    border: '1px solid #065f46',
+                    padding: '12px',
+                    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                    borderRadius: '4px',
                     marginTop: '4px'
                   }}>
-                    <div style={{ color: '#00ff66', fontWeight: 700, fontSize: '11px', marginBottom: '4px' }}>
+                    <div style={{ color: '#34d399', fontWeight: 700, fontSize: '11px', marginBottom: '4px' }}>
                       ✓ Package Ready for Export
                     </div>
                     <div style={{ fontSize: '10px', color: 'var(--text-dim)', marginBottom: '8px' }}>

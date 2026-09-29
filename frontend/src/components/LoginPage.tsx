@@ -67,83 +67,85 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
     <div style={{
       minHeight: '100vh',
       width: '100vw',
-      backgroundColor: '#000000',
-      backgroundImage: 'radial-gradient(ellipse at 50% 20%, rgba(0, 255, 102, 0.10), transparent 70%)',
+      backgroundColor: 'var(--bg-core)',
+      backgroundImage: 'radial-gradient(circle at 50% 15%, rgba(2, 132, 199, 0.08), transparent 60%)',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
       padding: '24px',
-      color: '#00ff66'
+      color: 'var(--text-main)'
     }}>
       {/* Brand Header */}
-      <div style={{ textAlign: 'center', marginBottom: '24px', maxWidth: '540px' }}>
+      <div style={{ textAlign: 'center', marginBottom: '28px', maxWidth: '520px' }}>
         <div style={{
           display: 'inline-flex',
           alignItems: 'center',
           gap: '8px',
-          backgroundColor: '#000000',
-          border: '1px solid #00ff66',
-          padding: '4px 12px',
+          backgroundColor: 'rgba(56, 189, 248, 0.08)',
+          border: '1px solid rgba(56, 189, 248, 0.25)',
+          padding: '5px 14px',
           borderRadius: '20px',
-          color: '#00ff66',
+          color: '#38bdf8',
           fontSize: '11px',
           fontFamily: 'var(--font-mono)',
-          fontWeight: 700,
-          marginBottom: '10px'
+          fontWeight: 600,
+          letterSpacing: '0.04em',
+          marginBottom: '14px'
         }}>
           <Shield size={13} />
-          <span>CIPHERTRACE &bull; FORENSIC SECURITY PLATFORM</span>
+          <span>CIPHERTRACE &bull; POST-QUANTUM DEFENSE LABS</span>
         </div>
         <h1 style={{
-          fontSize: '25px',
-          fontWeight: 900,
-          letterSpacing: '0.04em',
-          color: '#00ff66',
-          marginBottom: '6px'
+          fontSize: '24px',
+          fontWeight: 800,
+          letterSpacing: '0.01em',
+          color: '#ffffff',
+          marginBottom: '8px'
         }}>
           Operator Authentication
         </h1>
         <p style={{
-          fontSize: '12px',
-          color: 'var(--text-dim)',
-          lineHeight: '1.5',
-          fontFamily: 'var(--font-mono)'
+          fontSize: '13px',
+          color: 'var(--text-muted)',
+          lineHeight: '1.5'
         }}>
-          Enter credentials to authenticate into the secure workstation.
+          Access the NIST FIPS 203 & 204 quantum-resistant cryptographic workstation.
         </p>
       </div>
 
       {/* Main Authentication Card */}
       <div style={{
         width: '100%',
-        maxWidth: '480px',
-        backgroundColor: '#000000',
+        maxWidth: '460px',
+        backgroundColor: 'var(--bg-panel)',
         border: '1px solid var(--border-hard)',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.95)',
+        borderRadius: '6px',
+        boxShadow: '0 20px 40px rgba(0, 0, 0, 0.5)',
         overflow: 'hidden'
       }}>
         {/* Card Tab Bar */}
-        <div style={{ display: 'flex', borderBottom: '1px solid var(--border-hard)', backgroundColor: '#000000' }}>
+        <div style={{ display: 'flex', borderBottom: '1px solid var(--border-hard)', backgroundColor: 'var(--bg-panel-alt)' }}>
           <button
             type="button"
             onClick={() => { setTab('login'); setErrorMessage(null); }}
             style={{
               flex: 1,
-              padding: '14px',
+              padding: '13px',
               fontSize: '11px',
               fontFamily: 'var(--font-mono)',
-              fontWeight: 800,
+              fontWeight: 700,
               letterSpacing: '0.05em',
-              background: tab === 'login' ? '#042f1a' : 'transparent',
-              color: tab === 'login' ? '#00ff66' : 'var(--text-muted)',
+              background: tab === 'login' ? 'var(--bg-panel)' : 'transparent',
+              color: tab === 'login' ? '#38bdf8' : 'var(--text-muted)',
               border: 'none',
-              borderBottom: tab === 'login' ? '2px solid #00ff66' : '2px solid transparent',
+              borderBottom: tab === 'login' ? '2px solid #38bdf8' : '2px solid transparent',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '6px'
+              gap: '6px',
+              transition: 'all 0.15s ease'
             }}
           >
             <LogIn size={14} />
@@ -154,29 +156,30 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
             onClick={() => { setTab('register'); setErrorMessage(null); }}
             style={{
               flex: 1,
-              padding: '14px',
+              padding: '13px',
               fontSize: '11px',
               fontFamily: 'var(--font-mono)',
-              fontWeight: 800,
+              fontWeight: 700,
               letterSpacing: '0.05em',
-              background: tab === 'register' ? '#042f1a' : 'transparent',
-              color: tab === 'register' ? '#00ff66' : 'var(--text-muted)',
+              background: tab === 'register' ? 'var(--bg-panel)' : 'transparent',
+              color: tab === 'register' ? '#38bdf8' : 'var(--text-muted)',
               border: 'none',
-              borderBottom: tab === 'register' ? '2px solid #00ff66' : '2px solid transparent',
+              borderBottom: tab === 'register' ? '2px solid #38bdf8' : '2px solid transparent',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '6px'
+              gap: '6px',
+              transition: 'all 0.15s ease'
             }}
           >
             <UserPlus size={14} />
-            <span>REGISTER NEW IDENTITY</span>
+            <span>ENROLL IDENTITY</span>
           </button>
         </div>
 
         {/* Card Body */}
-        <div style={{ padding: '22px' }}>
+        <div style={{ padding: '24px' }}>
           {errorMessage && (
             <div className="tactical-alert tactical-alert-danger" style={{ marginBottom: '16px' }}>
               <AlertOctagon size={16} style={{ flexShrink: 0 }} />
@@ -192,25 +195,24 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
           )}
 
           {tab === 'login' ? (
-            <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '5px', fontFamily: 'var(--font-mono)' }}>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px', fontFamily: 'var(--font-mono)' }}>
                   OPERATOR USERNAME
                 </label>
                 <input
                   type="text"
                   value={username}
                   onChange={e => setUsername(e.target.value)}
-                  placeholder="Enter operator username or ID"
+                  placeholder="e.g. verma, rao, joshi"
                   className="tactical-input"
-                  style={{ width: '100%', padding: '9px 12px', fontSize: '12px' }}
                   required
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '5px', fontFamily: 'var(--font-mono)' }}>
-                  PASSWORD
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px', fontFamily: 'var(--font-mono)' }}>
+                  OPERATOR PASSWORD
                 </label>
                 <input
                   type="password"
@@ -218,7 +220,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
                   onChange={e => setPassword(e.target.value)}
                   placeholder="Enter security password"
                   className="tactical-input"
-                  style={{ width: '100%', padding: '9px 12px', fontSize: '12px' }}
                   required
                 />
               </div>
@@ -231,59 +232,56 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
                   width: '100%',
                   padding: '11px',
                   fontSize: '12px',
-                  fontWeight: 800,
-                  letterSpacing: '0.04em',
+                  fontWeight: 700,
+                  letterSpacing: '0.03em',
                   justifyContent: 'center',
-                  marginTop: '4px'
+                  marginTop: '6px'
                 }}
               >
                 <LogIn size={15} />
-                <span>{isLoading ? 'VERIFYING CREDENTIALS...' : 'LOG IN'}</span>
+                <span>{isLoading ? 'AUTHENTICATING...' : 'ACCESS WORKSTATION'}</span>
               </button>
             </form>
           ) : (
-            <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '4px', fontFamily: 'var(--font-mono)' }}>
-                  USERNAME
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '5px', fontFamily: 'var(--font-mono)' }}>
+                  DESIRED USERNAME
                 </label>
                 <input
                   type="text"
                   value={username}
                   onChange={e => setUsername(e.target.value)}
-                  placeholder="Choose unique username"
+                  placeholder="Unique operator identifier"
                   className="tactical-input"
-                  style={{ width: '100%', padding: '8px 10px', fontSize: '12px' }}
                   required
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '4px', fontFamily: 'var(--font-mono)' }}>
-                  FULL NAME
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '5px', fontFamily: 'var(--font-mono)' }}>
+                  FULL NAME / DESIGNATION
                 </label>
                 <input
                   type="text"
                   value={displayName}
                   onChange={e => setDisplayName(e.target.value)}
-                  placeholder="Operator Name"
+                  placeholder="Col. S. Verma"
                   className="tactical-input"
-                  style={{ width: '100%', padding: '8px 10px', fontSize: '12px' }}
                   required
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '4px', fontFamily: 'var(--font-mono)' }}>
-                  PASSWORD
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '5px', fontFamily: 'var(--font-mono)' }}>
+                  SECURITY CREDENTIAL PASSWORD
                 </label>
                 <input
                   type="password"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  placeholder="Create a strong password"
+                  placeholder="Create strong passphrase"
                   className="tactical-input"
-                  style={{ width: '100%', padding: '8px 10px', fontSize: '12px' }}
                   required
                 />
               </div>
@@ -292,14 +290,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
                 type="submit"
                 disabled={isLoading}
                 className="tactical-btn tactical-btn-primary"
-                style={{ width: '100%', padding: '11px', justifyContent: 'center', marginTop: '4px' }}
+                style={{ width: '100%', padding: '11px', justifyContent: 'center', marginTop: '6px' }}
               >
                 <Cpu size={14} />
-                <span>{isLoading ? 'GENERATING PQC LATTICE KEYS...' : 'REGISTER & ENROLL'}</span>
+                <span>{isLoading ? 'GENERATING NIST PQC LATTICE KEYSTORE...' : 'GENERATE KEYSTORE & ENROLL'}</span>
               </button>
             </form>
           )}
-
         </div>
       </div>
     </div>

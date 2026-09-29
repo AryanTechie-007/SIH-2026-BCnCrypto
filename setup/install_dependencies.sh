@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ================================================================
 #  CIPHERTRACE 2.0 - Automated Linux/macOS Dependency Installer
-#  Smart India Hackathon 2026 - Defense Security Platform
+#  Zero-Manual Setup: Automated PATH Resolution & Dependencies
 # ================================================================
 
 set -e
@@ -13,7 +13,7 @@ PROJECT_ROOT="$(pwd)"
 
 echo "================================================================"
 echo " CIPHERTRACE 2.0 - Automated Linux/macOS Dependency Installer"
-echo " Problem Statement: Blockchain & Cryptography"
+echo " Zero-Manual Setup: Automated PATH Resolution & Dependencies"
 echo "================================================================"
 echo ""
 
@@ -53,21 +53,20 @@ install_system_package() {
     fi
 }
 
-# Ensure ~/.local/bin is in PATH for user-installed pip scripts
+# Ensure ~/.local/bin and project paths are in PATH
 if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
     export PATH="$HOME/.local/bin:$PATH"
-    if [ -f "$HOME/.bashrc" ] && ! grep -q 'HOME/.local/bin' "$HOME/.bashrc"; then
-        echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc"
-    fi
-    if [ -f "$HOME/.zshrc" ] && ! grep -q 'HOME/.local/bin' "$HOME/.zshrc"; then
-        echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.zshrc"
-    fi
+    for RC in "$HOME/.bashrc" "$HOME/.zshrc"; do
+        if [ -f "$RC" ] && ! grep -q 'HOME/.local/bin' "$RC"; then
+            echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$RC"
+        fi
+    done
 fi
 
 # ------------------------------------------------------------------
 # 1. PYTHON DETECTION & AUTOMATED INSTALLATION
 # ------------------------------------------------------------------
-echo "[1/5] Checking Python 3 installation..."
+echo "[1/5] Detecting and configuring Python 3 environment..."
 if ! command -v python3 &>/dev/null; then
     echo "[!] Python 3 not detected. Attempting automated package installation..."
     install_system_package "python3 python3-pip python3-venv curl" "python3 python3-pip curl" "python python-pip curl" "python"
@@ -83,29 +82,36 @@ echo "[OK] Found $(python3 --version)"
 # 2. PYTHON VIRTUAL ENVIRONMENT & CRYPTO PACKAGES
 # ------------------------------------------------------------------
 echo ""
-echo "[2/5] Installing Python cryptographic & backend dependencies..."
+echo "[2/5] Initializing Python virtual environment & backend packages..."
 
-# Ensure pip is present
+# Ensure pip & venv module
 if ! python3 -m pip --version &>/dev/null; then
     echo "[+] Installing pip package..."
-    install_system_package "python3-pip" "python3-pip" "python-pip" "python"
+    install_system_package "python3-pip python3-venv" "python3-pip" "python-pip" "python"
+fi
+
+# Create dedicated virtual environment if missing
+if [ ! -d "$PROJECT_ROOT/.venv" ]; then
+    echo "[+] Creating isolated virtual environment in .venv..."
+    python3 -m venv "$PROJECT_ROOT/.venv" || true
+fi
+
+if [ -f "$PROJECT_ROOT/.venv/bin/activate" ]; then
+    source "$PROJECT_ROOT/.venv/bin/activate"
+    echo "[OK] Project virtual environment active."
+    export PATH="$PROJECT_ROOT/.venv/bin:$PATH"
 fi
 
 python3 -m pip install --upgrade pip --quiet 2>/dev/null || true
 
-# Handle managed environments (PEP 668) gracefully using virtualenv if needed
-if python3 -m pip install --dry-run cryptography &>/dev/null; then
-    python3 -m pip install -r "$PROJECT_ROOT/backend/requirements.txt"
-else
-    echo "[INFO] System Python is externally managed. Setting up dedicated virtualenv..."
-    if [ ! -d "$PROJECT_ROOT/.venv" ]; then
-        python3 -m venv "$PROJECT_ROOT/.venv"
-    fi
-    source "$PROJECT_ROOT/.venv/bin/activate"
-    python -m pip install --upgrade pip --quiet
-    python -m pip install -r "$PROJECT_ROOT/backend/requirements.txt"
-fi
-echo "[OK] Python dependencies verified."
+echo "[*] Installing backend dependencies from requirements.txt..."
+python3 -m pip install -r "$PROJECT_ROOT/backend/requirements.txt" || {
+    echo "[WARNING] Retrying install with individual packages..."
+    python3 -m pip install fastapi uvicorn cryptography pymupdf Pillow numpy scipy reedsolo python-multipart sqlalchemy greenlet aiosqlite opencv-python-headless dilithium-py argon2-cffi pyjwt customtkinter requests mlkem jinja2 python-pptx trafilatura python-docx
+}
+
+echo "[*] Validating NIST Post-Quantum Cryptography Engine..."
+python3 -c "import sys; sys.path.insert(0, 'backend'); from app.services.crypto_engine import CryptoEngine; CryptoEngine.verify_pqc_availability(); print('[+] NIST FIPS 203 & 204 PQC Engine: ONLINE')"
 
 # ------------------------------------------------------------------
 # 3. NODE.JS & NPM DETECTION & AUTOMATED INSTALLATION
@@ -149,9 +155,11 @@ echo "[OK] NPM:     $(npm --version)"
 # 4. FRONTEND NPM PACKAGES
 # ------------------------------------------------------------------
 echo ""
-echo "[4/5] Installing Frontend React / Vite dependencies..."
+echo "[4/5] Installing Frontend React & Vite dependencies..."
 cd "$PROJECT_ROOT/frontend"
-npm install
+npm install --quiet || npm install
+echo "[*] Building frontend production bundle..."
+npm run build || echo "[WARNING] Build returned non-zero code. Dev server will run during demo."
 cd "$PROJECT_ROOT"
 
 # ------------------------------------------------------------------
@@ -165,7 +173,6 @@ if command -v docker &>/dev/null; then
         echo "[OK] Hyperledger Fabric path configured: $FABRIC_SAMPLES"
     else
         echo "[INFO] FABRIC_SAMPLES not set. Using built-in High-Assurance Cryptographic Merkle Ledger."
-        echo "       To attach to a Hyperledger Fabric multi-org consortium: export FABRIC_SAMPLES=/path/to/fabric-samples"
     fi
 else
     echo "[INFO] Docker not detected. CIPHERTRACE will run using its built-in High-Assurance Cryptographic Merkle Ledger"
@@ -174,7 +181,8 @@ fi
 
 echo ""
 echo "================================================================"
-echo " ALL DEPENDENCIES CONFIGURED SUCCESSFULLY!"
+echo " ALL DEPENDENCIES & PATHS FULLY CONFIGURED!"
+echo " Zero manual action required."
 echo ""
 echo " To launch the platform on Linux/macOS:"
 echo "   ./start_demo.sh"

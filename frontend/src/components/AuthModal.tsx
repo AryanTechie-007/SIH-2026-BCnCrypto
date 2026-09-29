@@ -93,9 +93,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       <div style={{
         width: '100%',
         maxWidth: '480px',
-        backgroundColor: '#000000',
+        backgroundColor: 'var(--bg-panel)',
         border: '1px solid var(--border-hard)',
-        boxShadow: '0 20px 40px rgba(0, 0, 0, 0.95)'
+        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.75)',
+        borderRadius: '6px',
+        overflow: 'hidden'
       }}>
         {/* Header */}
         <div style={{
@@ -104,13 +106,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          backgroundColor: '#000000'
+          backgroundColor: 'var(--bg-sidebar)'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div style={{
-              backgroundColor: '#00ff66',
-              color: '#000000',
-              padding: '4px',
+              backgroundColor: 'rgba(56, 189, 248, 0.12)',
+              border: '1px solid #38bdf8',
+              color: '#38bdf8',
+              padding: '6px',
+              borderRadius: '4px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center'
@@ -118,7 +122,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <Lock size={16} />
             </div>
             <div>
-              <div style={{ fontSize: '13px', fontWeight: 800, letterSpacing: '0.04em', color: '#00ff66' }}>
+              <div style={{ fontSize: '13px', fontWeight: 800, letterSpacing: '0.04em', color: '#ffffff' }}>
                 SECURE OPERATOR AUTHENTICATION
               </div>
               <div style={{ fontSize: '10px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
@@ -143,7 +147,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         </div>
 
         {/* Tab Toggle */}
-        <div style={{ display: 'flex', borderBottom: '1px solid var(--border-hard)', backgroundColor: '#000000' }}>
+        <div style={{ display: 'flex', borderBottom: '1px solid var(--border-hard)', backgroundColor: 'var(--bg-panel)' }}>
           <button
             onClick={() => { setTab('login'); setErrorMessage(null); }}
             style={{
@@ -152,10 +156,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               fontSize: '11px',
               fontWeight: 700,
               letterSpacing: '0.05em',
-              background: tab === 'login' ? '#042f1a' : 'transparent',
-              color: tab === 'login' ? '#00ff66' : 'var(--text-muted)',
+              background: tab === 'login' ? 'rgba(56, 189, 248, 0.1)' : 'transparent',
+              color: tab === 'login' ? '#38bdf8' : 'var(--text-muted)',
               border: 'none',
-              borderBottom: tab === 'login' ? '2px solid #00ff66' : '2px solid transparent',
+              borderBottom: tab === 'login' ? '2px solid #38bdf8' : '2px solid transparent',
               cursor: 'pointer'
             }}
           >
@@ -170,10 +174,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               fontSize: '11px',
               fontWeight: 700,
               letterSpacing: '0.05em',
-              background: tab === 'register' ? '#042f1a' : 'transparent',
-              color: tab === 'register' ? '#00ff66' : 'var(--text-muted)',
+              background: tab === 'register' ? 'rgba(56, 189, 248, 0.1)' : 'transparent',
+              color: tab === 'register' ? '#38bdf8' : 'var(--text-muted)',
               border: 'none',
-              borderBottom: tab === 'register' ? '2px solid #00ff66' : '2px solid transparent',
+              borderBottom: tab === 'register' ? '2px solid #38bdf8' : '2px solid transparent',
               cursor: 'pointer'
             }}
           >
@@ -296,7 +300,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     value={rank}
                     onChange={e => setRank(e.target.value)}
                     className="tactical-input"
-                    style={{ width: '100%', padding: '8px 10px', fontSize: '12px', backgroundColor: '#000000', color: '#00ff66' }}
+                    style={{ width: '100%', padding: '8px 10px', fontSize: '12px', backgroundColor: 'var(--bg-input)', color: '#ffffff' }}
                   >
                     <option value="Executive">Executive</option>
                     <option value="Legal Counsel">Legal Counsel</option>
@@ -324,11 +328,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
               <div style={{
                 padding: '8px 12px',
-                backgroundColor: '#000000',
+                backgroundColor: 'var(--bg-input)',
                 border: '1px solid var(--border-hard)',
                 fontSize: '10px',
                 color: 'var(--text-dim)',
-                fontFamily: 'var(--font-mono)'
+                fontFamily: 'var(--font-mono)',
+                borderRadius: '3px'
               }}>
                 ℹ️ Automatically provisions NIST FIPS 203 ML-KEM-768 & FIPS 204 ML-DSA-65 post-quantum keypairs for confidential document exchange.
               </div>

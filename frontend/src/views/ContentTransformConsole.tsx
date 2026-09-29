@@ -147,7 +147,6 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
           }
         },
         () => {
-          // SSE fallback: fetch once
           ApiClient.getTransformJob(job.id).then(j => {
             setCurrentJob(j);
             if (j.status === 'done' || j.status === 'failed') {
@@ -185,7 +184,6 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
         path,
         editedPassageText
       );
-      // Update in currentJob state
       setCurrentJob(prev => {
         if (!prev) return null;
         return {
@@ -258,16 +256,17 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div style={{
-              backgroundColor: '#00ff66',
-              color: '#000',
+              background: 'linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%)',
+              color: '#ffffff',
               padding: '4px 8px',
-              borderRadius: '2px',
+              borderRadius: '4px',
               fontSize: '11px',
-              fontWeight: 900
+              fontWeight: 800,
+              letterSpacing: '0.06em'
             }}>
-              TRANSFORM-AI
+              TRANSFORM // AI
             </div>
-            <h1 style={{ fontSize: '20px', fontWeight: 800, margin: 0, letterSpacing: '0.02em' }}>
+            <h1 style={{ fontSize: '20px', fontWeight: 800, margin: 0, letterSpacing: '0.01em', color: '#ffffff' }}>
               Multi-Artifact Content Intelligence
             </h1>
           </div>
@@ -279,16 +278,8 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
         <div style={{ display: 'flex', gap: '10px' }}>
           <button
             onClick={() => setSourceText(SAMPLE_INCIDENT_TEXT)}
-            style={{
-              padding: '6px 12px',
-              fontSize: '11px',
-              fontWeight: 600,
-              backgroundColor: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid var(--border-hard)',
-              color: 'var(--text-muted)',
-              cursor: 'pointer',
-              borderRadius: '2px'
-            }}
+            className="tactical-btn tactical-btn-secondary"
+            style={{ fontSize: '11px' }}
           >
             Load Sample Incident
           </button>
@@ -296,18 +287,7 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
       </div>
 
       {errorMessage && (
-        <div style={{
-          backgroundColor: 'rgba(255, 77, 77, 0.1)',
-          border: '1px solid #ff4d4d',
-          padding: '12px 16px',
-          marginBottom: '20px',
-          borderRadius: '2px',
-          color: '#ff4d4d',
-          fontSize: '13px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px'
-        }}>
+        <div className="tactical-alert tactical-alert-danger" style={{ marginBottom: '20px' }}>
           <AlertTriangle size={18} />
           <span>{errorMessage}</span>
         </div>
@@ -319,27 +299,28 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
           {/* Source Input Card */}
           <div style={{
-            backgroundColor: 'var(--bg-card)',
+            backgroundColor: 'var(--bg-panel)',
             border: '1px solid var(--border-hard)',
-            borderRadius: '4px',
+            borderRadius: '6px',
             padding: '16px'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-              <div style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.05em', color: '#00ff66' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+              <div style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.04em', color: '#38bdf8', fontFamily: 'var(--font-mono)' }}>
                 1. SOURCE INGESTION
               </div>
-              <div style={{ display: 'flex', gap: '4px', backgroundColor: 'var(--bg-core)', padding: '2px', borderRadius: '3px' }}>
+              <div style={{ display: 'flex', gap: '4px', backgroundColor: 'var(--bg-input)', padding: '2px', borderRadius: '4px', border: '1px solid var(--border-subtle)' }}>
                 <button
                   onClick={() => setInputMode('text')}
                   style={{
-                    padding: '3px 8px',
-                    fontSize: '10px',
-                    fontWeight: 700,
+                    padding: '4px 10px',
+                    fontSize: '11px',
+                    fontWeight: 600,
                     border: 'none',
-                    borderRadius: '2px',
-                    backgroundColor: inputMode === 'text' ? 'rgba(0, 255, 102, 0.2)' : 'transparent',
-                    color: inputMode === 'text' ? '#00ff66' : 'var(--text-muted)',
-                    cursor: 'pointer'
+                    borderRadius: '3px',
+                    backgroundColor: inputMode === 'text' ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+                    color: inputMode === 'text' ? '#38bdf8' : 'var(--text-muted)',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
                   }}
                 >
                   Raw Text
@@ -347,14 +328,15 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
                 <button
                   onClick={() => setInputMode('url')}
                   style={{
-                    padding: '3px 8px',
-                    fontSize: '10px',
-                    fontWeight: 700,
+                    padding: '4px 10px',
+                    fontSize: '11px',
+                    fontWeight: 600,
                     border: 'none',
-                    borderRadius: '2px',
-                    backgroundColor: inputMode === 'url' ? 'rgba(0, 255, 102, 0.2)' : 'transparent',
-                    color: inputMode === 'url' ? '#00ff66' : 'var(--text-muted)',
-                    cursor: 'pointer'
+                    borderRadius: '3px',
+                    backgroundColor: inputMode === 'url' ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+                    color: inputMode === 'url' ? '#38bdf8' : 'var(--text-muted)',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
                   }}
                 >
                   URL Extract
@@ -365,7 +347,7 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
             {/* Ingestion Content */}
             {inputMode === 'text' ? (
               <div>
-                <label style={{ fontSize: '11px', color: 'var(--text-dim)', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                <label style={{ fontSize: '11px', color: 'var(--text-dim)', fontWeight: 600, display: 'block', marginBottom: '6px', fontFamily: 'var(--font-mono)' }}>
                   SOURCE CONTENT (BLOCK-INDEXED)
                 </label>
                 <textarea
@@ -376,13 +358,13 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
                   style={{
                     width: '100%',
                     padding: '10px',
-                    backgroundColor: 'var(--bg-core)',
+                    backgroundColor: 'var(--bg-input)',
                     border: '1px solid var(--border-hard)',
                     color: 'var(--text-main)',
-                    borderRadius: '2px',
+                    borderRadius: '4px',
                     fontSize: '11px',
                     fontFamily: 'var(--font-mono, monospace)',
-                    lineHeight: '1.4',
+                    lineHeight: '1.45',
                     resize: 'vertical',
                     boxSizing: 'border-box'
                   }}
@@ -390,7 +372,7 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
               </div>
             ) : (
               <div>
-                <label style={{ fontSize: '11px', color: 'var(--text-dim)', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                <label style={{ fontSize: '11px', color: 'var(--text-dim)', fontWeight: 600, display: 'block', marginBottom: '6px', fontFamily: 'var(--font-mono)' }}>
                   LIVE TARGET URL (TRAFILATURA INGESTION)
                 </label>
                 <input
@@ -398,16 +380,7 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
                   value={sourceUrl}
                   onChange={e => setSourceUrl(e.target.value)}
                   placeholder="https://cve.mitre.org/data/refs/ref..."
-                  style={{
-                    width: '100%',
-                    padding: '8px 10px',
-                    backgroundColor: 'var(--bg-core)',
-                    border: '1px solid var(--border-hard)',
-                    color: 'var(--text-main)',
-                    borderRadius: '2px',
-                    fontSize: '12px',
-                    boxSizing: 'border-box'
-                  }}
+                  className="tactical-input"
                 />
               </div>
             )}
@@ -415,12 +388,12 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
 
           {/* Formats Selector Card */}
           <div style={{
-            backgroundColor: 'var(--bg-card)',
+            backgroundColor: 'var(--bg-panel)',
             border: '1px solid var(--border-hard)',
-            borderRadius: '4px',
+            borderRadius: '6px',
             padding: '16px'
           }}>
-            <div style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.05em', color: '#00ff66', marginBottom: '12px' }}>
+            <div style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.04em', color: '#38bdf8', marginBottom: '12px', fontFamily: 'var(--font-mono)' }}>
               2. TARGET ARTIFACTS
             </div>
 
@@ -433,23 +406,24 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
                     onClick={() => toggleFormat(fmt.name)}
                     style={{
                       padding: '10px 12px',
-                      backgroundColor: isSelected ? 'rgba(0, 255, 102, 0.08)' : 'var(--bg-core)',
-                      border: isSelected ? '1px solid #00ff66' : '1px solid var(--border-hard)',
-                      borderRadius: '3px',
+                      backgroundColor: isSelected ? 'rgba(56, 189, 248, 0.08)' : 'var(--bg-input)',
+                      border: isSelected ? '1px solid #38bdf8' : '1px solid var(--border-hard)',
+                      borderRadius: '4px',
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '10px'
+                      gap: '10px',
+                      transition: 'all 0.15s ease'
                     }}
                   >
                     <input
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => {}}
-                      style={{ cursor: 'pointer', accentColor: '#00ff66' }}
+                      style={{ cursor: 'pointer', accentColor: '#0284c7' }}
                     />
                     <div style={{ flex: 1 }}>
-                      <span style={{ fontSize: '12px', fontWeight: 700, color: isSelected ? '#00ff66' : 'var(--text-main)' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 600, color: isSelected ? '#ffffff' : 'var(--text-main)' }}>
                         {fmt.label}
                       </span>
                     </div>
@@ -461,32 +435,24 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
 
           {/* Persona & Brand Settings Card */}
           <div style={{
-            backgroundColor: 'var(--bg-card)',
+            backgroundColor: 'var(--bg-panel)',
             border: '1px solid var(--border-hard)',
-            borderRadius: '4px',
+            borderRadius: '6px',
             padding: '16px'
           }}>
-            <div style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.05em', color: '#00ff66', marginBottom: '12px' }}>
+            <div style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.04em', color: '#38bdf8', marginBottom: '12px', fontFamily: 'var(--font-mono)' }}>
               3. AUDIENCE & TONE SYNTHESIS
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               <div>
-                <label style={{ fontSize: '10px', color: 'var(--text-dim)', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                <label style={{ fontSize: '10px', color: 'var(--text-dim)', fontWeight: 600, display: 'block', marginBottom: '4px', fontFamily: 'var(--font-mono)' }}>
                   TARGET AUDIENCE
                 </label>
                 <select
                   value={audience}
                   onChange={e => setAudience(e.target.value as JobSettings['audience'])}
-                  style={{
-                    width: '100%',
-                    padding: '6px 8px',
-                    backgroundColor: 'var(--bg-core)',
-                    border: '1px solid var(--border-hard)',
-                    color: 'var(--text-main)',
-                    borderRadius: '2px',
-                    fontSize: '11px'
-                  }}
+                  className="tactical-select"
                 >
                   <option value="executive">C-Suite / Executives</option>
                   <option value="technical">Technical Ops</option>
@@ -496,21 +462,13 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
               </div>
 
               <div>
-                <label style={{ fontSize: '10px', color: 'var(--text-dim)', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                <label style={{ fontSize: '10px', color: 'var(--text-dim)', fontWeight: 600, display: 'block', marginBottom: '4px', fontFamily: 'var(--font-mono)' }}>
                   TONE OF VOICE
                 </label>
                 <select
                   value={tone}
                   onChange={e => setTone(e.target.value as JobSettings['tone'])}
-                  style={{
-                    width: '100%',
-                    padding: '6px 8px',
-                    backgroundColor: 'var(--bg-core)',
-                    border: '1px solid var(--border-hard)',
-                    color: 'var(--text-main)',
-                    borderRadius: '2px',
-                    fontSize: '11px'
-                  }}
+                  className="tactical-select"
                 >
                   <option value="urgent">Urgent / Critical</option>
                   <option value="formal">Formal</option>
@@ -520,21 +478,13 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
               </div>
 
               <div>
-                <label style={{ fontSize: '10px', color: 'var(--text-dim)', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                <label style={{ fontSize: '10px', color: 'var(--text-dim)', fontWeight: 600, display: 'block', marginBottom: '4px', fontFamily: 'var(--font-mono)' }}>
                   DETAIL LEVEL
                 </label>
                 <select
                   value={detailLevel}
                   onChange={e => setDetailLevel(e.target.value as JobSettings['detail_level'])}
-                  style={{
-                    width: '100%',
-                    padding: '6px 8px',
-                    backgroundColor: 'var(--bg-core)',
-                    border: '1px solid var(--border-hard)',
-                    color: 'var(--text-main)',
-                    borderRadius: '2px',
-                    fontSize: '11px'
-                  }}
+                  className="tactical-select"
                 >
                   <option value="detailed">Detailed</option>
                   <option value="standard">Standard</option>
@@ -543,21 +493,13 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
               </div>
 
               <div>
-                <label style={{ fontSize: '10px', color: 'var(--text-dim)', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                <label style={{ fontSize: '10px', color: 'var(--text-dim)', fontWeight: 600, display: 'block', marginBottom: '4px', fontFamily: 'var(--font-mono)' }}>
                   COMMUNICATION OBJECTIVE
                 </label>
                 <select
                   value={objective}
                   onChange={e => setObjective(e.target.value as JobSettings['objective'])}
-                  style={{
-                    width: '100%',
-                    padding: '6px 8px',
-                    backgroundColor: 'var(--bg-core)',
-                    border: '1px solid var(--border-hard)',
-                    color: 'var(--text-main)',
-                    borderRadius: '2px',
-                    fontSize: '11px'
-                  }}
+                  className="tactical-select"
                 >
                   <option value="warn">Warn / Alert</option>
                   <option value="inform">Inform</option>
@@ -573,31 +515,24 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
           <button
             onClick={handleStartTransform}
             disabled={isSubmitting}
+            className="tactical-btn tactical-btn-primary"
             style={{
-              padding: '14px',
-              backgroundColor: isSubmitting ? 'rgba(0, 255, 102, 0.4)' : '#00ff66',
-              color: '#000',
-              fontWeight: 800,
-              fontSize: '13px',
-              letterSpacing: '0.05em',
-              border: 'none',
-              borderRadius: '3px',
-              cursor: isSubmitting ? 'not-allowed' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
+              padding: '13px',
+              fontSize: '12px',
+              fontWeight: 700,
+              letterSpacing: '0.04em',
               justifyContent: 'center',
-              gap: '8px',
-              boxShadow: '0 0 15px rgba(0, 255, 102, 0.3)'
+              borderRadius: '4px'
             }}
           >
             {isSubmitting ? (
               <>
-                <RefreshCw size={16} className="animate-spin" />
+                <RefreshCw size={15} className="animate-spin" />
                 <span>TRANSFORMING CONTENT...</span>
               </>
             ) : (
               <>
-                <Sparkles size={16} />
+                <Sparkles size={15} />
                 <span>GENERATE MULTI-FORMAT ARTIFACTS</span>
               </>
             )}
@@ -608,23 +543,24 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
           {/* Pipeline Tracker Card */}
           <div style={{
-            backgroundColor: 'var(--bg-card)',
+            backgroundColor: 'var(--bg-panel)',
             border: '1px solid var(--border-hard)',
-            borderRadius: '4px',
+            borderRadius: '6px',
             padding: '16px'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.05em', color: '#00ff66' }}>
+                <span style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.04em', color: '#38bdf8', fontFamily: 'var(--font-mono)' }}>
                   PIPELINE WORKFLOW
                 </span>
                 {currentJob && (
                   <span style={{
-                    fontSize: '11px',
+                    fontSize: '10px',
                     fontFamily: 'monospace',
                     padding: '2px 6px',
                     backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                    borderRadius: '2px',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: '3px',
                     color: 'var(--text-muted)'
                   }}>
                     JOB-{currentJob.id.slice(0, 8)}
@@ -638,7 +574,7 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
                     fontSize: '11px',
                     fontWeight: 700,
                     textTransform: 'uppercase',
-                    color: currentJob.status === 'done' ? '#00ff66' : currentJob.status === 'failed' ? '#ff4d4d' : '#eab308'
+                    color: currentJob.status === 'done' ? '#34d399' : currentJob.status === 'failed' ? '#fb7185' : '#fbbf24'
                   }}>
                     {currentJob.status}
                   </span>
@@ -662,21 +598,21 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
                   <div
                     key={stage.name}
                     style={{
-                      padding: '8px 10px',
-                      backgroundColor: isRunning ? 'rgba(0, 255, 102, 0.12)' : isDone ? 'rgba(0, 255, 102, 0.05)' : 'var(--bg-core)',
-                      border: isRunning ? '1px solid #00ff66' : isDone ? '1px solid rgba(0, 255, 102, 0.4)' : '1px solid var(--border-hard)',
-                      borderRadius: '3px'
+                      padding: '10px 12px',
+                      backgroundColor: isRunning ? 'rgba(56, 189, 248, 0.1)' : isDone ? 'rgba(16, 185, 129, 0.06)' : 'var(--bg-input)',
+                      border: isRunning ? '1px solid #38bdf8' : isDone ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid var(--border-hard)',
+                      borderRadius: '4px'
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
                       {isDone ? (
-                        <CheckCircle2 size={12} color="#00ff66" />
+                        <CheckCircle2 size={13} color="#10b981" />
                       ) : isRunning ? (
-                        <RefreshCw size={12} color="#00ff66" className="animate-spin" />
+                        <RefreshCw size={13} color="#38bdf8" className="animate-spin" />
                       ) : (
                         <div style={{ width: 12, height: 12, borderRadius: '50%', border: '1px solid var(--border-hard)' }} />
                       )}
-                      <span style={{ fontSize: '11px', fontWeight: 700, color: isRunning || isDone ? '#00ff66' : 'var(--text-muted)' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 600, color: isRunning ? '#38bdf8' : isDone ? '#34d399' : 'var(--text-muted)' }}>
                         {stage.label}
                       </span>
                     </div>
@@ -692,9 +628,9 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
           {/* Results Viewer */}
           {currentJob?.outputs && currentJob.outputs.length > 0 ? (
             <div style={{
-              backgroundColor: 'var(--bg-card)',
+              backgroundColor: 'var(--bg-panel)',
               border: '1px solid var(--border-hard)',
-              borderRadius: '4px',
+              borderRadius: '6px',
               padding: '16px',
               display: 'flex',
               flexDirection: 'column',
@@ -706,7 +642,7 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 borderBottom: '1px solid var(--border-hard)',
-                paddingBottom: '10px',
+                paddingBottom: '12px',
                 marginBottom: '14px',
                 gap: '8px',
                 overflowX: 'auto'
@@ -724,12 +660,13 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
                           padding: '6px 12px',
                           fontSize: '11px',
                           fontWeight: 700,
-                          backgroundColor: isSelected ? 'rgba(0, 255, 102, 0.15)' : 'transparent',
-                          color: isSelected ? '#00ff66' : 'var(--text-muted)',
-                          border: isSelected ? '1px solid #00ff66' : '1px solid var(--border-hard)',
-                          borderRadius: '2px',
+                          backgroundColor: isSelected ? 'rgba(56, 189, 248, 0.12)' : 'transparent',
+                          color: isSelected ? '#38bdf8' : 'var(--text-muted)',
+                          border: isSelected ? '1px solid #38bdf8' : '1px solid var(--border-hard)',
+                          borderRadius: '4px',
                           cursor: 'pointer',
-                          textTransform: 'uppercase'
+                          textTransform: 'uppercase',
+                          transition: 'all 0.15s ease'
                         }}
                       >
                         {formatTitle}
@@ -743,47 +680,47 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
                   <button
                     onClick={() => setActiveTab('artifact')}
                     style={{
-                      padding: '4px 8px',
-                      fontSize: '10px',
-                      fontWeight: 700,
+                      padding: '4px 10px',
+                      fontSize: '11px',
+                      fontWeight: 600,
                       backgroundColor: activeTab === 'artifact' ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
                       color: activeTab === 'artifact' ? '#fff' : 'var(--text-dim)',
                       border: 'none',
-                      borderRadius: '2px',
+                      borderRadius: '3px',
                       cursor: 'pointer'
                     }}
                   >
-                    Output Content
+                    Output
                   </button>
                   <button
                     onClick={() => setActiveTab('grounding')}
                     style={{
-                      padding: '4px 8px',
-                      fontSize: '10px',
-                      fontWeight: 700,
+                      padding: '4px 10px',
+                      fontSize: '11px',
+                      fontWeight: 600,
                       backgroundColor: activeTab === 'grounding' ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
                       color: activeTab === 'grounding' ? '#fff' : 'var(--text-dim)',
                       border: 'none',
-                      borderRadius: '2px',
+                      borderRadius: '3px',
                       cursor: 'pointer'
                     }}
                   >
-                    Grounding Proofs
+                    Grounding
                   </button>
                   <button
                     onClick={() => setActiveTab('blocks')}
                     style={{
-                      padding: '4px 8px',
-                      fontSize: '10px',
-                      fontWeight: 700,
+                      padding: '4px 10px',
+                      fontSize: '11px',
+                      fontWeight: 600,
                       backgroundColor: activeTab === 'blocks' ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
                       color: activeTab === 'blocks' ? '#fff' : 'var(--text-dim)',
                       border: 'none',
-                      borderRadius: '2px',
+                      borderRadius: '3px',
                       cursor: 'pointer'
                     }}
                   >
-                    Source Blocks ({currentJob.source?.blocks?.length || 0})
+                    Blocks ({currentJob.source?.blocks?.length || 0})
                   </button>
                 </div>
               </div>
@@ -797,17 +734,17 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     marginBottom: '12px',
-                    padding: '8px 12px',
-                    backgroundColor: 'var(--bg-core)',
-                    borderRadius: '2px',
+                    padding: '8px 14px',
+                    backgroundColor: 'var(--bg-panel-alt)',
+                    borderRadius: '4px',
                     border: '1px solid var(--border-hard)'
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#00ff66' }}>
-                        FORMAT: {(currentOutput.name || currentOutput.format || '').toUpperCase()}
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#38bdf8', fontFamily: 'var(--font-mono)' }}>
+                        {(currentOutput.name || currentOutput.format || '').toUpperCase()}
                       </span>
                       {currentMainArtifact && (
-                        <span style={{ fontSize: '10px', color: 'var(--text-dim)', fontFamily: 'monospace' }}>
+                        <span style={{ fontSize: '11px', color: 'var(--text-dim)', fontFamily: 'monospace' }}>
                           {currentMainArtifact.filename} ({currentMainArtifact.media_type})
                         </span>
                       )}
@@ -821,14 +758,15 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
                           display: 'flex',
                           alignItems: 'center',
                           gap: '6px',
-                          padding: '5px 10px',
+                          padding: '6px 12px',
                           fontSize: '11px',
-                          fontWeight: 700,
-                          backgroundColor: 'rgba(0, 255, 102, 0.15)',
-                          border: '1px solid #00ff66',
-                          color: '#00ff66',
-                          borderRadius: '2px',
-                          cursor: 'pointer'
+                          fontWeight: 600,
+                          backgroundColor: 'rgba(99, 102, 241, 0.15)',
+                          border: '1px solid #6366f1',
+                          color: '#a5b4fc',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease'
                         }}
                       >
                         <Lock size={12} />
@@ -845,13 +783,13 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
                             display: 'flex',
                             alignItems: 'center',
                             gap: '6px',
-                            padding: '5px 10px',
+                            padding: '6px 12px',
                             fontSize: '11px',
-                            fontWeight: 700,
+                            fontWeight: 600,
                             backgroundColor: 'rgba(255, 255, 255, 0.05)',
                             border: '1px solid var(--border-hard)',
                             color: 'var(--text-main)',
-                            borderRadius: '2px',
+                            borderRadius: '4px',
                             textDecoration: 'none',
                             cursor: 'pointer'
                           }}
@@ -865,21 +803,10 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
                       {currentMainArtifact && (
                         <button
                           onClick={() => handleCopyText(currentMainArtifact.text || currentMainArtifact.parts.join('\n\n'))}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            padding: '5px 10px',
-                            fontSize: '11px',
-                            fontWeight: 600,
-                            backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                            border: '1px solid var(--border-hard)',
-                            color: 'var(--text-main)',
-                            borderRadius: '2px',
-                            cursor: 'pointer'
-                          }}
+                          className="tactical-btn tactical-btn-secondary"
+                          style={{ padding: '6px 12px', fontSize: '11px' }}
                         >
-                          {copied ? <Check size={12} color="#00ff66" /> : <Copy size={12} />}
+                          {copied ? <Check size={12} color="#34d399" /> : <Copy size={12} />}
                           <span>{copied ? 'COPIED' : 'COPY'}</span>
                         </button>
                       )}
@@ -896,24 +823,24 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
                           <div
                             key={p.path}
                             style={{
-                              padding: '12px',
-                              backgroundColor: isSupported ? 'var(--bg-core)' : 'rgba(255, 77, 77, 0.05)',
-                              border: isSupported ? '1px solid var(--border-hard)' : '1px solid rgba(255, 77, 77, 0.3)',
-                              borderRadius: '3px'
+                              padding: '12px 14px',
+                              backgroundColor: isSupported ? 'var(--bg-input)' : 'rgba(244, 63, 94, 0.05)',
+                              border: isSupported ? '1px solid var(--border-hard)' : '1px solid rgba(244, 63, 94, 0.3)',
+                              borderRadius: '4px'
                             }}
                           >
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-dim)', fontFamily: 'monospace' }}>
+                                <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-dim)', fontFamily: 'monospace' }}>
                                   {p.path}
                                 </span>
                                 {isSupported ? (
-                                  <span style={{ fontSize: '10px', color: '#00ff66', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                    <ShieldCheck size={11} /> Grounded
+                                  <span style={{ fontSize: '11px', color: '#34d399', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <ShieldCheck size={12} /> Grounded
                                   </span>
                                 ) : (
-                                  <span style={{ fontSize: '10px', color: '#ff4d4d', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                    <AlertTriangle size={11} /> Review Citation ({p.verdict || 'unverified'})
+                                  <span style={{ fontSize: '11px', color: '#fb7185', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <AlertTriangle size={12} /> Review Citation ({p.verdict || 'unverified'})
                                   </span>
                                 )}
                               </div>
@@ -922,16 +849,8 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
                                 {isEditing ? (
                                   <button
                                     onClick={() => handleSavePassageEdit(p.path)}
-                                    style={{
-                                      padding: '2px 6px',
-                                      fontSize: '10px',
-                                      backgroundColor: '#00ff66',
-                                      color: '#000',
-                                      fontWeight: 700,
-                                      border: 'none',
-                                      borderRadius: '2px',
-                                      cursor: 'pointer'
-                                    }}
+                                    className="tactical-btn tactical-btn-primary"
+                                    style={{ padding: '3px 8px', fontSize: '10px' }}
                                   >
                                     Save
                                   </button>
@@ -941,18 +860,8 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
                                       setEditingPath(p.path);
                                       setEditedPassageText(p.text);
                                     }}
-                                    style={{
-                                      padding: '2px 6px',
-                                      fontSize: '10px',
-                                      backgroundColor: 'transparent',
-                                      color: 'var(--text-muted)',
-                                      border: '1px solid var(--border-hard)',
-                                      borderRadius: '2px',
-                                      cursor: 'pointer',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      gap: '3px'
-                                    }}
+                                    className="tactical-btn tactical-btn-secondary"
+                                    style={{ padding: '3px 8px', fontSize: '10px' }}
                                   >
                                     <Edit3 size={10} /> Edit
                                   </button>
@@ -961,15 +870,8 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
                                 {!isSupported && (
                                   <button
                                     onClick={() => handleAcceptPassage(p.path)}
-                                    style={{
-                                      padding: '2px 6px',
-                                      fontSize: '10px',
-                                      backgroundColor: 'rgba(0, 255, 102, 0.1)',
-                                      color: '#00ff66',
-                                      border: '1px solid #00ff66',
-                                      borderRadius: '2px',
-                                      cursor: 'pointer'
-                                    }}
+                                    className="tactical-btn tactical-btn-success"
+                                    style={{ padding: '3px 8px', fontSize: '10px' }}
                                   >
                                     Accept
                                   </button>
@@ -985,10 +887,10 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
                                 style={{
                                   width: '100%',
                                   padding: '8px',
-                                  backgroundColor: 'var(--bg-card)',
-                                  border: '1px solid #00ff66',
+                                  backgroundColor: 'var(--bg-panel)',
+                                  border: '1px solid #38bdf8',
                                   color: 'var(--text-main)',
-                                  borderRadius: '2px',
+                                  borderRadius: '4px',
                                   fontSize: '12px',
                                   boxSizing: 'border-box'
                                 }}
@@ -1001,18 +903,18 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
 
                             {p.blocks && p.blocks.length > 0 && (
                               <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <span style={{ fontSize: '10px', color: 'var(--text-dim)' }}>PROVENANCE BLOCKS:</span>
+                                <span style={{ fontSize: '10px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>PROVENANCE:</span>
                                 {p.blocks.map((bId: string) => (
                                   <span
                                     key={bId}
                                     style={{
                                       fontSize: '10px',
                                       fontFamily: 'monospace',
-                                      backgroundColor: 'rgba(0, 255, 102, 0.1)',
-                                      color: '#00ff66',
-                                      padding: '1px 5px',
-                                      borderRadius: '2px',
-                                      border: '1px solid rgba(0, 255, 102, 0.3)'
+                                      backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                                      color: '#38bdf8',
+                                      padding: '1px 6px',
+                                      borderRadius: '3px',
+                                      border: '1px solid rgba(56, 189, 248, 0.25)'
                                     }}
                                   >
                                     {bId}
@@ -1025,13 +927,12 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
                       })}
                     </div>
                   ) : (
-                    /* Raw Content Box */
                     <pre style={{
                       margin: 0,
                       padding: '14px',
-                      backgroundColor: 'var(--bg-core)',
+                      backgroundColor: 'var(--bg-input)',
                       border: '1px solid var(--border-hard)',
-                      borderRadius: '3px',
+                      borderRadius: '4px',
                       fontSize: '12px',
                       fontFamily: 'var(--font-mono, monospace)',
                       lineHeight: '1.5',
@@ -1050,21 +951,21 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
               {activeTab === 'grounding' && currentOutput && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '520px', overflowY: 'auto' }}>
                   <div style={{
-                    padding: '12px 16px',
-                    backgroundColor: 'var(--bg-core)',
+                    padding: '14px 16px',
+                    backgroundColor: 'var(--bg-input)',
                     border: '1px solid var(--border-hard)',
-                    borderRadius: '3px',
+                    borderRadius: '4px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between'
                   }}>
                     <div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-dim)', fontWeight: 600 }}>GROUNDING REPORT</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-dim)', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>GROUNDING INTEGRITY</div>
                       <div style={{
-                        fontSize: '16px',
-                        fontWeight: 800,
-                        color: currentOutput.grounding?.passages.every(p => p.verdict === 'supported') ? '#00ff66' : '#ff4d4d',
-                        marginTop: '2px'
+                        fontSize: '15px',
+                        fontWeight: 700,
+                        color: currentOutput.grounding?.passages.every(p => p.verdict === 'supported') ? '#34d399' : '#fb7185',
+                        marginTop: '3px'
                       }}>
                         {currentOutput.grounding?.passages.every(p => p.verdict === 'supported')
                           ? '100% PROVEN GROUNDED'
@@ -1073,7 +974,7 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
                     </div>
 
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '11px', color: 'var(--text-dim)' }}>PASSAGES INSPECTED</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>PASSAGES INSPECTED</div>
                       <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)', fontFamily: 'monospace' }}>
                         {currentOutput.grounding?.passages?.length || 0} Passages
                       </div>
@@ -1085,25 +986,25 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
                       <div
                         key={i}
                         style={{
-                          padding: '10px 12px',
-                          backgroundColor: p.verdict === 'supported' ? 'var(--bg-core)' : 'rgba(255, 77, 77, 0.08)',
-                          border: p.verdict === 'supported' ? '1px solid var(--border-hard)' : '1px solid #ff4d4d',
-                          borderRadius: '2px'
+                          padding: '12px 14px',
+                          backgroundColor: p.verdict === 'supported' ? 'var(--bg-input)' : 'rgba(244, 63, 94, 0.06)',
+                          border: p.verdict === 'supported' ? '1px solid var(--border-hard)' : '1px solid rgba(244, 63, 94, 0.4)',
+                          borderRadius: '4px'
                         }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                          <span style={{ fontSize: '11px', fontWeight: 700, color: p.verdict === 'supported' ? '#00ff66' : '#ff4d4d' }}>
+                          <span style={{ fontSize: '11px', fontWeight: 700, color: p.verdict === 'supported' ? '#34d399' : '#fb7185' }}>
                             {p.path} ({p.verdict?.toUpperCase() || 'UNKNOWN'})
                           </span>
-                          <span style={{ fontSize: '10px', color: 'var(--text-dim)' }}>
+                          <span style={{ fontSize: '10px', color: 'var(--text-dim)', fontFamily: 'monospace' }}>
                             Blocks: {(p.blocks || []).join(', ') || 'None'}
                           </span>
                         </div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                        <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                           {p.text}
                         </div>
                         {p.reasons && p.reasons.length > 0 && (
-                          <div style={{ fontSize: '10px', color: '#ff4d4d', marginTop: '4px' }}>
+                          <div style={{ fontSize: '11px', color: '#fb7185', marginTop: '4px' }}>
                             Reasons: {p.reasons.join('; ')}
                           </div>
                         )}
@@ -1120,29 +1021,30 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
                     <div
                       key={b.id}
                       style={{
-                        padding: '10px 12px',
-                        backgroundColor: 'var(--bg-core)',
+                        padding: '12px 14px',
+                        backgroundColor: 'var(--bg-input)',
                         border: '1px solid var(--border-hard)',
-                        borderRadius: '2px'
+                        borderRadius: '4px'
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
                         <span style={{
                           fontSize: '11px',
-                          fontWeight: 800,
+                          fontWeight: 700,
                           fontFamily: 'monospace',
-                          color: '#00ff66',
-                          backgroundColor: 'rgba(0, 255, 102, 0.1)',
+                          color: '#38bdf8',
+                          backgroundColor: 'rgba(56, 189, 248, 0.1)',
                           padding: '1px 6px',
-                          borderRadius: '2px'
+                          borderRadius: '3px',
+                          border: '1px solid rgba(56, 189, 248, 0.25)'
                         }}>
                           [{b.id}]
                         </span>
-                        <span style={{ fontSize: '10px', color: 'var(--text-dim)' }}>
+                        <span style={{ fontSize: '10px', color: 'var(--text-dim)', fontFamily: 'monospace' }}>
                           Type: {b.type} | Words: {b.text.split(/\s+/).length}
                         </span>
                       </div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.45' }}>
                         {b.text}
                       </div>
                     </div>
@@ -1154,9 +1056,9 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
             /* Empty State */
             <div style={{
               flex: 1,
-              backgroundColor: 'var(--bg-card)',
+              backgroundColor: 'var(--bg-panel)',
               border: '1px dashed var(--border-hard)',
-              borderRadius: '4px',
+              borderRadius: '6px',
               padding: '40px 20px',
               display: 'flex',
               flexDirection: 'column',
@@ -1169,7 +1071,7 @@ export const ContentTransformConsole: React.FC<ContentTransformConsoleProps> = (
                 No Active Artifact Transformation
               </div>
               <p style={{ fontSize: '12px', color: 'var(--text-dim)', maxWidth: '380px', margin: 0 }}>
-                Configure source intelligence on the left and select your desired artifacts (Security Advisory, Executive Summary, Presentation Deck, or Social Dispatches) to synthesize.
+                Configure source intelligence on the left and select target artifacts (Security Advisory, Executive Summary, Presentation Deck, or Social Dispatches) to synthesize.
               </p>
             </div>
           )}
