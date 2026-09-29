@@ -26,12 +26,30 @@ export function App() {
   const [officers, setOfficers] = useState<Officer[]>([]);
   const [blocks, setBlocks] = useState<LedgerBlock[]>([]);
 
-  // Load persistent user session
+  // Load persistent user session and purge any stale mock users
   useEffect(() => {
     try {
       const savedUser = localStorage.getItem(STORAGE_KEY_USER);
       if (savedUser) {
-        setCurrentUser(JSON.parse(savedUser));
+        const parsed = JSON.parse(savedUser);
+        const nameLower = (parsed.name || '').toLowerCase();
+        const userLower = (parsed.username || '').toLowerCase();
+        if (
+          nameLower.includes('joshi') ||
+          nameLower.includes('verma') ||
+          nameLower.includes('varma') ||
+          nameLower.includes('rao') ||
+          userLower.includes('joshi') ||
+          userLower.includes('verma') ||
+          userLower.includes('varma') ||
+          userLower.includes('rao')
+        ) {
+          localStorage.removeItem(STORAGE_KEY_USER);
+          localStorage.removeItem(STORAGE_KEY_TOKEN);
+          setCurrentUser(null);
+        } else {
+          setCurrentUser(parsed);
+        }
       }
     } catch {
       // Ignore local storage error
@@ -54,7 +72,23 @@ export function App() {
       }
 
       if (d.status === 'fulfilled') setDocuments(d.value);
-      if (o.status === 'fulfilled') setOfficers(o.value);
+      if (o.status === 'fulfilled') {
+        setOfficers(o.value);
+        // Evict session if user does not exist in database
+        try {
+          const savedUser = localStorage.getItem(STORAGE_KEY_USER);
+          if (savedUser) {
+            const parsed = JSON.parse(savedUser);
+            if (!o.value.some(u => u.username === parsed.username || u.id === parsed.id)) {
+              localStorage.removeItem(STORAGE_KEY_USER);
+              localStorage.removeItem(STORAGE_KEY_TOKEN);
+              setCurrentUser(null);
+            }
+          }
+        } catch {
+          // Ignore error
+        }
+      }
       if (b.status === 'fulfilled') setBlocks(b.value);
     } catch {
       setIsOnline(false);
