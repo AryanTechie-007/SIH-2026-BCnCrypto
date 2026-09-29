@@ -65,9 +65,6 @@ export const WorkstationSidebar: React.FC<WorkstationSidebarProps> = ({
             <div style={{ fontSize: '14px', fontWeight: 800, letterSpacing: '0.04em', color: '#ffffff' }}>
               CIPHERTRACE
             </div>
-            <div style={{ fontSize: '10px', color: 'var(--text-dim)' }}>
-              Document Security
-            </div>
           </div>
         </div>
 

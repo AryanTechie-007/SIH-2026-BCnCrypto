@@ -203,9 +203,6 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
             <div style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '0.04em', color: '#38bdf8', fontFamily: 'var(--font-mono)' }}>
               SECURITY PARAMETER &amp; STAGE AUDIT
             </div>
-            <span style={{ fontSize: '10px', color: '#34d399', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
-              LIVE TELEMETRY
-            </span>
           </div>
 
           {/* Encrypted Package File Upload Input */}
