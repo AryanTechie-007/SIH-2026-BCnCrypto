@@ -3,10 +3,10 @@ import { WorkstationSidebar, WorkstationModule } from './components/WorkstationS
 import { AuthModal } from './components/AuthModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { OverviewConsole } from './views/OverviewConsole';
-import { ContentTransformConsole } from './views/ContentTransformConsole';
 import { DocumentsConsole } from './views/DocumentsConsole';
 import { DecryptionConsole } from './views/DecryptionConsole';
 import { EvidenceConsole } from './views/EvidenceConsole';
+import { LedgerAuditConsole } from './views/LedgerAuditConsole';
 import { ApiClient } from './api/client';
 import { DocumentRecord, Officer, LedgerBlock, UserAccount } from './types';
 
@@ -143,12 +143,8 @@ export function App() {
               />
             )}
 
-            {activeModule === 'transform' && (
-              <ContentTransformConsole
-                onSendToEncryptionLab={(_title, _content) => {
-                  setActiveModule('documents');
-                }}
-              />
+            {activeModule === 'audit' && (
+              <LedgerAuditConsole />
             )}
 
             {activeModule === 'documents' && (

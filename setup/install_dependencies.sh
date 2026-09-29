@@ -107,7 +107,7 @@ python3 -m pip install --upgrade pip --quiet 2>/dev/null || true
 echo "[*] Installing backend dependencies from requirements.txt..."
 python3 -m pip install -r "$PROJECT_ROOT/backend/requirements.txt" || {
     echo "[WARNING] Retrying install with individual packages..."
-    python3 -m pip install fastapi uvicorn cryptography pymupdf Pillow numpy scipy reedsolo python-multipart sqlalchemy greenlet aiosqlite opencv-python-headless dilithium-py argon2-cffi pyjwt customtkinter requests mlkem jinja2 python-pptx trafilatura python-docx
+    python3 -m pip install fastapi uvicorn cryptography pymupdf Pillow numpy scipy reedsolo python-multipart sqlalchemy greenlet aiosqlite opencv-python-headless dilithium-py argon2-cffi pyjwt customtkinter requests mlkem jinja2
 }
 
 echo "[*] Validating NIST Post-Quantum Cryptography Engine..."

@@ -16,6 +16,3 @@ reedsolo
 python-multipart
 opencv-python-headless
 jinja2
-python-pptx
-trafilatura
-python-docx

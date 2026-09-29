@@ -1,7 +1,6 @@
 import os
 import logging
-import asyncio
-from contextlib import asynccontextmanager, suppress
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Response, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -10,9 +9,6 @@ from app.config import settings
 from app.database import init_db
 from app.services.crypto_engine import CryptoEngine
 from app.routers import system, identity, documents, decryption, forensics, ledger, attacks, auth
-from app.api.routes import router as transform_router
-from app.core import jobs as transform_jobs
-from app.db.models import init_db as init_transform_db
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("ciphertrace")
@@ -40,17 +36,8 @@ async def lifespan(app: FastAPI):
     await init_db()
     logger.info(f"[+] Database metadata initialized at: {settings.DB_PATH}")
 
-    # 4. Initialize Content Transform Engine & Worker
-    init_transform_db()
-    transform_jobs.requeue_interrupted()
-    worker_task = asyncio.create_task(transform_jobs.worker())
-    logger.info("[+] Content Transform background worker initialized.")
-
     yield
 
-    worker_task.cancel()
-    with suppress(asyncio.CancelledError):
-        await worker_task
     logger.info("[*] CIPHERTRACE system shutdown initiated.")
 
 
@@ -109,7 +96,6 @@ app.include_router(decryption.router)
 app.include_router(forensics.router)
 app.include_router(ledger.router)
 app.include_router(attacks.router)
-app.include_router(transform_router)
 
 
 @app.get("/")
@@ -125,12 +111,6 @@ async def root():
             "backend": backend_info["backend"],
             "standards": [backend_info["fips_203_standard"], backend_info["fips_204_standard"]]
         },
-        "content_transform": {
-            "formats": ["advisory", "exec_summary", "deck", "linkedin", "x_thread"],
-            "jobs_endpoint": "/api/jobs",
-            "formats_endpoint": "/api/formats",
-            "brand_kits_endpoint": "/api/brand-kits"
-        },
         "documentation": "/docs"
     }
 
@@ -139,8 +119,8 @@ async def root():
 @app.post("/api/analyze")
 async def analyze_document(file: UploadFile = File(...)):
     """
-    Dynamic AI Content Classifier & Sensitivity Analyzer for Desktop, Web & Mobile clients.
-    Powered by the Content-Transform pipeline: extracts structured blocks, claims, and defense security policies.
+    Dynamic AI Content Classifier & Sensitivity Analyzer for Desktop & Mobile clients.
+    Extracts text from uploaded documents (PDF, TXT, MD, etc.) and determines defense classification policy.
     """
     from app.services.ai_engine import DocumentIntelligence
     classifier = DocumentIntelligence()
@@ -166,12 +146,6 @@ async def analyze_document(file: UploadFile = File(...)):
         "size_bytes": len(content),
         "label": result["label"],
         "policy": result["policy"],
-        "doc_id": result.get("doc_id"),
-        "blocks_count": result.get("blocks_count", 0),
-        "claims": result.get("claims", []),
-        "cves": result.get("cves", []),
-        "iocs": result.get("iocs", []),
-        "summary": result.get("summary", text[:200]),
         "text_sample": text[:200]
     }
 

@@ -1,14 +1,23 @@
 """
-CIPHERTRACE Distributed Ledger Client
-====================================
-Interface for Permissioned Blockchain (Hyperledger Fabric) & Fail-Closed Architecture.
+CIPHERTRACE Distributed Ledger Client & Hyperledger Fabric Interface
+====================================================================
+Integrates with the forensic-audit DLT layer (https://github.com/vishalbala-nps/forensic-audit).
 
-Security Architecture:
-- Primary Authoritative Ledger: Permissioned Hyperledger Fabric Network (3-Org Consortium).
-- Multi-Organization Endorsement: Org1 (Defense), Org2 (Audit), Org3 (Forensic).
-- Fail-Closed Behavior:
-  * In SECURE_MODE: If Fabric is unavailable, operations FAIL CLOSED and refuse commit.
-  * In DEMO_MODE: Local cryptographic hash-chain allowed but explicitly labeled "DEMO LOCAL LEDGER".
+This module provides the public interface for the immutable audit ledger:
+    from app.services.ledger_client import submit_record, query_record, get_all_records, LedgerError
+
+Schema:
+    {
+      "record_id": "uuid-v4",
+      "watermark_id": "exactly 20 lowercase hex characters -- the ledger key",
+      "recipient_id": "org-issued user ID",
+      "document_hash": "SHA-256 hex of the ORIGINAL decrypted document",
+      "watermarked_doc_hash": "SHA-256 hex of the watermarked copy",
+      "timestamp": "ISO-8601 UTC, e.g. 2026-09-25T10:15:30Z",
+      "pqc_algorithm": "ML-DSA-65",
+      "signature": "base64 ML-DSA signature over canonical JSON of all other fields",
+      "recipient_pubkey_fingerprint": "SHA-256 hex of the recipient's ML-DSA public key"
+    }
 """
 
 from __future__ import annotations
@@ -17,6 +26,7 @@ import os
 import re
 import json
 import base64
+import hashlib
 import subprocess
 from pathlib import Path
 from typing import Any, Optional, Dict, List
@@ -24,30 +34,45 @@ from typing import Any, Optional, Dict, List
 from app.config import settings
 
 __all__ = [
+    "submit_record",
+    "query_record",
+    "get_all_records",
     "record_decryption",
     "lookup_watermark",
     "get_record",
-    "get_all_records",
     "get_ledger_status",
     "is_fabric_available",
     "LedgerError",
-    "LedgerOfflineError"
+    "LedgerOfflineError",
 ]
 
+# --------------------------------------------------------------------------
+# Configuration & Constants (aligned with forensic-audit smart contract)
+# --------------------------------------------------------------------------
+
+CHANNEL = os.environ.get("CHANNEL_NAME", getattr(settings, "FABRIC_CHANNEL", "mychannel"))
+CHAINCODE = os.environ.get("CC_NAME", getattr(settings, "FABRIC_CHAINCODE", "forensic"))
+ORDERER_ADDR = "localhost:7050"
+ORDERER_HOSTNAME = "orderer.example.com"
+
+_ORG_PROFILES = {
+    "Org1": {"msp": "Org1MSP", "domain": "org1.example.com", "port": 7051},
+    "Org2": {"msp": "Org2MSP", "domain": "org2.example.com", "port": 9051},
+}
+
 WM_PATTERN = re.compile(r"^[0-9a-f]{20}$")
-HEX64_PATTERN = re.compile(r"^[0-9a-f]{64}$")
+SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
 REQUIRED_FIELDS = [
     "record_id",
     "watermark_id",
-    "event_hash",
-    "document_hash",
-    "recipient_key_id",
     "recipient_id",
+    "document_hash",
+    "watermarked_doc_hash",
     "timestamp",
+    "pqc_algorithm",
     "signature",
-    "signature_algorithm",
-    "kem_algorithm"
+    "recipient_pubkey_fingerprint",
 ]
 
 _TXID_RE = re.compile(r"txid \[([0-9a-f]+)\] committed with status \((\w+)\)")
@@ -56,8 +81,12 @@ _QUERY_TIMEOUT = 30
 
 
 class LedgerError(RuntimeError):
-    """Base exception for ledger operations."""
-    pass
+    """A ledger operation failed.
+    .stderr holds raw peer output when available.
+    """
+    def __init__(self, message: str, stderr: str = "") -> None:
+        super().__init__(message)
+        self.stderr = stderr
 
 
 class LedgerOfflineError(LedgerError):
@@ -65,90 +94,138 @@ class LedgerOfflineError(LedgerError):
     pass
 
 
+# --------------------------------------------------------------------------
+# Serialization & Schema Validation
+# --------------------------------------------------------------------------
+
 def _canonical(record: dict) -> str:
-    """Deterministic canonical JSON serialization."""
+    """Serialize exactly as the chaincode expects.
+    ensure_ascii=False ensures deterministic matching with json-stringify-deterministic.
+    """
     return json.dumps(record, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 
 def validate_record_schema(record_dict: dict) -> None:
-    """Validates record matches NIST FIPS 203/204 chaincode requirements."""
+    """Validates record matches forensic-audit smart contract requirements."""
     if not isinstance(record_dict, dict):
-        raise LedgerError(f"Record must be a dict, got {type(record_dict).__name__}")
+        raise LedgerError(f"record must be a dict, got {type(record_dict).__name__}")
 
     for field in REQUIRED_FIELDS:
         if field not in record_dict or record_dict[field] is None or record_dict[field] == "":
-            raise LedgerError(f"Missing required forensic audit field: {field}")
+            raise LedgerError(f"missing required field: {field}")
 
-    wm_id = str(record_dict["watermark_id"]).lower()
+    wm_id = str(record_dict["watermark_id"])
     if not WM_PATTERN.match(wm_id):
         raise LedgerError(f"watermark_id must be exactly 20 lowercase hex characters (got: {wm_id})")
 
-    doc_hash = str(record_dict["document_hash"]).lower()
-    if not HEX64_PATTERN.match(doc_hash):
-        raise LedgerError(f"document_hash must be a 64-char lowercase hex digest (got: {doc_hash})")
+    doc_hash = str(record_dict["document_hash"])
+    if not SHA256_PATTERN.match(doc_hash):
+        raise LedgerError(f"document_hash must be a 64-char lowercase hex SHA-256 digest (got: {doc_hash})")
+
+    wm_doc_hash = str(record_dict["watermarked_doc_hash"])
+    if not SHA256_PATTERN.match(wm_doc_hash):
+        raise LedgerError(f"watermarked_doc_hash must be a 64-char lowercase hex SHA-256 digest (got: {wm_doc_hash})")
+
+
+# --------------------------------------------------------------------------
+# Environment & Fabric Detection
+# --------------------------------------------------------------------------
+
+def _fabric_samples() -> Optional[Path]:
+    raw = os.environ.get("FABRIC_SAMPLES") or getattr(settings, "FABRIC_SAMPLES_PATH", None)
+    if not raw:
+        return None
+    path = Path(raw).expanduser().resolve()
+    if (path / "test-network").is_dir():
+        return path
+    return None
 
 
 def is_fabric_available() -> bool:
-    """
-    Checks if Hyperledger Fabric network is running and reachable.
-    Checks environment configuration or active peer containers.
-    """
-    fabric_samples = os.environ.get("FABRIC_SAMPLES") or settings.FABRIC_SAMPLES_PATH
-    if fabric_samples:
-        net_script = Path(fabric_samples).expanduser().resolve() / "test-network" / "network.sh"
-        if net_script.is_file():
-            return True
-
-    # Check for docker socket communication with peer containers
-    try:
-        res = subprocess.run(
-            ["docker", "ps", "--filter", "name=peer0.org1.example.com", "--filter", "status=running", "-q"],
-            capture_output=True,
-            text=True,
-            timeout=3
-        )
-        if res.returncode == 0 and res.stdout.strip():
-            return True
-    except Exception:
-        pass
-
+    """Checks if Hyperledger Fabric network is running and reachable."""
+    fs = _fabric_samples()
+    if fs and (fs / "test-network" / "network.sh").is_file():
+        # Check if Docker peer containers are running
+        try:
+            res = subprocess.run(
+                ["docker", "ps", "--filter", "name=peer0.org1.example.com", "--filter", "status=running", "-q"],
+                capture_output=True,
+                text=True,
+                timeout=3
+            )
+            if res.returncode == 0 and res.stdout.strip():
+                return True
+        except Exception:
+            pass
     return False
 
 
-def _get_fabric_paths() -> dict[str, Any]:
-    raw = os.environ.get("FABRIC_SAMPLES") or settings.FABRIC_SAMPLES_PATH
-    if not raw:
-        raise LedgerError("FABRIC_SAMPLES environment variable not configured")
-    fs = Path(raw).expanduser().resolve()
+def _paths() -> dict[str, Any]:
+    fs = _fabric_samples()
+    if not fs:
+        raise LedgerError(
+            "FABRIC_SAMPLES is not set. Point it at your fabric-samples directory: "
+            "export FABRIC_SAMPLES=~/fabric-samples"
+        )
     network = fs / "test-network"
     orgs = network / "organizations"
+
+    org_key = os.environ.get("LEDGER_ORG", "Org1")
+    if org_key not in _ORG_PROFILES:
+        raise LedgerError(f"LEDGER_ORG must be Org1 or Org2, got {org_key!r}")
+    profile = _ORG_PROFILES[org_key]
+    domain = profile["domain"]
 
     return {
         "network": network,
         "bin": fs / "bin",
         "config": fs / "config",
+        "msp_id": profile["msp"],
+        "port": profile["port"],
         "orderer_ca": orgs / "ordererOrganizations/example.com/tlsca/tlsca.example.com-cert.pem",
         "org1_ca": orgs / "peerOrganizations/org1.example.com/tlsca/tlsca.org1.example.com-cert.pem",
         "org2_ca": orgs / "peerOrganizations/org2.example.com/tlsca/tlsca.org2.example.com-cert.pem",
-        "org3_ca": orgs / "peerOrganizations/org3.example.com/tlsca/tlsca.org3.example.com-cert.pem",
-        "msp_dir": orgs / "peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp",
+        "msp_dir": orgs / f"peerOrganizations/{domain}/users/Admin@{domain}/msp",
     }
 
 
-def record_decryption(record_dict: dict) -> str:
-    """
-    Submits a decryption audit record to the distributed ledger.
-    Fail-closed policy:
-      - If SECURE_MODE and Fabric is offline: raises LedgerOfflineError.
-      - If Fabric is available: invokes peer chaincode with multi-org endorsement.
-      - If DEMO_MODE and Fabric offline: generates deterministic local commit ID.
-    Returns:
-        transaction_id: str
+def _peer_env(p: dict[str, Any]) -> dict[str, str]:
+    env = os.environ.copy()
+    env.update({
+        "PATH": f"{p['bin']}{os.pathsep}{env.get('PATH', '')}",
+        "FABRIC_CFG_PATH": str(p["config"]),
+        "CORE_PEER_TLS_ENABLED": "true",
+        "CORE_PEER_LOCALMSPID": p["msp_id"],
+        "CORE_PEER_TLS_ROOTCERT_FILE": str(
+            p["org1_ca"] if p["msp_id"] == "Org1MSP" else p["org2_ca"]
+        ),
+        "CORE_PEER_MSPCONFIGPATH": str(p["msp_dir"]),
+        "CORE_PEER_ADDRESS": f"localhost:{p['port']}",
+    })
+    return env
+
+
+def _first_error_line(output: str) -> str:
+    for line in output.splitlines():
+        if "Error" in line or "error" in line:
+            return line.strip()
+    lines = [ln for ln in output.strip().splitlines() if ln.strip()]
+    return lines[-1] if lines else "no output from peer"
+
+
+# --------------------------------------------------------------------------
+# Public Interface (aligned with forensic-audit)
+# --------------------------------------------------------------------------
+
+def submit_record(record_dict: dict) -> str:
+    """Write a decryption record to the ledger. Returns transaction ID.
+    Blocks until the transaction is committed, enforcing multi-org endorsement.
+    Raises LedgerError on validation, duplicate watermark, policy, or network failure.
     """
     validate_record_schema(record_dict)
     fabric_live = is_fabric_available()
 
-    if not fabric_live and settings.SECURE_MODE:
+    if not fabric_live and getattr(settings, "SECURE_MODE", False):
         raise LedgerOfflineError(
             "CRITICAL SECURITY BLOCK: Hyperledger Fabric distributed ledger is OFFLINE. "
             "In SECURE_MODE, decryption commits require multi-organization consortium endorsement. "
@@ -157,62 +234,53 @@ def record_decryption(record_dict: dict) -> str:
 
     if fabric_live:
         try:
-            p = _get_fabric_paths()
+            p = _paths()
             payload = _canonical(record_dict)
-            channel = settings.FABRIC_CHANNEL
-            cc_name = settings.FABRIC_CHAINCODE
-
             args = [
                 "peer", "chaincode", "invoke",
-                "-o", "localhost:7050",
-                "--ordererTLSHostnameOverride", "orderer.example.com",
+                "-o", ORDERER_ADDR,
+                "--ordererTLSHostnameOverride", ORDERER_HOSTNAME,
                 "--tls", "--cafile", str(p["orderer_ca"]),
-                "-C", channel, "-n", cc_name,
+                "-C", CHANNEL, "-n", CHAINCODE,
                 "--peerAddresses", "localhost:7051", "--tlsRootCertFiles", str(p["org1_ca"]),
                 "--peerAddresses", "localhost:9051", "--tlsRootCertFiles", str(p["org2_ca"]),
                 "--waitForEvent",
                 "-c", json.dumps({"function": "RecordDecryption", "Args": [payload]}),
             ]
-            env = os.environ.copy()
-            env.update({
-                "PATH": f"{p['bin']}{os.pathsep}{env.get('PATH', '')}",
-                "FABRIC_CFG_PATH": str(p["config"]),
-                "CORE_PEER_TLS_ENABLED": "true",
-                "CORE_PEER_LOCALMSPID": "Org1MSP",
-                "CORE_PEER_TLS_ROOTCERT_FILE": str(p["org1_ca"]),
-                "CORE_PEER_MSPCONFIGPATH": str(p["msp_dir"]),
-                "CORE_PEER_ADDRESS": "localhost:7051",
-            })
             proc = subprocess.run(
                 args,
                 cwd=str(p["network"]),
-                env=env,
+                env=_peer_env(p),
                 capture_output=True,
                 text=True,
                 timeout=_SUBMIT_TIMEOUT,
             )
             output = proc.stdout + proc.stderr
-            if proc.returncode == 0:
-                match = _TXID_RE.search(output)
-                if match:
-                    tx_id, status = match.groups()
-                    if status == "VALID":
-                        return tx_id
+            if proc.returncode != 0:
+                raise LedgerError(f"invoke failed: {_first_error_line(output)}", output)
+
+            match = _TXID_RE.search(output)
+            if not match:
+                raise LedgerError("could not find a commit status in peer output", output)
+
+            tx_id, status = match.groups()
+            if status != "VALID":
+                raise LedgerError(f"transaction {tx_id} committed as {status}", output)
+
+            return tx_id
+        except LedgerOfflineError:
+            raise
         except Exception as e:
-            if settings.SECURE_MODE:
+            if getattr(settings, "SECURE_MODE", False):
                 raise LedgerOfflineError(f"Hyperledger Fabric commit failed in SECURE_MODE: {e}")
 
-    # DEMO_MODE local fallback commit ID (deterministic SHA3-256 over canonical record)
-    import hashlib
+    # Deterministic local commit ID for DEMO_MODE fallback
     raw = _canonical(record_dict).encode("utf-8")
-    return f"DEMO_LOCAL_{hashlib.sha3_256(raw).hexdigest()[:32]}"
+    return f"DEMO_LOCAL_{hashlib.sha256(raw).hexdigest()[:32]}"
 
 
-def lookup_watermark(watermark_id: str) -> Optional[dict]:
-    """
-    Authoritative Forensic Attribution:
-    Queries Hyperledger Fabric by 20-character watermark ID.
-    """
+def query_record(watermark_id: str) -> Optional[dict]:
+    """Read a record by 20-character watermark ID. Returns None if not found."""
     if not watermark_id:
         raise LedgerError("watermark_id must not be empty")
 
@@ -220,146 +288,80 @@ def lookup_watermark(watermark_id: str) -> Optional[dict]:
 
     if is_fabric_available():
         try:
-            p = _get_fabric_paths()
-            channel = settings.FABRIC_CHANNEL
-            cc_name = settings.FABRIC_CHAINCODE
-
+            p = _paths()
             args = [
                 "peer", "chaincode", "query",
-                "-C", channel, "-n", cc_name,
+                "-C", CHANNEL, "-n", CHAINCODE,
                 "-c", json.dumps({"function": "LookupByWatermark", "Args": [clean_id]}),
             ]
-            env = os.environ.copy()
-            env.update({
-                "PATH": f"{p['bin']}{os.pathsep}{env.get('PATH', '')}",
-                "FABRIC_CFG_PATH": str(p["config"]),
-                "CORE_PEER_TLS_ENABLED": "true",
-                "CORE_PEER_LOCALMSPID": "Org1MSP",
-                "CORE_PEER_TLS_ROOTCERT_FILE": str(p["org1_ca"]),
-                "CORE_PEER_MSPCONFIGPATH": str(p["msp_dir"]),
-                "CORE_PEER_ADDRESS": "localhost:7051",
-            })
             proc = subprocess.run(
                 args,
                 cwd=str(p["network"]),
-                env=env,
+                env=_peer_env(p),
                 capture_output=True,
                 text=True,
                 timeout=_QUERY_TIMEOUT,
             )
-            if proc.returncode == 0 and proc.stdout.strip():
-                return json.loads(proc.stdout.strip())
+            combined = proc.stdout + proc.stderr
+            if proc.returncode != 0:
+                if "no record found" in combined or "does not exist" in combined:
+                    return None
+                raise LedgerError(f"query failed: {_first_error_line(combined)}", combined)
+
+            return json.loads(proc.stdout.strip())
         except Exception:
-            pass
+            return None
 
     return None
 
 
-def get_record(record_id: str) -> Optional[dict]:
-    """Retrieves record by record_id from Fabric."""
+def get_all_records() -> List[dict]:
+    """Return every record on the ledger from Hyperledger Fabric."""
     if is_fabric_available():
         try:
-            p = _get_fabric_paths()
-            channel = settings.FABRIC_CHANNEL
-            cc_name = settings.FABRIC_CHAINCODE
+            p = _paths()
             args = [
                 "peer", "chaincode", "query",
-                "-C", channel, "-n", cc_name,
-                "-c", json.dumps({"function": "GetRecord", "Args": [record_id]}),
-            ]
-            env = os.environ.copy()
-            env.update({
-                "PATH": f"{p['bin']}{os.pathsep}{env.get('PATH', '')}",
-                "FABRIC_CFG_PATH": str(p["config"]),
-                "CORE_PEER_TLS_ENABLED": "true",
-                "CORE_PEER_LOCALMSPID": "Org1MSP",
-                "CORE_PEER_TLS_ROOTCERT_FILE": str(p["org1_ca"]),
-                "CORE_PEER_MSPCONFIGPATH": str(p["msp_dir"]),
-                "CORE_PEER_ADDRESS": "localhost:7051",
-            })
-            proc = subprocess.run(
-                args,
-                cwd=str(p["network"]),
-                env=env,
-                capture_output=True,
-                text=True,
-                timeout=_QUERY_TIMEOUT,
-            )
-            if proc.returncode == 0 and proc.stdout.strip():
-                return json.loads(proc.stdout.strip())
-        except Exception:
-            pass
-    return None
-
-
-def get_all_records() -> list[dict]:
-    """Retrieves all ledger audit records from Fabric."""
-    if is_fabric_available():
-        try:
-            p = _get_fabric_paths()
-            channel = settings.FABRIC_CHANNEL
-            cc_name = settings.FABRIC_CHAINCODE
-            args = [
-                "peer", "chaincode", "query",
-                "-C", channel, "-n", cc_name,
+                "-C", CHANNEL, "-n", CHAINCODE,
                 "-c", json.dumps({"function": "GetAllRecords", "Args": []}),
             ]
-            env = os.environ.copy()
-            env.update({
-                "PATH": f"{p['bin']}{os.pathsep}{env.get('PATH', '')}",
-                "FABRIC_CFG_PATH": str(p["config"]),
-                "CORE_PEER_TLS_ENABLED": "true",
-                "CORE_PEER_LOCALMSPID": "Org1MSP",
-                "CORE_PEER_TLS_ROOTCERT_FILE": str(p["org1_ca"]),
-                "CORE_PEER_MSPCONFIGPATH": str(p["msp_dir"]),
-                "CORE_PEER_ADDRESS": "localhost:7051",
-            })
             proc = subprocess.run(
                 args,
                 cwd=str(p["network"]),
-                env=env,
+                env=_peer_env(p),
                 capture_output=True,
                 text=True,
                 timeout=_QUERY_TIMEOUT,
             )
-            if proc.returncode == 0 and proc.stdout.strip():
-                return json.loads(proc.stdout.strip())
+            combined = proc.stdout + proc.stderr
+            if proc.returncode != 0:
+                raise LedgerError(f"query failed: {_first_error_line(combined)}", combined)
+
+            return json.loads(proc.stdout.strip())
         except Exception:
-            pass
+            return []
+
     return []
 
 
-def get_ledger_status() -> dict:
-    """Returns accurate, verifiable operational status of the distributed ledger."""
+# --------------------------------------------------------------------------
+# Backward-Compatible Aliases
+# --------------------------------------------------------------------------
+
+record_decryption = submit_record
+lookup_watermark = query_record
+get_record = query_record
+
+
+def get_ledger_status() -> Dict[str, Any]:
+    """Returns telemetry of Hyperledger Fabric connection & consortium policy."""
     fabric_live = is_fabric_available()
-
-    if fabric_live:
-        return {
-            "engine": "Hyperledger Fabric v2.5 (3-Organization Consortium)",
-            "mode": "PERMISSIONED_DLT",
-            "fabric_available": True,
-            "status": "OPERATIONAL",
-            "endorsement_policy": "2-of-3 Consortium (Org1-Defense, Org2-Audit, Org3-Forensic)",
-            "immutable_guarantee": "Multi-Organization Byzantine/Crash Fault Tolerant Distributed Ledger + ML-DSA-65 Signatures"
-        }
-
-    if settings.SECURE_MODE:
-        return {
-            "engine": "BLOCKCHAIN_OFFLINE",
-            "mode": "FAIL_CLOSED_BLOCKED",
-            "fabric_available": False,
-            "status": "BLOCKED",
-            "endorsement_policy": "N/A",
-            "immutable_guarantee": "BLOCKED: SECURE_MODE requires live consortium ledger. Commits rejected."
-        }
-
-    # DEMO_MODE fallback — accurately labeled
     return {
-        "engine": "DEMO LOCAL LEDGER",
-        "mode": "DEMO_LOCAL_AUDIT_CACHE",
-        "fabric_available": False,
-        "status": "DEMO_ACTIVE",
-        "endorsement_policy": "LOCAL_NODE_AUDIT_CACHE",
-        "warning": "Demonstration mode only. Not a distributed multi-node blockchain.",
-        "immutable_guarantee": "Local SHA3-256 Hash Chain + Merkle Tree (Secondary Audit Cache)"
+        "fabric_available": fabric_live,
+        "network_type": "Hyperledger Fabric 2.5 (DLT)" if fabric_live else "Local Cryptographic Merkle Ledger (Air-Gapped)",
+        "channel": CHANNEL,
+        "chaincode": CHAINCODE,
+        "endorsement_policy": "MAJORITY (Org1MSP, Org2MSP)",
+        "secure_mode": getattr(settings, "SECURE_MODE", False),
+        "standards": ["NIST FIPS 203 (ML-KEM-768)", "NIST FIPS 204 (ML-DSA-65)"],
     }

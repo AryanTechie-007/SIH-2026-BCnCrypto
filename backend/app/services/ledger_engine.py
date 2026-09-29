@@ -7,6 +7,7 @@ Role in Target Architecture:
 - Provides tamper-detection, inclusion proofs, and secondary verification.
 """
 
+import os
 import json
 import hashlib
 from datetime import datetime
@@ -118,26 +119,47 @@ class LedgerEngine:
         # Retrieve watermark record
         wm_res = await db.execute(select(WatermarkRecord).where(WatermarkRecord.event_id == event.id))
         wm = wm_res.scalar_one_or_none()
-        watermark_id = wm.watermark_id if wm and wm.watermark_id else (wm.watermark_hex[:20].lower() if wm else hashlib.sha256(event.session_nonce.encode()).hexdigest()[:20].lower())
-        recipient_key_fp = user.dsa_key_id if user and user.dsa_key_id else CryptoEngine.sha3_256(user.dsa_public_key)[:32]
-        doc_hash_64 = (doc.sha3_hash[:64] if doc.sha3_hash else "0" * 64).lower()
+        watermark_id = (wm.watermark_id if wm and wm.watermark_id else (wm.watermark_hex[:20].lower() if wm else hashlib.sha256(event.session_nonce.encode()).hexdigest()[:20].lower())).lower()
+        if len(watermark_id) < 20:
+            watermark_id = watermark_id.ljust(20, '0')
+        else:
+            watermark_id = watermark_id[:20]
 
-        # Format Hyperledger Fabric audit record
+        # Calculate exact 64-char SHA-256 digests
+        raw_doc_hash = hashlib.sha256(doc.sha3_hash.encode("utf-8")).hexdigest() if len(doc.sha3_hash) != 64 else doc.sha3_hash.lower()
+
+        # Watermarked document hash (64 hex characters)
+        if wm and wm.watermarked_path and os.path.exists(wm.watermarked_path):
+            with open(wm.watermarked_path, "rb") as wf:
+                wm_doc_hash = hashlib.sha256(wf.read()).hexdigest()
+        else:
+            wm_doc_hash = hashlib.sha256((raw_doc_hash + watermark_id).encode("utf-8")).hexdigest()
+
+        # Recipient ML-DSA public key fingerprint (64 lowercase hex chars)
+        recipient_dsa_pub = user.dsa_public_key if user and user.dsa_public_key else b"CIPHERTRACE_RECIPIENT_PUBKEY"
+        recipient_fp = hashlib.sha256(recipient_dsa_pub).hexdigest()
+
+        # Signature: Base64-encoded ML-DSA-65 signature
+        import base64
+        import uuid
+        sig_bytes = event.signature if isinstance(event.signature, bytes) else bytes.fromhex(event.signature)
+        sig_base64 = base64.b64encode(sig_bytes).decode("ascii")
+
+        # Format Hyperledger Fabric audit record exactly matching forensic-audit contract schema
         fabric_record = {
-            "record_id": f"REC_{event.id}_{event.session_nonce[:8]}",
+            "record_id": str(uuid.uuid4()),
             "watermark_id": watermark_id,
-            "event_hash": event.event_hash,
-            "document_hash": doc_hash_64,
-            "recipient_key_id": recipient_key_fp,
-            "recipient_id": user.username or f"user_{user.id}",
+            "recipient_id": user.username or f"user-{user.id}",
+            "document_hash": raw_doc_hash,
+            "watermarked_doc_hash": wm_doc_hash,
             "timestamp": event.timestamp.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "signature": event.signature.hex(),
-            "signature_algorithm": "ML-DSA-65",
-            "kem_algorithm": "ML-KEM-768"
+            "pqc_algorithm": "ML-DSA-65",
+            "signature": sig_base64,
+            "recipient_pubkey_fingerprint": recipient_fp
         }
 
         # Submit via Hyperledger Fabric client (enforces fail-closed policy in SECURE_MODE)
-        fabric_tx_id = ledger_client.record_decryption(fabric_record)
+        fabric_tx_id = ledger_client.submit_record(fabric_record)
 
         # Store fabric transaction ID in the event
         event.fabric_tx_id = fabric_tx_id

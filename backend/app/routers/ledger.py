@@ -124,3 +124,35 @@ async def restore_ledger_integrity(db: AsyncSession = Depends(get_db)):
         "status": "RESTORED",
         "message": "Ledger state restored to pristine mathematical consensus."
     }
+
+# --------------------------------------------------------------------------
+# Hyperledger Fabric DLT (forensic-audit) Endpoints
+# --------------------------------------------------------------------------
+
+@router.get("/fabric/status")
+async def get_fabric_ledger_status():
+    """Returns live connection and consortium policy telemetry for Hyperledger Fabric."""
+    from ..services.ledger_client import get_ledger_status
+    return get_ledger_status()
+
+@router.get("/fabric/records")
+async def get_all_fabric_records():
+    """Returns all decryption audit records committed on Hyperledger Fabric."""
+    from ..services.ledger_client import get_all_records
+    records = get_all_records()
+    return {
+        "channel": "mychannel",
+        "chaincode": "forensic",
+        "count": len(records),
+        "records": records
+    }
+
+@router.get("/fabric/watermark/{watermark_id}")
+async def query_fabric_by_watermark(watermark_id: str):
+    """Direct lookup into Hyperledger Fabric using 20-character watermark ID."""
+    from ..services.ledger_client import query_record
+    record = query_record(watermark_id)
+    if not record:
+        raise HTTPException(status_code=404, detail=f"No on-chain ledger record found for watermark {watermark_id}")
+    return record
+

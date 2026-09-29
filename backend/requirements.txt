@@ -3,7 +3,6 @@ uvicorn
 sqlalchemy
 greenlet
 aiosqlite
-liboqs-python
 mlkem
 dilithium-py
 argon2-cffi
@@ -19,6 +18,3 @@ opencv-python-headless
 customtkinter
 requests
 jinja2
-python-pptx
-trafilatura
-python-docx

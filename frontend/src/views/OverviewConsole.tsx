@@ -1,5 +1,5 @@
 import React from 'react';
-import { Lock, KeyRound, Sparkles } from 'lucide-react';
+import { Lock, KeyRound, Database } from 'lucide-react';
 import { DocumentRecord, Officer, LedgerBlock, UserAccount } from '../types';
 import { WorkstationModule } from '../components/WorkstationSidebar';
 
@@ -46,7 +46,7 @@ export const OverviewConsole: React.FC<OverviewConsoleProps> = ({
 
         <div style={{ display: 'flex', gap: '8px' }}>
           <button
-            onClick={() => onNavigate('transform')}
+            onClick={() => onNavigate('audit')}
             className="tactical-btn"
             style={{
               padding: '8px 14px',
@@ -59,8 +59,8 @@ export const OverviewConsole: React.FC<OverviewConsoleProps> = ({
               gap: '6px'
             }}
           >
-            <Sparkles size={13} />
-            <span>Content Transform Lab</span>
+            <Database size={13} />
+            <span>Audit Ledger</span>
           </button>
           <button
             onClick={() => onNavigate('documents')}

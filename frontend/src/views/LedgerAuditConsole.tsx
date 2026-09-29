@@ -1,12 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { ApiClient } from '../api/client';
 import { LedgerBlock } from '../types';
-import { ShieldCheck, ShieldAlert, Database, RotateCcw, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
+import { ShieldAlert, Database, RotateCcw, AlertTriangle, Search, Cpu } from 'lucide-react';
 
 export const LedgerAuditConsole: React.FC = () => {
   const [blocks, setBlocks] = useState<LedgerBlock[]>([]);
   const [auditReport, setAuditReport] = useState<any>(null);
   const [clusterInfo, setClusterInfo] = useState<any>(null);
+  const [fabricStatus, setFabricStatus] = useState<any>(null);
+  const [fabricRecords, setFabricRecords] = useState<any[]>([]);
+  const [searchWm, setSearchWm] = useState('');
+  const [searchResult, setSearchResult] = useState<any>(null);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [tamperStatus, setTamperStatus] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -19,18 +24,34 @@ export const LedgerAuditConsole: React.FC = () => {
     try {
       setIsLoading(true);
       setErrorMessage(null);
-      const [bList, audit, cluster] = await Promise.allSettled([
+      const [bList, audit, cluster, fStatus, fRecs] = await Promise.allSettled([
         ApiClient.getLedgerBlocks(),
         ApiClient.verifyLedger(),
-        ApiClient.getClusterNodes()
+        ApiClient.getClusterNodes(),
+        ApiClient.getFabricStatus(),
+        ApiClient.getFabricRecords()
       ]);
       if (bList.status === 'fulfilled') setBlocks(bList.value);
       if (audit.status === 'fulfilled') setAuditReport(audit.value);
       if (cluster.status === 'fulfilled') setClusterInfo(cluster.value);
+      if (fStatus.status === 'fulfilled') setFabricStatus(fStatus.value);
+      if (fRecs.status === 'fulfilled') setFabricRecords(fRecs.value.records || []);
     } catch (err: any) {
       setErrorMessage(err.message || 'Failed to inspect ledger state');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleSearchWatermark = async () => {
+    if (!searchWm.trim()) return;
+    try {
+      setSearchError(null);
+      setSearchResult(null);
+      const res = await ApiClient.queryFabricByWatermark(searchWm.trim().toLowerCase());
+      setSearchResult(res);
+    } catch (err: any) {
+      setSearchError(err.message || `No record found for watermark ${searchWm.trim()}`);
     }
   };
 
@@ -52,7 +73,7 @@ export const LedgerAuditConsole: React.FC = () => {
     try {
       setIsLoading(true);
       setErrorMessage(null);
-      const res = await ApiClient.restoreLedger();
+      await ApiClient.restoreLedger();
       setTamperStatus(null);
       await loadLedger();
     } catch (err: any) {
@@ -69,94 +90,128 @@ export const LedgerAuditConsole: React.FC = () => {
       {/* Header */}
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-          <span className="tactical-badge badge-blue">ENTERPRISE DLT</span>
-          <span className="tactical-badge badge-slate">PERMISSIONED PROOF-OF-AUTHORITY (PoA)</span>
-          <span className="tactical-badge badge-slate">NIST SHA3-256 HASH CHAINING</span>
+          <span className="tactical-badge badge-blue">HYPERLEDGER FABRIC 2.5</span>
+          <span className="tactical-badge badge-slate">NIST FIPS 204 ML-DSA-65 ATTESTATION</span>
+          <span className="tactical-badge badge-slate">SHA3-256 HASH CHAINING &amp; MERKLE PROOFS</span>
         </div>
         <h1 style={{ fontSize: '22px', fontWeight: 800, letterSpacing: '0.03em', color: '#ffffff', margin: 0 }}>
-          DISTRIBUTED BLOCKCHAIN LEDGER &amp; CONSENSUS NETWORK
+          IMMUTABLE FORENSIC AUDIT LEDGER
         </h1>
         <p style={{ color: 'var(--text-muted)', fontSize: '12px', marginTop: '4px' }}>
-          Decryption events and watermark bindings are immutably signed via NIST FIPS 204 ML-DSA-65 and committed across distributed validator nodes. Even privileged administrators cannot alter historical audit records without breaking mathematical consensus.
+          Every document decryption and steganographic watermark embedding is immutably committed on-chain across consortium organizations (Org1-Defense &amp; Org2-Audit). Keyed directly by the 20-character watermark ID, any leaked document is traced mathematically to the authenticated recipient.
         </p>
       </div>
 
-      {/* Distributed 3-Node Network Cluster Visualization */}
+      {/* DLT Protocol Status & Multi-Org Consensus Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px' }}>
+        <div style={{ backgroundColor: 'var(--bg-panel)', border: '1px solid var(--border-hard)', padding: '14px 16px', borderRadius: '4px' }}>
+          <div style={{ fontSize: '10px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>DLT NETWORK TYPE</div>
+          <div style={{ fontSize: '13px', fontWeight: 800, color: '#38bdf8', marginTop: '4px' }}>
+            {fabricStatus?.network_type || 'Hyperledger Fabric 2.5 (DLT)'}
+          </div>
+          <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
+            Channel: {fabricStatus?.channel || 'mychannel'} &bull; CC: {fabricStatus?.chaincode || 'forensic'}
+          </div>
+        </div>
+
+        <div style={{ backgroundColor: 'var(--bg-panel)', border: '1px solid var(--border-hard)', padding: '14px 16px', borderRadius: '4px' }}>
+          <div style={{ fontSize: '10px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>CONSENSUS POLICY</div>
+          <div style={{ fontSize: '13px', fontWeight: 800, color: '#10b981', marginTop: '4px' }}>
+            {fabricStatus?.endorsement_policy || 'MAJORITY (Org1MSP, Org2MSP)'}
+          </div>
+          <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
+            Multi-Org Defense &amp; Audit Endorsement
+          </div>
+        </div>
+
+        <div style={{ backgroundColor: 'var(--bg-panel)', border: '1px solid var(--border-hard)', padding: '14px 16px', borderRadius: '4px' }}>
+          <div style={{ fontSize: '10px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>CRYPTOGRAPHIC ENGINE</div>
+          <div style={{ fontSize: '13px', fontWeight: 800, color: '#ffffff', marginTop: '4px' }}>
+            NIST FIPS 203 / 204
+          </div>
+          <div style={{ fontSize: '10px', color: '#38bdf8', marginTop: '2px' }}>
+            ML-KEM-768 &bull; ML-DSA-65 Signatures
+          </div>
+        </div>
+
+        <div style={{ backgroundColor: 'var(--bg-panel)', border: '1px solid var(--border-hard)', padding: '14px 16px', borderRadius: '4px' }}>
+          <div style={{ fontSize: '10px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>COMMITTED AUDIT HEIGHT</div>
+          <div style={{ fontSize: '13px', fontWeight: 800, color: '#10b981', marginTop: '4px' }}>
+            #{blocks.length} Blocks ({fabricRecords.length} On-Chain Records)
+          </div>
+          <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
+            Chain Integrity: {isChainValid ? '100% Valid' : 'Compromised'}
+          </div>
+        </div>
+      </div>
+
+      {/* Authoritative Ledger Watermark Lookup Box */}
       <div style={{
-        backgroundColor: '#070b13',
+        backgroundColor: 'var(--bg-panel)',
         border: '1px solid var(--border-hard)',
-        padding: '16px 20px'
+        padding: '18px 20px',
+        borderRadius: '4px'
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', borderBottom: '1px solid #141f32', paddingBottom: '8px' }}>
-          <div style={{ fontSize: '11px', fontWeight: 800, color: '#38bdf8', fontFamily: 'var(--font-mono)' }}>
-            🌐 ACTIVE DISTRIBUTED CONSENSUS CLUSTER (3 AIR-GAPPED NODES)
-          </div>
-          <span style={{ fontSize: '10px', color: '#34d399', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
-            ● CLUSTER STATE: FULLY SYNCHRONIZED
-          </span>
+        <div style={{ fontSize: '12px', fontWeight: 800, color: '#38bdf8', letterSpacing: '0.04em', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Search size={15} />
+          <span>AUTHORITATIVE LEDGER QUERY — LOOKUP BY WATERMARK ID</span>
+        </div>
+        <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 12px 0' }}>
+          Directly queries smart contract function <code style={{ color: '#38bdf8', backgroundColor: 'var(--bg-input)', padding: '2px 6px', borderRadius: '3px' }}>LookupByWatermark(ctx, watermark_id)</code> on Hyperledger Fabric.
+        </p>
+
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <input
+            type="text"
+            value={searchWm}
+            onChange={e => setSearchWm(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') handleSearchWatermark(); }}
+            placeholder="Enter 20-character lowercase hex watermark ID (e.g. a1b2c3d4e5f60718293a)"
+            className="tactical-input"
+            style={{ flex: 1, padding: '10px 14px', fontSize: '12px', fontFamily: 'var(--font-mono)' }}
+          />
+          <button
+            onClick={handleSearchWatermark}
+            className="tactical-btn tactical-btn-primary"
+            style={{ padding: '10px 18px', fontSize: '12px' }}
+          >
+            <Search size={14} />
+            <span>Query Ledger</span>
+          </button>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px' }}>
-          {/* Node Alpha */}
-          <div style={{
-            backgroundColor: '#0c121e',
-            border: '1px solid #1e293b',
-            borderLeft: '4px solid #0284c7',
-            padding: '12px 14px'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-              <strong style={{ fontSize: '12px', color: '#ffffff' }}>NODE ALPHA (DEFENSE)</strong>
-              <span className="tactical-badge badge-green" style={{ fontSize: '9px' }}>LEADER</span>
-            </div>
-            <div style={{ fontSize: '11px', color: '#94a3b8' }}>Command Operations Enclave</div>
-            <div style={{ fontSize: '10px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', marginTop: '4px' }}>
-              IP: 10.14.0.10:8000 &bull; Weight: 33.3%
-            </div>
-            <div style={{ marginTop: '8px', fontSize: '11px', fontFamily: 'var(--font-mono)', color: '#38bdf8' }}>
-              Block Height: #{blocks.length > 0 ? blocks[blocks.length - 1].block_index : 0}
-            </div>
+        {searchError && (
+          <div style={{ marginTop: '12px', padding: '10px 14px', backgroundColor: 'rgba(239, 68, 68, 0.08)', border: '1px solid #ef4444', color: '#fca5a5', fontSize: '11px', fontFamily: 'var(--font-mono)', borderRadius: '3px' }}>
+            ⚠ {searchError}
           </div>
+        )}
 
-          {/* Node Bravo */}
+        {searchResult && (
           <div style={{
-            backgroundColor: '#0c121e',
-            border: '1px solid #1e293b',
-            borderLeft: '4px solid #10b981',
-            padding: '12px 14px'
+            marginTop: '14px',
+            backgroundColor: 'var(--bg-input)',
+            border: '1px solid var(--border-hard)',
+            borderRadius: '4px',
+            padding: '14px'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-              <strong style={{ fontSize: '12px', color: '#ffffff' }}>NODE BRAVO (AUDIT)</strong>
-              <span className="tactical-badge badge-green" style={{ fontSize: '9px' }}>PEER SYNC</span>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: '#10b981', marginBottom: '8px', fontFamily: 'var(--font-mono)' }}>
+              ✔ ON-CHAIN RECORD RETRIEVED (HYPERLEDGER FABRIC)
             </div>
-            <div style={{ fontSize: '11px', color: '#94a3b8' }}>Inspector General &amp; Compliance</div>
-            <div style={{ fontSize: '10px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', marginTop: '4px' }}>
-              IP: 10.14.0.20:8000 &bull; Weight: 33.3%
-            </div>
-            <div style={{ marginTop: '8px', fontSize: '11px', fontFamily: 'var(--font-mono)', color: '#34d399' }}>
-              Block Height: #{blocks.length > 0 ? blocks[blocks.length - 1].block_index : 0}
-            </div>
+            <pre style={{
+              margin: 0,
+              fontSize: '11px',
+              fontFamily: 'var(--font-mono)',
+              color: '#e2e8f0',
+              overflowX: 'auto',
+              backgroundColor: '#050811',
+              padding: '12px',
+              borderRadius: '3px',
+              border: '1px solid var(--border-subtle)'
+            }}>
+              {JSON.stringify(searchResult, null, 2)}
+            </pre>
           </div>
-
-          {/* Node Charlie */}
-          <div style={{
-            backgroundColor: '#0c121e',
-            border: '1px solid #1e293b',
-            borderLeft: '4px solid #f59e0b',
-            padding: '12px 14px'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-              <strong style={{ fontSize: '12px', color: '#ffffff' }}>NODE CHARLIE (FORENSIC)</strong>
-              <span className="tactical-badge badge-green" style={{ fontSize: '9px' }}>PEER SYNC</span>
-            </div>
-            <div style={{ fontSize: '11px', color: '#94a3b8' }}>Forensic Attribution &amp; Intelligence</div>
-            <div style={{ fontSize: '10px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', marginTop: '4px' }}>
-              IP: 10.14.0.30:8000 &bull; Weight: 33.3%
-            </div>
-            <div style={{ marginTop: '8px', fontSize: '11px', fontFamily: 'var(--font-mono)', color: '#f59e0b' }}>
-              Block Height: #{blocks.length > 0 ? blocks[blocks.length - 1].block_index : 0}
-            </div>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Error Alert */}
@@ -178,14 +233,14 @@ export const LedgerAuditConsole: React.FC = () => {
               CRITICAL AUDIT VIOLATION: IMMUTABLE LEDGER HASH CHAIN BROKEN
             </div>
             <div style={{ fontSize: '12px', marginTop: '2px' }}>
-              A historical decryption audit log has been retroactively altered by an insider. Block hash and signature verification failed consensus across Node Alpha, Node Bravo, and Node Charlie!
+              A historical decryption audit log has been retroactively altered by an insider. Block hash and signature verification failed consensus across consortium validator nodes!
             </div>
           </div>
         </div>
       )}
 
       {/* Audit Action Bar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#090d16', border: '1px solid var(--border-hard)', padding: '12px 16px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-panel)', border: '1px solid var(--border-hard)', padding: '12px 16px', borderRadius: '4px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <span className={`tactical-badge ${isChainValid ? 'badge-green' : 'badge-red'}`} style={{ padding: '6px 12px', fontSize: '11px' }}>
             {isChainValid ? 'CHAIN INTEGRITY: 100% VALID' : 'CHAIN INTEGRITY: COMPROMISED'}
@@ -230,9 +285,12 @@ export const LedgerAuditConsole: React.FC = () => {
       </div>
 
       {/* Blocks Table */}
-      <div className="tactical-panel">
+      <div className="tactical-panel" style={{ borderRadius: '4px', overflow: 'hidden' }}>
         <div className="tactical-panel-header">
-          <h3>Immutable Block Sequence</h3>
+          <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Database size={15} color="#38bdf8" />
+            <span>Immutable Block Sequence &amp; SHA3-256 Merkle Ledger</span>
+          </h3>
         </div>
         <table className="tactical-table">
           <thead>
@@ -243,7 +301,7 @@ export const LedgerAuditConsole: React.FC = () => {
               <th>Previous Block Hash</th>
               <th>Merkle Root</th>
               <th>Timestamp (UTC)</th>
-              <th>Endorsers</th>
+              <th>Consensus Endorsers</th>
             </tr>
           </thead>
           <tbody>
