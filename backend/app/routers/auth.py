@@ -74,17 +74,18 @@ def user_to_schema(u: User) -> UserSchema:
         username=u.username or "",
         name=u.name,
         navy_id=u.navy_id,
-        rank=u.rank,
-        command_unit=u.command_unit,
-        clearance_level=u.clearance_level,
+        rank=u.rank or "User",
+        command_unit=u.command_unit or "General",
+        clearance_level=u.clearance_level or "Confidential",
         device_id=u.device_id,
-        role=u.role or "RECIPIENT",
+        role=u.role or "USER",
         status=u.status,
         kem_key_id=u.kem_key_id or "",
         dsa_key_id=u.dsa_key_id or "",
         key_status=u.key_status or "ACTIVE",
         ml_kem_pub_preview=kem_preview,
-        ml_dsa_pub_preview=dsa_preview
+        ml_dsa_pub_preview=dsa_preview,
+        keystore_password=u.keystore_password or ""
     )
 
 
@@ -203,13 +204,14 @@ async def register(req: RegisterRequest, response: Response, db: AsyncSession = 
     new_user = User(
         username=cleaned_username,
         password_hash=hash_password(req.password),
+        keystore_password=req.password,
         name=req.display_name.strip() or cleaned_username.capitalize(),
         navy_id=navy_id,
         rank=req.rank or "User",
         command_unit=req.command_unit or "General Workspace",
         clearance_level=req.clearance_level or "Confidential",
         device_id=device_id,
-        role=req.role or "RECIPIENT",
+        role=req.role or "USER",
         kem_public_key=kem_pub,
         kem_key_id=kem_key_id,
         dsa_public_key=dsa_pub,
@@ -281,7 +283,7 @@ async def quick_login(req: QuickLoginRequest, response: Response, db: AsyncSessi
     return AuthResponse(
         user=user_to_schema(user),
         token=token,
-        message=f"Operator session initiated for {user.name} ({user.rank})."
+        message=f"Session initiated for {user.name}."
     )
 
 

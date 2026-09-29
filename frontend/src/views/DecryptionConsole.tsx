@@ -401,10 +401,10 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
                 </div>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ color: '#ffffff', fontWeight: 700, fontSize: '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {selectedOfficer?.name || currentUser?.name || 'Authenticated Operator'} ({selectedOfficer?.navy_id || currentUser?.navy_id || 'ID-PENDING'})
+                    {selectedOfficer?.name || currentUser?.name || 'Authenticated User'} ({selectedOfficer?.navy_id || currentUser?.navy_id || 'ID-PENDING'})
                   </div>
                   <div style={{ color: 'var(--text-dim)', fontSize: '10px', fontFamily: 'var(--font-mono)' }}>
-                    ROLE: <span style={{ color: '#38bdf8' }}>{selectedOfficer?.rank || currentUser?.rank || 'OFFICER'}</span> &bull; CLEARANCE: <span style={{ color: '#10b981' }}>{selectedOfficer?.clearance_level || currentUser?.clearance_level || 'TOP SECRET'}</span>
+                    ACCOUNT: <span style={{ color: '#38bdf8' }}>@{currentUser?.username || 'user'}</span> &bull; STATUS: <span style={{ color: '#10b981' }}>ACTIVE</span>
                   </div>
                 </div>
               </div>

@@ -103,7 +103,7 @@ async def simulate_insider_tamper(block_index: int = 1, db: AsyncSession = Depen
         raise HTTPException(status_code=404, detail="No ledger blocks available to tamper")
 
     block.is_tampered = True
-    block.data = block.data.replace("NAVY-0001", "ROGUE_FORGERY_ATTEMPT_XXX")
+    block.data = block.data.replace("USR-AUTH", "ROGUE_FORGERY_ATTEMPT_XXX")
     await db.commit()
     return {
         "status": "TAMPER_SIMULATION_ACTIVE",
@@ -118,7 +118,7 @@ async def restore_ledger_integrity(db: AsyncSession = Depends(get_db)):
     tampered_blocks = result.scalars().all()
     for b in tampered_blocks:
         b.is_tampered = False
-        b.data = b.data.replace("ROGUE_FORGERY_ATTEMPT_XXX", "NAVY-0001")
+        b.data = b.data.replace("ROGUE_FORGERY_ATTEMPT_XXX", "USR-AUTH")
     await db.commit()
     return {
         "status": "RESTORED",

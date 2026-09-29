@@ -6,7 +6,7 @@ import { OverviewConsole } from './views/OverviewConsole';
 import { DocumentsConsole } from './views/DocumentsConsole';
 import { DecryptionConsole } from './views/DecryptionConsole';
 import { EvidenceConsole } from './views/EvidenceConsole';
-import { LedgerAuditConsole } from './views/LedgerAuditConsole';
+import { AccountManagementConsole } from './views/AccountManagementConsole';
 import { ApiClient } from './api/client';
 import { DocumentRecord, Officer, LedgerBlock, UserAccount } from './types';
 
@@ -143,8 +143,12 @@ export function App() {
               />
             )}
 
-            {activeModule === 'audit' && (
-              <LedgerAuditConsole />
+            {activeModule === 'accounts' && (
+              <AccountManagementConsole
+                officers={officers}
+                currentUser={currentUser}
+                onAccountCreated={refreshAllData}
+              />
             )}
 
             {activeModule === 'documents' && (

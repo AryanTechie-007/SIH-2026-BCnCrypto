@@ -1,8 +1,8 @@
 import React from 'react';
-import { LayoutGrid, FolderLock, KeyRound, FileSearch, LogOut, Database } from 'lucide-react';
+import { LayoutGrid, FolderLock, KeyRound, FileSearch, LogOut, Users } from 'lucide-react';
 import { UserAccount } from '../types';
 
-export type WorkstationModule = 'overview' | 'documents' | 'decryption' | 'evidence' | 'audit';
+export type WorkstationModule = 'overview' | 'documents' | 'decryption' | 'evidence' | 'accounts';
 
 interface WorkstationSidebarProps {
   activeModule: WorkstationModule;
@@ -16,17 +16,17 @@ interface WorkstationSidebarProps {
 export const WorkstationSidebar: React.FC<WorkstationSidebarProps> = ({
   activeModule,
   setActiveModule,
-  currentUser: _currentUser,
+  currentUser,
   isOnline,
   onOpenAuth: _onOpenAuth,
   onLogout
 }) => {
   const navItems = [
-    { id: 'overview' as WorkstationModule, label: 'Dashboard', icon: LayoutGrid, tag: 'SYS' },
-    { id: 'documents' as WorkstationModule, label: 'Encryption Lab', icon: FolderLock, tag: 'ENC' },
-    { id: 'decryption' as WorkstationModule, label: 'Decryption Lab', icon: KeyRound, tag: 'DEC' },
-    { id: 'evidence' as WorkstationModule, label: 'Forensic Leak Lab', icon: FileSearch, tag: 'LEAK' },
-    { id: 'audit' as WorkstationModule, label: 'Forensic Audit Ledger', icon: Database, tag: 'DLT' }
+    { id: 'overview' as WorkstationModule, label: 'Dashboard', icon: LayoutGrid },
+    { id: 'documents' as WorkstationModule, label: 'Encryption Lab', icon: FolderLock },
+    { id: 'decryption' as WorkstationModule, label: 'Decryption Lab', icon: KeyRound },
+    { id: 'evidence' as WorkstationModule, label: 'Forensic Leak Lab', icon: FileSearch },
+    { id: 'accounts' as WorkstationModule, label: 'Account Management', icon: Users }
   ];
 
   return (
@@ -50,23 +50,23 @@ export const WorkstationSidebar: React.FC<WorkstationSidebarProps> = ({
           gap: '12px'
         }}>
           <div style={{
-            background: 'linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%)',
+            background: 'linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)',
             color: '#ffffff',
             padding: '6px 8px',
             fontSize: '11px',
             fontWeight: 900,
             letterSpacing: '0.08em',
             borderRadius: '4px',
-            boxShadow: '0 2px 6px rgba(2, 132, 199, 0.25)'
+            boxShadow: '0 2px 6px rgba(37, 99, 235, 0.3)'
           }}>
             CT
           </div>
           <div>
-            <div style={{ fontSize: '13px', fontWeight: 800, letterSpacing: '0.05em', color: '#ffffff' }}>
+            <div style={{ fontSize: '14px', fontWeight: 800, letterSpacing: '0.04em', color: '#ffffff' }}>
               CIPHERTRACE
             </div>
-            <div style={{ fontSize: '9px', fontWeight: 600, letterSpacing: '0.08em', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
-              NIST PQC // DEFENSE
+            <div style={{ fontSize: '10px', color: 'var(--text-dim)' }}>
+              Document Security
             </div>
           </div>
         </div>
@@ -82,9 +82,9 @@ export const WorkstationSidebar: React.FC<WorkstationSidebarProps> = ({
             padding: '0 8px 8px',
             fontFamily: 'var(--font-mono)'
           }}>
-            Workstations
+            Navigation
           </div>
-          <nav style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+          <nav style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             {navItems.map(item => {
               const Icon = item.icon;
               const isActive = activeModule === item.id;
@@ -95,37 +95,23 @@ export const WorkstationSidebar: React.FC<WorkstationSidebarProps> = ({
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'space-between',
+                    gap: '10px',
                     width: '100%',
-                    padding: '9px 12px',
+                    padding: '10px 12px',
                     fontSize: '12px',
                     fontWeight: isActive ? 600 : 500,
-                    letterSpacing: '0.01em',
-                    color: isActive ? '#38bdf8' : 'var(--text-muted)',
-                    backgroundColor: isActive ? 'rgba(56, 189, 248, 0.08)' : 'transparent',
+                    color: isActive ? '#3b82f6' : 'var(--text-muted)',
+                    backgroundColor: isActive ? 'rgba(37, 99, 235, 0.12)' : 'transparent',
                     border: 'none',
-                    borderLeft: isActive ? '3px solid #38bdf8' : '3px solid transparent',
+                    borderLeft: isActive ? '3px solid #3b82f6' : '3px solid transparent',
                     cursor: 'pointer',
                     borderRadius: '0 4px 4px 0',
                     textAlign: 'left',
                     transition: 'all 0.15s ease'
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <Icon size={15} color={isActive ? '#38bdf8' : 'var(--text-dim)'} />
-                    <span>{item.label}</span>
-                  </div>
-                  <span style={{
-                    fontSize: '9px',
-                    fontFamily: 'var(--font-mono)',
-                    color: isActive ? '#38bdf8' : 'var(--text-dim)',
-                    backgroundColor: isActive ? 'rgba(56, 189, 248, 0.12)' : 'rgba(255, 255, 255, 0.03)',
-                    border: '1px solid ' + (isActive ? 'rgba(56, 189, 248, 0.25)' : 'var(--border-subtle)'),
-                    padding: '1px 5px',
-                    borderRadius: '3px'
-                  }}>
-                    {item.tag}
-                  </span>
+                  <Icon size={16} color={isActive ? '#3b82f6' : 'var(--text-dim)'} />
+                  <span>{item.label}</span>
                 </button>
               );
             })}
@@ -138,43 +124,80 @@ export const WorkstationSidebar: React.FC<WorkstationSidebarProps> = ({
         padding: '14px 16px',
         borderTop: '1px solid var(--border-hard)',
         backgroundColor: 'var(--bg-topbar)',
-        fontSize: '11px',
-        fontFamily: 'var(--font-mono)'
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '10px'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ color: 'var(--text-dim)', fontSize: '10px' }}>SYSTEM STATUS</span>
-          <span style={{
-            color: isOnline ? '#34d399' : '#fb7185',
-            fontWeight: 600,
-            fontSize: '10px',
+        {/* User Card */}
+        {currentUser && (
+          <div style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '5px'
+            justifyContent: 'space-between',
+            gap: '8px'
           }}>
-            <span style={{
-              display: 'inline-block',
-              width: '6px',
-              height: '6px',
-              borderRadius: '50%',
-              backgroundColor: isOnline ? '#10b981' : '#f43f5e'
-            }} />
-            {isOnline ? 'ONLINE // SECURE' : 'UNREACHABLE'}
-          </span>
-        </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{
+                color: '#ffffff',
+                fontWeight: 600,
+                fontSize: '12px',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
+              }}>
+                {currentUser.name}
+              </div>
+              <div style={{
+                color: 'var(--text-dim)',
+                fontSize: '10px',
+                fontFamily: 'var(--font-mono)'
+              }}>
+                @{currentUser.username}
+              </div>
+            </div>
 
-        {onLogout && (
-          <div style={{ marginTop: '12px' }}>
             <button
               onClick={onLogout}
-              className="tactical-btn tactical-btn-danger"
-              style={{ width: '100%', padding: '6px 10px', fontSize: '11px', justifyContent: 'center' }}
-              title="Sign out of workstation"
+              style={{
+                backgroundColor: 'transparent',
+                border: '1px solid var(--border-hard)',
+                color: 'var(--text-dim)',
+                cursor: 'pointer',
+                padding: '5px',
+                borderRadius: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.15s ease'
+              }}
+              title="Log Out"
             >
-              <LogOut size={12} />
-              <span>Sign Out</span>
+              <LogOut size={13} />
             </button>
           </div>
         )}
+
+        {/* System Node Telemetry */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          fontSize: '10px',
+          color: 'var(--text-dim)',
+          fontFamily: 'var(--font-mono)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{
+              width: '6px',
+              height: '6px',
+              borderRadius: '50%',
+              backgroundColor: isOnline ? '#10b981' : '#f43f5e',
+              boxShadow: isOnline ? '0 0 6px rgba(16, 185, 129, 0.4)' : 'none'
+            }} />
+            <span>{isOnline ? 'System Online' : 'Offline'}</span>
+          </div>
+          <span>v2.0</span>
+        </div>
       </div>
     </aside>
   );

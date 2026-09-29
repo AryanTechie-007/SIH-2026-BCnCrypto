@@ -10,6 +10,7 @@ export interface Officer {
   status: string;
   ml_kem_pub_preview: string;
   ml_dsa_pub_preview: string;
+  keystore_password?: string;
 }
 
 export interface UserAccount {
@@ -24,6 +25,7 @@ export interface UserAccount {
   status: string;
   ml_kem_pub_preview: string;
   ml_dsa_pub_preview: string;
+  keystore_password?: string;
 }
 
 export interface AuthResult {

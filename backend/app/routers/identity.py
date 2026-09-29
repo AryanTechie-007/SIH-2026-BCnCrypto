@@ -20,17 +20,18 @@ async def list_enrolled_officers(db: AsyncSession = Depends(get_db)):
             username=u.username,
             navy_id=u.navy_id,
             name=u.name,
-            rank=u.rank,
-            command_unit=u.command_unit,
-            clearance_level=u.clearance_level,
+            rank=u.rank or "User",
+            command_unit=u.command_unit or "General",
+            clearance_level=u.clearance_level or "Confidential",
             device_id=u.device_id,
-            role=u.role or "RECIPIENT",
+            role=u.role or "USER",
             status=u.status,
             kem_key_id=u.kem_key_id or "",
             dsa_key_id=u.dsa_key_id or "",
             key_status=u.key_status or "ACTIVE",
             ml_kem_pub_preview=f"0x{u.kem_public_key[:16].hex()}... ({len(u.kem_public_key)} bytes)",
-            ml_dsa_pub_preview=f"0x{u.dsa_public_key[:16].hex()}... ({len(u.dsa_public_key)} bytes)"
+            ml_dsa_pub_preview=f"0x{u.dsa_public_key[:16].hex()}... ({len(u.dsa_public_key)} bytes)",
+            keystore_password=u.keystore_password or ""
         )
         for u in users
     ]
@@ -48,15 +49,16 @@ async def get_officer(officer_id: int, db: AsyncSession = Depends(get_db)):
         username=u.username,
         navy_id=u.navy_id,
         name=u.name,
-        rank=u.rank,
-        command_unit=u.command_unit,
-        clearance_level=u.clearance_level,
+        rank=u.rank or "User",
+        command_unit=u.command_unit or "General",
+        clearance_level=u.clearance_level or "Confidential",
         device_id=u.device_id,
-        role=u.role or "RECIPIENT",
+        role=u.role or "USER",
         status=u.status,
         kem_key_id=u.kem_key_id or "",
         dsa_key_id=u.dsa_key_id or "",
         key_status=u.key_status or "ACTIVE",
         ml_kem_pub_preview=f"0x{u.kem_public_key[:16].hex()}... ({len(u.kem_public_key)} bytes)",
-        ml_dsa_pub_preview=f"0x{u.dsa_public_key[:16].hex()}... ({len(u.dsa_public_key)} bytes)"
+        ml_dsa_pub_preview=f"0x{u.dsa_public_key[:16].hex()}... ({len(u.dsa_public_key)} bytes)",
+        keystore_password=u.keystore_password or ""
     )

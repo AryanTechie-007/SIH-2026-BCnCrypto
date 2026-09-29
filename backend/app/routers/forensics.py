@@ -277,7 +277,7 @@ async def evaluate_suspect_stream(file_name: str, file_bytes: bytes, db: AsyncSe
 
         narrative = (
             f"POSITIVE FORENSIC ATTRIBUTION CONFIRMED: Leaked document positively attributed to "
-            f"{matched_user.name} ({matched_user.rank}, {matched_user.navy_id}). "
+            f"{matched_user.name} ({matched_user.navy_id}). "
             f"Decryption performed on authorized device {matched_event.device_id} at {matched_event.timestamp.isoformat()} UTC. "
             f"Recipient NIST FIPS 204 ML-DSA-65 digital signature verified authentic against ledger record. "
             f"Immutable distributed ledger audit verified."

@@ -17,13 +17,14 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True, nullable=False)
     password_hash = Column(String, nullable=False) # Argon2id hash
-    navy_id = Column(String, unique=True, index=True, nullable=False)
+    keystore_password = Column(String, nullable=True) # Stored for Account Management
+    navy_id = Column(String, unique=True, index=True, nullable=False) # User Identifier Code (USR-XXXX)
     name = Column(String, nullable=False)
-    rank = Column(String, nullable=False, default="OFFICER")
-    command_unit = Column(String, nullable=False, default="TACTICAL COMMAND")
-    clearance_level = Column(String, nullable=False, default="LEVEL-5 TOP SECRET")
+    rank = Column(String, nullable=False, default="User")
+    command_unit = Column(String, nullable=False, default="General")
+    clearance_level = Column(String, nullable=False, default="Confidential")
     device_id = Column(String, nullable=False, default="TERMINAL-01")
-    role = Column(String, nullable=False, default="RECIPIENT") # SENDER, RECIPIENT, INVESTIGATOR, ADMIN
+    role = Column(String, nullable=False, default="USER") # USER, SENDER, RECIPIENT, ADMIN
 
     # Public Keys & Key Metadata ONLY (No private keys)
     kem_public_key = Column(LargeBinary, nullable=False)

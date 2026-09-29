@@ -271,11 +271,10 @@ export const EvidenceConsole: React.FC = () => {
 
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px', fontFamily: 'var(--font-mono)' }}>
                     <div>
-                      <div style={{ fontSize: '10px', color: 'var(--text-dim)' }}>NAME &amp; ROLE:</div>
+                      <div style={{ fontSize: '10px', color: 'var(--text-dim)' }}>RECIPIENT NAME:</div>
                       <div style={{ fontSize: '14px', fontWeight: 800, color: '#ffffff', marginTop: '2px' }}>
                         {analysisResult.recipient.name}
                       </div>
-                      <div style={{ fontSize: '11px', color: '#38bdf8' }}>{analysisResult.recipient.rank}</div>
                     </div>
 
                     <div>
@@ -283,7 +282,6 @@ export const EvidenceConsole: React.FC = () => {
                       <div style={{ fontSize: '13px', fontWeight: 700, color: '#38bdf8', marginTop: '2px' }}>
                         {analysisResult.recipient.navy_id}
                       </div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{analysisResult.recipient.command_unit}</div>
                     </div>
 
                     <div>
@@ -291,7 +289,6 @@ export const EvidenceConsole: React.FC = () => {
                       <div style={{ fontSize: '13px', fontWeight: 700, color: '#f87171', marginTop: '2px' }}>
                         {analysisResult.recipient.device_id}
                       </div>
-                      <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>CLEARANCE: {analysisResult.recipient.clearance_level}</div>
                     </div>
                   </div>
                 </div>
@@ -326,7 +323,7 @@ export const EvidenceConsole: React.FC = () => {
                       AUDIT STATUS: NO RECIPIENT ATTRIBUTED
                     </div>
                     <div style={{ fontSize: '12px', color: '#f87171', fontFamily: 'var(--font-mono)', fontWeight: 600, marginTop: '2px' }}>
-                      All registered officers cleared (0% match). No authentic cryptographic watermark detected.
+                      All registered identities cleared (0% match). No authentic cryptographic watermark detected.
                     </div>
                   </div>
                 </div>

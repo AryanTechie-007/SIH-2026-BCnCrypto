@@ -438,10 +438,56 @@ class WatermarkEngine:
             return payload, metrics
 
         if is_image:
-            # 2. Canonical Aspect-Ratio Scaling (handles 96/120/200 DPI screen grabs & exports)
-            aspect = base_img.width / max(1, base_img.height)
-            canon_sizes = [(1275, 1650), (1240, 1754)] if (0.73 <= aspect <= 0.82) else [(1240, 1754), (1275, 1650)]
-            for tw, th in canon_sizes:
+            base_np = np.array(base_img)
+            gray = cv2.cvtColor(base_np, cv2.COLOR_RGB2GRAY)
+            img_area = base_img.width * base_img.height
+
+            # 2. Multi-Strategy Page Segmentation (Detects white page inside PDF viewers / Chrome / Acrobat / dark & grey UI)
+            detected_boxes = []
+
+            # Strategy A: Otsu automatic thresholding
+            try:
+                _, th_otsu = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+                contours, _ = cv2.findContours(th_otsu, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                if contours:
+                    c = max(contours, key=cv2.contourArea)
+                    bx, by, bw, bh = cv2.boundingRect(c)
+                    if bw > 150 and bh > 150 and (bw * bh) > (img_area * 0.15) and (bw * bh) < (img_area * 0.98):
+                        detected_boxes.append((bx, by, bw, bh, "Otsu"))
+            except Exception:
+                pass
+
+            # Strategy B: Explicit threshold levels (handles viewer backgrounds: #525659, #323639, #e2e8f0)
+            for t_val in [180, 120, 70, 40, 230]:
+                try:
+                    _, thresh = cv2.threshold(gray, t_val, 255, cv2.THRESH_BINARY)
+                    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                    if contours:
+                        c = max(contours, key=cv2.contourArea)
+                        bx, by, bw, bh = cv2.boundingRect(c)
+                        if bw > 150 and bh > 150 and (bw * bh) > (img_area * 0.15) and (bw * bh) < (img_area * 0.98):
+                            if not any(abs(bx - obx) < 10 and abs(by - oby) < 10 and abs(bw - obw) < 10 for obx, oby, obw, obh, _ in detected_boxes):
+                                detected_boxes.append((bx, by, bw, bh, f"Thresh-{t_val}"))
+                except Exception:
+                    pass
+
+            # Test all detected page crops resized to canonical page resolutions
+            for bx, by, bw, bh, label in detected_boxes:
+                cropped = base_img.crop((bx, by, bx + bw, by + bh))
+                for tw, th in [(1240, 1754), (1275, 1650)]:
+                    try:
+                        canon = cropped.resize((tw, th), Image.Resampling.LANCZOS)
+                        p, m = self._extract_from_image(canon)
+                        if p is not None:
+                            m["analysis"] = f"2D DCT Lattice Extraction (Page Segmentation [{label}] -> {tw}x{th})"
+                            return p, m
+                        if m.get("bit_error_rate", 100.0) < metrics.get("bit_error_rate", 100.0):
+                            metrics = m
+                    except Exception:
+                        pass
+
+            # 3. Canonical Scaling of full image (handles direct full-page screenshots at 72/96/120/144 DPI)
+            for tw, th in [(1240, 1754), (1275, 1650)]:
                 if base_img.size != (tw, th):
                     try:
                         canon_img = base_img.resize((tw, th), Image.Resampling.LANCZOS)
@@ -454,55 +500,22 @@ class WatermarkEngine:
                     except Exception:
                         pass
 
-            # 3. Detect and crop page canvas inside viewer screenshot (dark/light borders, letterboxing)
-            try:
-                base_np = np.array(base_img)
-                gray = cv2.cvtColor(base_np, cv2.COLOR_RGB2GRAY)
-                candidate_bitstreams = []
-
-                # Detect page region using adaptive threshold
-                for thresh_val in [70, 40]:
-                    _, thresh = cv2.threshold(gray, thresh_val, 255, cv2.THRESH_BINARY)
-                    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                    if contours:
-                        c = max(contours, key=cv2.contourArea)
-                        bx, by, bw, bh = cv2.boundingRect(c)
-                        if bw > 250 and bh > 250 and (bw * bh) > (base_img.width * base_img.height * 0.20):
-                            # Try direct cropped page first
-                            cropped_page = base_img.crop((bx, by, bx + bw, by + bh))
-                            p_crop, m_crop = self._extract_from_image(cropped_page)
-                            if p_crop is not None:
-                                m_crop["analysis"] = f"2D DCT Lattice Extraction (Auto-Cropped Border Removal, Thresh {thresh_val})"
-                                return p_crop, m_crop
-                            if m_crop.get("raw_extracted_bits"):
-                                candidate_bitstreams.append(m_crop["raw_extracted_bits"])
-
-                            # Try perspective warp across 3x3 subpixel/margin neighborhood (-1, 0, 1)
-                            for dx in [-1, 0, 1]:
-                                for dy in [-1, 0, 1]:
-                                    x1, y1 = max(0, bx + dx), max(0, by + dy)
-                                    x2, y2 = min(base_img.width, bx + bw), min(base_img.height, by + bh)
-                                    pts1 = np.float32([[x1, y1], [x2, y1], [x1, y2], [x2, y2]])
-                                    pts2 = np.float32([[0, 0], [1275, 0], [0, 1650], [1275, 1650]])
-                                    M = cv2.getPerspectiveTransform(pts1, pts2)
-                                    warped = cv2.warpPerspective(base_np, M, (1275, 1650), flags=cv2.INTER_LANCZOS4)
-                                    warped_pil = Image.fromarray(warped)
-                                    p_w, m_w = self._extract_from_image(warped_pil)
-                                    if p_w is not None:
-                                        m_w["analysis"] = f"2D DCT Lattice Extraction (Perspective Canonical Warp dx={dx}, dy={dy})"
-                                        return p_w, m_w
-                                    if m_w.get("candidate_bitstreams"):
-                                        candidate_bitstreams.extend(m_w["candidate_bitstreams"])
-                                    elif m_w.get("raw_extracted_bits"):
-                                        candidate_bitstreams.append(m_w["raw_extracted_bits"])
-                                    if m_w.get("bit_error_rate", 100.0) < metrics.get("bit_error_rate", 100.0):
-                                        metrics = m_w
-                            break
-
-                if candidate_bitstreams:
-                    metrics["candidate_bitstreams"] = candidate_bitstreams
-            except Exception:
-                pass
+            # 4. Inset Margin Checks (handles minor window borders, drop shadows, or 1-2% browser window frames)
+            w, h = base_img.size
+            for margin_pct in [0.015, 0.03]:
+                mx, my = int(w * margin_pct), int(h * margin_pct)
+                if mx > 0 and my > 0 and w - 2*mx > 100 and h - 2*my > 100:
+                    try:
+                        trimmed = base_img.crop((mx, my, w - mx, h - my))
+                        canon_trimmed = trimmed.resize((1240, 1754), Image.Resampling.LANCZOS)
+                        p_t, m_t = self._extract_from_image(canon_trimmed)
+                        if p_t is not None:
+                            m_t["analysis"] = f"2D DCT Lattice Extraction (Margin Inset {int(margin_pct*100)}%)"
+                            return p_t, m_t
+                        if m_t.get("bit_error_rate", 100.0) < metrics.get("bit_error_rate", 100.0):
+                            metrics = m_t
+                    except Exception:
+                        pass
 
         return payload, metrics
 

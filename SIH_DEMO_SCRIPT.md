@@ -11,10 +11,10 @@
 ## The 5-Minute Live Demo Flow
 
 ### 🎬 Scene 1: Sender Studio (Envelope Encryption & Distribution) — 60s
-1. **Navigate to "Sender Studio" tab**.
-2. **Show document payload**: Point to `OPERATION TRIDENT SHIELD` (`CLASSIFIED_NAVAL_OPERATIONS.pdf`).
+1. **Navigate to "Documents" tab**.
+2. **Show document payload**: Point to `CONFIDENTIAL_FINANCIAL_AUDIT.pdf`.
 3. **Point out the SHA3-256 Digest**: *"This is our tamper anchor. We never encrypt the entire file separately per recipient."*
-4. **Select Recipients**: Check *Captain A. Verma (Flagship)* and *Commander S. Rao (Destroyer)*.
+4. **Select Recipients**: Check *Alice Chen* and *Bob Smith*.
 5. **Click "SECURE ENVELOPE DISTRIBUTE"**:
    - Explain: *"We use hybrid envelope encryption: one AES-256-GCM document ciphertext, but the 256-bit Document Encryption Key is encapsulated using NIST FIPS 203 **ML-KEM-768** lattice cryptography per recipient."*
    - Show the generated key envelopes.
@@ -22,8 +22,8 @@
 ---
 
 ### 🎬 Scene 2: Recipient Terminal (Atomic Decryption & PQC Signing) — 60s
-1. **Navigate to "Recipient Terminal" tab**.
-2. **Select Officer**: Choose *Captain A. Verma (`NAVY-0231`)*.
+1. **Navigate to "Decrypt" tab**.
+2. **Select User**: Choose *Alice Chen (`USR-0231`)*.
 3. **Show Credentials**: Point to authorized device ID and ML-DSA-65 signing key ID in the secure enclave.
 4. **Click "DECRYPT & AUTHORIZE DOCUMENT"**:
    - Watch the animated **6-step atomic security checklist**:
@@ -36,24 +36,24 @@
 5. **Show Result**:
    - Document is decrypted.
    - Point to the **Watermark Identifier**: `WM-7A91...`.
-   - **Crucial Point**: *"If Captain Verma decrypts the same file again 10 minutes later, an entirely new nonce, watermark ID, and ML-DSA signature are generated. Every viewing session has its own forensic timeline."*
+   - **Crucial Point**: *"If Alice decrypts the same file again 10 minutes later, an entirely new nonce, watermark ID, and ML-DSA signature are generated. Every viewing session has its own forensic timeline."*
 
 ---
 
 ### 🎬 Scene 3: Forensic Lab (Blind Leaked Document Attribution) — 90s (The WOW Scene)
-1. **Navigate to "Forensic Lab" tab**.
-2. **Show the scenario**: *"An intelligence team has intercepted a leaked PDF. They do NOT know who leaked it, when it was viewed, or which device rendered it."*
+1. **Navigate to "Forensics" tab**.
+2. **Show the scenario**: *"An audit team has intercepted a leaked PDF or screenshot. They do NOT know who leaked it, when it was viewed, or which device rendered it."*
 3. **Click "START FORENSIC ATTRIBUTION"**:
    - Watch the 6-stage pipeline animate:
      - Rasterization $\rightarrow$ DCT frequency sampling $\rightarrow$ Reed-Solomon ECC decoding $\rightarrow$ Ledger search $\rightarrow$ ML-DSA verification $\rightarrow$ Merkle proof verification.
 4. **Show Hero Result**:
-   - **ATTRIBUTION VERIFIED**: Captain A. Verma (`NAVY-0231`).
-   - Vessel: *INS Vikramaditya*.
+   - **ATTRIBUTION VERIFIED**: Alice Chen (`USR-0231`).
+   - Organization: *Operations Directorate*.
    - Exact Timestamp and Device ID.
    - 6-Link Cryptographic Verification: **All Passed**.
 5. **Click "Inspect & Export Cryptographic Evidence Package"**:
    - Show `CIPHERTRACE_EVIDENCE.json`.
-   - Point out: *"An independent court or military audit authority can verify this evidence bundle offline using public keys and ledger roots."*
+   - Point out: *"An independent court or audit authority can verify this evidence bundle offline using public keys and ledger roots."*
 
 ---
 

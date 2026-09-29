@@ -39,6 +39,7 @@ class UserSchema(BaseModel):
     key_status: str
     ml_kem_pub_preview: str
     ml_dsa_pub_preview: str
+    keystore_password: Optional[str] = None
 
 
 class AuthResponse(BaseModel):
@@ -63,6 +64,7 @@ class OfficerSchema(BaseModel):
     key_status: str
     ml_kem_pub_preview: str
     ml_dsa_pub_preview: str
+    keystore_password: Optional[str] = None
 
 
 class DocumentSchema(BaseModel):

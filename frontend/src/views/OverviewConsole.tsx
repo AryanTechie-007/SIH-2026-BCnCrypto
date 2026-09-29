@@ -22,11 +22,11 @@ export const OverviewConsole: React.FC<OverviewConsoleProps> = ({
 
   return (
     <div style={{ padding: '24px', maxWidth: '1440px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      {/* Welcome Operator Hero Header */}
+      {/* Welcome Hero Header */}
       <div style={{
         backgroundColor: 'var(--bg-panel)',
         border: '1px solid var(--border-hard)',
-        borderLeft: '4px solid #38bdf8',
+        borderLeft: '4px solid #2563eb',
         borderRadius: '4px',
         padding: '18px 22px',
         display: 'flex',
@@ -36,36 +36,19 @@ export const OverviewConsole: React.FC<OverviewConsoleProps> = ({
         gap: '14px'
       }}>
         <div>
-          <div style={{ fontSize: '11px', color: '#38bdf8', fontFamily: 'var(--font-mono)', fontWeight: 600, letterSpacing: '0.04em', marginBottom: '4px' }}>
-            OPERATOR WORKSPACE // SECURE CONTEXT
-          </div>
-          <h1 style={{ fontSize: '20px', fontWeight: 800, letterSpacing: '0.01em', color: '#ffffff', margin: 0 }}>
-            Welcome, {currentUser?.name || 'Operator'}
+          <h1 style={{ fontSize: '20px', fontWeight: 800, letterSpacing: '0.01em', color: '#ffffff', margin: '0 0 4px 0' }}>
+            Welcome, {currentUser?.name || 'User'}
           </h1>
+          <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>
+            Post-Quantum Document Security &amp; Forensic Attribution System
+          </p>
         </div>
 
         <div style={{ display: 'flex', gap: '8px' }}>
           <button
-            onClick={() => onNavigate('audit')}
-            className="tactical-btn"
-            style={{
-              padding: '8px 14px',
-              fontSize: '11px',
-              backgroundColor: 'rgba(56, 189, 248, 0.1)',
-              border: '1px solid rgba(56, 189, 248, 0.4)',
-              color: '#38bdf8',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
-          >
-            <Database size={13} />
-            <span>Audit Ledger</span>
-          </button>
-          <button
             onClick={() => onNavigate('documents')}
             className="tactical-btn tactical-btn-primary"
-            style={{ padding: '8px 14px', fontSize: '11px' }}
+            style={{ padding: '8px 14px', fontSize: '11px', backgroundColor: '#2563eb', borderColor: '#3b82f6' }}
           >
             <Lock size={13} />
             <span>Open Encryption Lab</span>
@@ -102,7 +85,7 @@ export const OverviewConsole: React.FC<OverviewConsoleProps> = ({
           <tbody>
             {userBlocks.slice(-5).reverse().map((b) => {
               let eventType = 'Decryption & Watermark';
-              let subject = 'OPERATOR';
+              let subject = 'USER';
               let docTarget = 'Encrypted Payload';
 
               try {

@@ -258,88 +258,82 @@ export const DocumentsConsole: React.FC<DocumentsConsoleProps> = ({
                   </div>
                 </div>
 
-                {/* Optional Custom Recipient Filter Toggle */}
+                {/* Recipient Selection Section - Always visible and prominent */}
                 <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                    <button
-                      type="button"
-                      onClick={() => setShowCustomRecipients(!showCustomRecipients)}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: showCustomRecipients ? '#38bdf8' : 'var(--text-dim)',
-                        fontSize: '10px',
-                        fontFamily: 'var(--font-mono)',
-                        cursor: 'pointer',
-                        padding: 0,
-                        textDecoration: 'underline'
-                      }}
-                    >
-                      {showCustomRecipients ? '▼ Hide Recipient Filter (Universal Active)' : '▶ Advanced: Restrict Specific Recipients (Optional)'}
-                    </button>
-                    {showCustomRecipients && (
-                      <span style={{ fontSize: '9px', color: '#38bdf8', fontFamily: 'var(--font-mono)' }}>
-                        {selectedRecipientIds.length} of {officers.length} selected
-                      </span>
-                    )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <div style={{ color: '#ffffff', fontWeight: 700, fontSize: '11px', fontFamily: 'var(--font-mono)' }}>
+                      DESIGNATE RECIPIENTS:
+                    </div>
+                    <span style={{ fontSize: '10px', color: '#3b82f6', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
+                      {selectedRecipientIds.length} of {officers.length} selected
+                    </span>
                   </div>
 
-                  {showCustomRecipients && (
-                    <div style={{
-                      backgroundColor: 'var(--bg-input)',
-                      border: '1px solid var(--border-hard)',
-                      borderRadius: '4px',
-                      padding: '8px',
-                      marginBottom: '8px'
-                    }}>
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px', marginBottom: '6px' }}>
+                  <div style={{
+                    backgroundColor: 'var(--bg-input)',
+                    border: '1px solid var(--border-hard)',
+                    borderRadius: '4px',
+                    padding: '10px',
+                    marginBottom: '8px'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '10px', color: 'var(--text-dim)' }}>Check recipients to grant access:</span>
+                      <div style={{ display: 'flex', gap: '6px' }}>
                         <button
+                          type="button"
                           onClick={() => setSelectedRecipientIds(officers.map(o => o.id))}
                           className="tactical-btn tactical-btn-secondary"
-                          style={{ padding: '2px 6px', fontSize: '9px' }}
+                          style={{ padding: '3px 8px', fontSize: '10px' }}
                         >
                           Select All
                         </button>
                         <button
+                          type="button"
                           onClick={() => setSelectedRecipientIds([])}
                           className="tactical-btn tactical-btn-secondary"
-                          style={{ padding: '2px 6px', fontSize: '9px' }}
+                          style={{ padding: '3px 8px', fontSize: '10px' }}
                         >
                           Clear
                         </button>
                       </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '140px', overflowY: 'auto' }}>
-                        {officers.map(u => {
-                          const isChecked = selectedRecipientIds.includes(u.id);
-                          return (
-                            <div
-                              key={u.id}
-                              onClick={() => toggleRecipient(u.id)}
-                              style={{
-                                padding: '5px 8px',
-                                backgroundColor: isChecked ? 'rgba(56, 189, 248, 0.08)' : 'transparent',
-                                border: isChecked ? '1px solid #38bdf8' : '1px solid var(--border-hard)',
-                                borderRadius: '3px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                cursor: 'pointer',
-                                fontSize: '10px'
-                              }}
-                            >
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                {isChecked ? <CheckSquare size={12} color="#38bdf8" /> : <Square size={12} color="var(--text-dim)" />}
-                                <span style={{ color: isChecked ? '#ffffff' : 'var(--text-muted)' }}>{u.name}</span>
-                              </div>
-                              <span style={{ color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', fontSize: '9px' }}>
-                                @{u.username || u.navy_id}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
                     </div>
-                  )}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', maxHeight: '180px', overflowY: 'auto' }}>
+                      {officers.map(u => {
+                        const isChecked = selectedRecipientIds.includes(u.id);
+                        return (
+                          <div
+                            key={u.id}
+                            onClick={() => toggleRecipient(u.id)}
+                            style={{
+                              padding: '7px 10px',
+                              backgroundColor: isChecked ? 'rgba(37, 99, 235, 0.12)' : 'transparent',
+                              border: isChecked ? '1px solid #3b82f6' : '1px solid var(--border-hard)',
+                              borderRadius: '3px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              cursor: 'pointer',
+                              fontSize: '11px',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              {isChecked ? <CheckSquare size={14} color="#3b82f6" /> : <Square size={14} color="var(--text-dim)" />}
+                              <span style={{ color: isChecked ? '#ffffff' : 'var(--text-muted)', fontWeight: isChecked ? 600 : 400 }}>{u.name}</span>
+                            </div>
+                            <span style={{ color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', fontSize: '10px' }}>
+                              @{u.username || u.navy_id}
+                            </span>
+                          </div>
+                        );
+                      })}
+                      {officers.length === 0 && (
+                        <div style={{ textAlign: 'center', padding: '16px', color: 'var(--text-dim)', fontSize: '11px' }}>
+                          No registered recipients found. Create identities under Account Management.
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Primary Action Button */}

@@ -51,7 +51,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
         username: username.trim(),
         password,
         display_name: displayName.trim() || username.trim(),
-        rank: 'Officer / Analyst',
+        rank: 'User',
         device_id: `DEV-${username.trim().toUpperCase()}`
       });
       setSuccessMessage(res.message);
@@ -94,7 +94,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
           marginBottom: '14px'
         }}>
           <Shield size={13} />
-          <span>CIPHERTRACE &bull; POST-QUANTUM DEFENSE LABS</span>
+          <span>CIPHERTRACE &bull; POST-QUANTUM WORKSTATION</span>
         </div>
         <h1 style={{
           fontSize: '24px',
@@ -103,7 +103,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
           color: '#ffffff',
           marginBottom: '8px'
         }}>
-          Operator Authentication
+          User Authentication
         </h1>
         <p style={{
           fontSize: '13px',
@@ -198,13 +198,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
             <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px', fontFamily: 'var(--font-mono)' }}>
-                  OPERATOR USERNAME
+                  USERNAME
                 </label>
                 <input
                   type="text"
                   value={username}
                   onChange={e => setUsername(e.target.value)}
-                  placeholder="e.g. verma, rao, joshi"
+                  placeholder="e.g. alice, bob, charlie"
                   className="tactical-input"
                   required
                 />
@@ -212,7 +212,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
 
               <div>
                 <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px', fontFamily: 'var(--font-mono)' }}>
-                  OPERATOR PASSWORD
+                  PASSWORD
                 </label>
                 <input
                   type="password"
@@ -252,7 +252,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
                   type="text"
                   value={username}
                   onChange={e => setUsername(e.target.value)}
-                  placeholder="Unique operator identifier"
+                  placeholder="Unique username identifier"
                   className="tactical-input"
                   required
                 />
@@ -260,13 +260,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
 
               <div>
                 <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '5px', fontFamily: 'var(--font-mono)' }}>
-                  FULL NAME / DESIGNATION
+                  FULL NAME
                 </label>
                 <input
                   type="text"
                   value={displayName}
                   onChange={e => setDisplayName(e.target.value)}
-                  placeholder="Col. S. Verma"
+                  placeholder="Alice Chen"
                   className="tactical-input"
                   required
                 />

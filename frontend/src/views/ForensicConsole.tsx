@@ -173,25 +173,22 @@ export const ForensicConsole: React.FC = () => {
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
                       <div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>NAME &amp; ROLE:</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>RECIPIENT NAME:</div>
                         <div style={{ fontWeight: 800, color: '#ffffff', fontSize: '14px' }}>
                           {analysisResult.recipient.name}
                         </div>
-                        <div style={{ fontSize: '11px', color: '#38bdf8' }}>{analysisResult.recipient.rank}</div>
                       </div>
                       <div>
                         <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>USER ACCOUNT ID:</div>
                         <div className="font-mono" style={{ fontWeight: 700, color: '#ffffff' }}>
                           {analysisResult.recipient.navy_id}
                         </div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-dim)' }}>{analysisResult.recipient.command_unit}</div>
                       </div>
                       <div>
                         <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>REGISTERED DEVICE TOKEN:</div>
                         <div className="font-mono" style={{ fontWeight: 700, color: '#ef4444' }}>
                           {analysisResult.recipient.device_id}
                         </div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-dim)' }}>ACCESS LEVEL: {analysisResult.recipient.clearance_level}</div>
                       </div>
                     </div>
                   </div>
