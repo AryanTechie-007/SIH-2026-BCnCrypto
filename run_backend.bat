@@ -1,6 +1,6 @@
 @echo off
 setlocal enabledelayedexpansion
-title CIPHERTRACE 2.0 - Backend API
+title CIPHERTRACE - Backend API
 cd /d "%~dp0backend"
 
 :: Ensure Python is on PATH if installed in user directory
@@ -24,7 +24,7 @@ if %errorlevel% neq 0 (
 )
 
 echo ========================================================
-echo  CIPHERTRACE 2.0 - Backend API (Uvicorn / FastAPI)
+echo  CIPHERTRACE - Backend API (Uvicorn / FastAPI)
 echo  Working Dir: %CD%
 echo  Endpoint:    http://127.0.0.1:8000
 echo ========================================================

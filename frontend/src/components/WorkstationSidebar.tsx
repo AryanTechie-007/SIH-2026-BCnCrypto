@@ -193,7 +193,6 @@ export const WorkstationSidebar: React.FC<WorkstationSidebarProps> = ({
             }} />
             <span>{isOnline ? 'System Online' : 'Offline'}</span>
           </div>
-          <span>v2.0</span>
         </div>
       </div>
     </aside>

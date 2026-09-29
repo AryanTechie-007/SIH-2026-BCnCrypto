@@ -1,4 +1,4 @@
-# CIPHERTRACE 2.0: Post-Quantum Confidential Document Security & Forensics
+# CIPHERTRACE: Post-Quantum Confidential Document Security & Forensics
 
 ## 🌟 SIH 2026 Innovation
 This system is designed for high-security defense environments where traditional RSA/ECC encryption is vulnerable to future Quantum computing threats.
@@ -68,11 +68,11 @@ cd frontend && npm run dev
 
 ## 📌 Executive Summary & Architecture Overview
 
-**CIPHERTRACE 2.0** addresses the critical vulnerability in defense, intelligence, and confidential enterprise workflows: the **insider threat and post-decryption leak problem**.
+**CIPHERTRACE** addresses the critical vulnerability in defense, intelligence, and confidential enterprise workflows: the **insider threat and post-decryption leak problem**.
 
 Traditional perimeter security, DRM, and transit encryption (TLS/VPN) protect documents in transit and at rest. However, once an authorized recipient decrypts a file on an endpoint, traditional safeguards end. If the recipient photographs the display, prints the document, or leaks the digital copy, attribution is near-impossible due to plausible deniability.
 
-CIPHERTRACE 2.0 guarantees that **no recipient can access a confidential document without their identity being indelibly, invisibly bound into every page via 2D Discrete Cosine Transform (DCT) spread-spectrum steganography, authenticated with Post-Quantum Digital Signatures (ML-DSA-65), and committed to an immutable chain-of-custody ledger.**
+CIPHERTRACE guarantees that **no recipient can access a confidential document without their identity being indelibly, invisibly bound into every page via 2D Discrete Cosine Transform (DCT) spread-spectrum steganography, authenticated with Post-Quantum Digital Signatures (ML-DSA-65), and committed to an immutable chain-of-custody ledger.**
 
 ```
                       AIR-GAPPED DEFENSE LAN

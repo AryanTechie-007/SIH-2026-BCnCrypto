@@ -18,7 +18,7 @@ logger = logging.getLogger("ciphertrace")
 async def lifespan(app: FastAPI):
     """Startup and shutdown lifecycle manager."""
     logger.info("================================================================================")
-    logger.info("    CIPHERTRACE 2.0 - NIST FIPS 203 & 204 POST-QUANTUM DEFENSE PLATFORM        ")
+    logger.info("       CIPHERTRACE - NIST FIPS 203 & 204 POST-QUANTUM DEFENSE PLATFORM          ")
     logger.info("================================================================================")
 
     # 1. Validate configuration settings
@@ -42,9 +42,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="CIPHERTRACE 2.0 — Post-Quantum Confidential Document Security & Provenance Platform",
+    title="CIPHERTRACE — Post-Quantum Confidential Document Security & Provenance Platform",
     description="Confidential Document Security and Leak Attribution System (NIST FIPS 203 ML-KEM-768, FIPS 204 ML-DSA-65, AES-256-GCM, 2D DCT Steganography)",
-    version="2.0.0-ENTERPRISE",
+    version="1.0.0-ENTERPRISE",
     lifespan=lifespan
 )
 
@@ -102,7 +102,7 @@ app.include_router(attacks.router)
 async def root():
     backend_info = CryptoEngine.get_backend_info()
     return {
-        "platform": "CIPHERTRACE 2.0 (QuantumGuard)",
+        "platform": "CIPHERTRACE (QuantumGuard)",
         "status": "OPERATIONAL",
         "mode": settings.get_mode_label(),
         "cryptography": {

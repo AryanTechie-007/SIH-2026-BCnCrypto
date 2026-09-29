@@ -1,6 +1,6 @@
 @echo off
 setlocal enabledelayedexpansion
-title CIPHERTRACE 2.0 - Frontend UI
+title CIPHERTRACE - Frontend UI
 cd /d "%~dp0frontend"
 
 :: Ensure Node is on PATH if installed in user directory
@@ -19,7 +19,7 @@ if %errorlevel% neq 0 (
 )
 
 echo ========================================================
-echo  CIPHERTRACE 2.0 - Frontend UI (React / Vite)
+echo  CIPHERTRACE - Frontend UI (React / Vite)
 echo  Working Dir: %CD%
 echo  Endpoint:    http://127.0.0.1:5173
 echo ========================================================

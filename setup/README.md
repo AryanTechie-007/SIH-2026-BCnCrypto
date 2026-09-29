@@ -1,6 +1,6 @@
-# CIPHERTRACE 2.0 — Dependency & Setup Guide
+# CIPHERTRACE — Dependency & Setup Guide
 
-This folder contains everything needed to install the dependencies for CIPHERTRACE 2.0 on a teammate's computer.
+This folder contains everything needed to install the dependencies for CIPHERTRACE on a teammate's computer.
 
 ---
 

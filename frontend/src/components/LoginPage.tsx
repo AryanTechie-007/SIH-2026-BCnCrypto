@@ -99,7 +99,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
           marginBottom: '14px'
         }}>
           <Shield size={13} />
-          <span>CIPHERTRACE &bull; POST-QUANTUM WORKSTATION</span>
+          <span>CIPHERTRACE</span>
         </div>
         <h1 style={{
           fontSize: '24px',
@@ -115,7 +115,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
           color: 'var(--text-muted)',
           lineHeight: '1.5'
         }}>
-          Access the NIST FIPS 203 & 204 quantum-resistant cryptographic workstation.
+          Access the NIST FIPS 203 & 204 quantum-resistant cryptographic platform.
         </p>
       </div>
 
@@ -242,7 +242,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
                 }}
               >
                 <LogIn size={15} />
-                <span>{isLoading ? 'AUTHENTICATING...' : 'ACCESS WORKSTATION'}</span>
+                <span>{isLoading ? 'AUTHENTICATING...' : 'SIGN IN'}</span>
               </button>
             </form>
           ) : (
