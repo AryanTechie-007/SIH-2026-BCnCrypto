@@ -29,6 +29,10 @@ backend/uploads/*
 !backend/uploads/.gitkeep
 backend/returns/*
 !backend/returns/.gitkeep
+backend/storage/*
+backend/.cache/*
+backend/data/*
+backend/keystores/user_[0-9][0-9][0-9][0-9]*_*.keystore
 
 # IDE and OS files
 .vscode/

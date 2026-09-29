@@ -18,3 +18,7 @@ python-multipart
 opencv-python-headless
 customtkinter
 requests
+jinja2
+python-pptx
+trafilatura
+python-docx

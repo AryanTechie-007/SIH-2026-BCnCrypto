@@ -9,7 +9,13 @@ import {
   AttackResult,
   SystemHealth,
   UserAccount,
-  AuthResult
+  AuthResult,
+  FormatInfo,
+  TransformJobView,
+  TransformJobSummary,
+  JobSettings,
+  BrandKit,
+  FormatResult
 } from '../types';
 
 const API_ROOT = (typeof window !== 'undefined' && window.location.port === '5173')
@@ -279,5 +285,138 @@ export const ApiClient = {
       method: 'POST'
     });
     return handleResponse<AttackResult>(res, 'SIMULATE_ATTACK');
+  },
+
+  // ── Content Transform & Document Intelligence API ──────────────────────────
+
+  async getTransformFormats(): Promise<FormatInfo[]> {
+    const res = await safeFetch(`${API_ROOT}/formats`);
+    return handleResponse<FormatInfo[]>(res, 'FETCH_TRANSFORM_FORMATS');
+  },
+
+  async getTransformSourceTypes(): Promise<string[]> {
+    const res = await safeFetch(`${API_ROOT}/source-types`);
+    return handleResponse<string[]>(res, 'FETCH_SOURCE_TYPES');
+  },
+
+  async createTransformJob(text: string, formats: string[], settings?: JobSettings): Promise<TransformJobView> {
+    const res = await safeFetch(`${API_ROOT}/jobs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, formats, settings: settings || {} })
+    });
+    return handleResponse<TransformJobView>(res, 'CREATE_TRANSFORM_JOB');
+  },
+
+  async createTransformJobFromFile(file: File, formats: string[], settings?: JobSettings): Promise<TransformJobView> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formats.forEach(f => formData.append('formats', f));
+    if (settings) {
+      formData.append('settings', JSON.stringify(settings));
+    }
+    const res = await safeFetch(`${API_ROOT}/jobs/upload`, {
+      method: 'POST',
+      body: formData
+    });
+    return handleResponse<TransformJobView>(res, 'CREATE_JOB_FROM_FILE');
+  },
+
+  async createTransformJobFromUrl(url: string, formats: string[], settings?: JobSettings): Promise<TransformJobView> {
+    const res = await safeFetch(`${API_ROOT}/jobs/url`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, formats, settings: settings || {} })
+    });
+    return handleResponse<TransformJobView>(res, 'CREATE_JOB_FROM_URL');
+  },
+
+  async getTransformJob(jobId: string): Promise<TransformJobView> {
+    const res = await safeFetch(`${API_ROOT}/jobs/${jobId}`);
+    return handleResponse<TransformJobView>(res, 'GET_TRANSFORM_JOB');
+  },
+
+  async listTransformJobs(): Promise<TransformJobSummary[]> {
+    const res = await safeFetch(`${API_ROOT}/jobs`);
+    return handleResponse<TransformJobSummary[]>(res, 'LIST_TRANSFORM_JOBS');
+  },
+
+  watchTransformJob(
+    jobId: string,
+    onUpdate: (job: TransformJobView) => void,
+    onError?: (err: any) => void
+  ): () => void {
+    const url = `${API_ROOT}/jobs/${jobId}/events`;
+    const es = new EventSource(url);
+    es.onmessage = (event) => {
+      try {
+        const data: TransformJobView = JSON.parse(event.data);
+        onUpdate(data);
+        if (data.status === 'done' || data.status === 'failed') {
+          es.close();
+        }
+      } catch (err) {
+        if (onError) onError(err);
+      }
+    };
+    es.onerror = (err) => {
+      if (onError) onError(err);
+      es.close();
+    };
+    return () => es.close();
+  },
+
+  async editPassage(jobId: string, formatName: string, path: string, text: string): Promise<FormatResult> {
+    const res = await safeFetch(`${API_ROOT}/jobs/${jobId}/outputs/${formatName}/edit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path, text })
+    });
+    return handleResponse<FormatResult>(res, 'EDIT_PASSAGE');
+  },
+
+  async acceptPassage(jobId: string, formatName: string, path: string, accepted: boolean = true): Promise<FormatResult> {
+    const res = await safeFetch(`${API_ROOT}/jobs/${jobId}/outputs/${formatName}/accept`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path, accepted })
+    });
+    return handleResponse<FormatResult>(res, 'ACCEPT_PASSAGE');
+  },
+
+  async regeneratePassage(jobId: string, formatName: string, path: string): Promise<FormatResult> {
+    const res = await safeFetch(`${API_ROOT}/jobs/${jobId}/outputs/${formatName}/regenerate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path })
+    });
+    return handleResponse<FormatResult>(res, 'REGENERATE_PASSAGE');
+  },
+
+  async deletePassage(jobId: string, formatName: string, path: string): Promise<FormatResult> {
+    const res = await safeFetch(`${API_ROOT}/jobs/${jobId}/outputs/${formatName}/delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path })
+    });
+    return handleResponse<FormatResult>(res, 'DELETE_PASSAGE');
+  },
+
+  async listBrandKits(): Promise<BrandKit[]> {
+    const res = await safeFetch(`${API_ROOT}/brand-kits`);
+    return handleResponse<BrandKit[]>(res, 'LIST_BRAND_KITS');
+  },
+
+  async createBrandKit(kit: Partial<BrandKit>): Promise<BrandKit> {
+    const res = await safeFetch(`${API_ROOT}/brand-kits`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(kit)
+    });
+    return handleResponse<BrandKit>(res, 'CREATE_BRAND_KIT');
+  },
+
+  getArtifactDownloadUrl(jobId: string, formatName: string, filename: string): string {
+    return `${API_ROOT}/jobs/${jobId}/files/${formatName}/${filename}`;
   }
 };

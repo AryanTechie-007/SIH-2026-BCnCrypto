@@ -3,6 +3,7 @@ import { WorkstationSidebar, WorkstationModule } from './components/WorkstationS
 import { AuthModal } from './components/AuthModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { OverviewConsole } from './views/OverviewConsole';
+import { ContentTransformConsole } from './views/ContentTransformConsole';
 import { DocumentsConsole } from './views/DocumentsConsole';
 import { DecryptionConsole } from './views/DecryptionConsole';
 import { EvidenceConsole } from './views/EvidenceConsole';
@@ -139,6 +140,14 @@ export function App() {
                 currentUser={currentUser}
                 onNavigate={setActiveModule}
                 onOpenAuth={() => setIsAuthOpen(true)}
+              />
+            )}
+
+            {activeModule === 'transform' && (
+              <ContentTransformConsole
+                onSendToEncryptionLab={(_title, _content) => {
+                  setActiveModule('documents');
+                }}
               />
             )}
 
