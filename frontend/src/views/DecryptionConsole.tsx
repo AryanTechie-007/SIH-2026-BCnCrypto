@@ -247,7 +247,7 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
                 FILE LOADED: <span style={{ color: '#ffffff', fontWeight: 600 }}>{uploadedEncFile.name}</span> ({(uploadedEncFile.size / 1024).toFixed(1)} KB)
                 {parsedEnvelope && (
                   <div style={{ color: 'var(--text-muted)', fontSize: '10px', marginTop: '4px' }}>
-                    Target: DOC-{parsedEnvelope.document_id} &bull; Authorized Envelopes: {parsedEnvelope.envelopes?.length || 0}
+                    Target: DOC-{parsedEnvelope.document_id} &bull; Authorized Envelopes: {parsedEnvelope.recipients?.length || parsedEnvelope.envelopes?.length || 0}
                   </div>
                 )}
               </div>

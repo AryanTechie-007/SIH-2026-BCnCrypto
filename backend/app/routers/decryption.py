@@ -33,14 +33,21 @@ DEMO_PASSWORDS = [
 
 
 def _keystore_path_for(user: User) -> str:
-    """Resolves the recipient keystore file, tolerating paths recorded on another machine."""
+    """Resolves the recipient keystore file, prioritizing canonical naming and tolerating foreign paths."""
+    canonical = KeystoreManager.get_keystore_path(user.id, user.username)
+    if os.path.exists(canonical):
+        return canonical
+    alt = KeystoreManager.get_keystore_path(user.id)
+    if os.path.exists(alt):
+        return alt
     stored = user.keystore_path or ""
     if stored and os.path.exists(stored):
         return stored
-    # Stored path may come from another machine (e.g. a Windows absolute path); look in our KEYSTORE_DIR
-    name = stored.replace("\\", "/").rsplit("/", 1)[-1] if stored else os.path.basename(
-        KeystoreManager.get_keystore_path(user.id, user.username))
-    return os.path.join(settings.KEYSTORE_DIR, name)
+    name = stored.replace("\\", "/").rsplit("/", 1)[-1] if stored else os.path.basename(canonical)
+    local_target = os.path.join(settings.KEYSTORE_DIR, name)
+    if os.path.exists(local_target):
+        return local_target
+    return canonical
 
 
 def _resolve_keystore_password(req_password: Optional[str], user: User) -> str:
