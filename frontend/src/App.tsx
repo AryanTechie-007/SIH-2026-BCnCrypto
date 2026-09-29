@@ -14,6 +14,7 @@ import { LoginPage } from './components/LoginPage';
 
 const STORAGE_KEY_USER = 'ciphertrace_operator_user';
 const STORAGE_KEY_TOKEN = 'ciphertrace_operator_token';
+const STORAGE_KEY_BOOT_ID = 'ciphertrace_server_boot_id';
 
 export function App() {
   const [activeModule, setActiveModule] = useState<WorkstationModule>('overview');
@@ -26,33 +27,20 @@ export function App() {
   const [officers, setOfficers] = useState<Officer[]>([]);
   const [blocks, setBlocks] = useState<LedgerBlock[]>([]);
 
-  // Load persistent user session and purge any stale mock users
+  // Ephemeral session loading: clean up legacy localStorage and check active session
   useEffect(() => {
     try {
-      const savedUser = localStorage.getItem(STORAGE_KEY_USER);
+      // Purge any persistent disk-stored credentials so restarts always require fresh auth
+      localStorage.removeItem(STORAGE_KEY_USER);
+      localStorage.removeItem(STORAGE_KEY_TOKEN);
+
+      const savedUser = sessionStorage.getItem(STORAGE_KEY_USER);
       if (savedUser) {
         const parsed = JSON.parse(savedUser);
-        const nameLower = (parsed.name || '').toLowerCase();
-        const userLower = (parsed.username || '').toLowerCase();
-        if (
-          nameLower.includes('joshi') ||
-          nameLower.includes('verma') ||
-          nameLower.includes('varma') ||
-          nameLower.includes('rao') ||
-          userLower.includes('joshi') ||
-          userLower.includes('verma') ||
-          userLower.includes('varma') ||
-          userLower.includes('rao')
-        ) {
-          localStorage.removeItem(STORAGE_KEY_USER);
-          localStorage.removeItem(STORAGE_KEY_TOKEN);
-          setCurrentUser(null);
-        } else {
-          setCurrentUser(parsed);
-        }
+        setCurrentUser(parsed);
       }
     } catch {
-      // Ignore local storage error
+      // Ignore storage error
     }
   }, []);
 
@@ -67,6 +55,22 @@ export function App() {
 
       if (h.status === 'fulfilled') {
         setIsOnline(true);
+        const serverBootId = h.value.server_boot_id;
+        const storedBootId = sessionStorage.getItem(STORAGE_KEY_BOOT_ID);
+
+        // Detect backend process restart / kill: if server has a new boot ID, immediately log out
+        if (serverBootId) {
+          if (storedBootId && storedBootId !== serverBootId) {
+            sessionStorage.removeItem(STORAGE_KEY_USER);
+            sessionStorage.removeItem(STORAGE_KEY_TOKEN);
+            sessionStorage.setItem(STORAGE_KEY_BOOT_ID, serverBootId);
+            setCurrentUser(null);
+            setDocuments([]);
+            setBlocks([]);
+            return;
+          }
+          sessionStorage.setItem(STORAGE_KEY_BOOT_ID, serverBootId);
+        }
       } else {
         setIsOnline(false);
       }
@@ -76,18 +80,18 @@ export function App() {
         setOfficers(o.value);
         // Evict session if user does not exist in database, or sync keystore_password if missing
         try {
-          const savedUser = localStorage.getItem(STORAGE_KEY_USER);
+          const savedUser = sessionStorage.getItem(STORAGE_KEY_USER);
           if (savedUser) {
             const parsed = JSON.parse(savedUser);
             if (!o.value.some(u => u.username === parsed.username || u.id === parsed.id)) {
-              localStorage.removeItem(STORAGE_KEY_USER);
-              localStorage.removeItem(STORAGE_KEY_TOKEN);
+              sessionStorage.removeItem(STORAGE_KEY_USER);
+              sessionStorage.removeItem(STORAGE_KEY_TOKEN);
               setCurrentUser(null);
             } else if (!parsed.keystore_password) {
               ApiClient.getCurrentUser().then(fresh => {
                 if (fresh && fresh.keystore_password) {
                   setCurrentUser(fresh);
-                  localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(fresh));
+                  sessionStorage.setItem(STORAGE_KEY_USER, JSON.stringify(fresh));
                 }
               }).catch(() => {});
             }
@@ -112,10 +116,12 @@ export function App() {
     setCurrentUser(user);
     setDocuments([]);
     try {
-      localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user));
-      localStorage.setItem(STORAGE_KEY_TOKEN, token);
+      sessionStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user));
+      sessionStorage.setItem(STORAGE_KEY_TOKEN, token);
+      localStorage.removeItem(STORAGE_KEY_USER);
+      localStorage.removeItem(STORAGE_KEY_TOKEN);
     } catch {
-      // Ignore local storage error
+      // Ignore storage error
     }
     setActiveModule('overview');
     refreshAllData();
@@ -126,10 +132,12 @@ export function App() {
     setDocuments([]);
     setBlocks([]);
     try {
+      sessionStorage.removeItem(STORAGE_KEY_USER);
+      sessionStorage.removeItem(STORAGE_KEY_TOKEN);
       localStorage.removeItem(STORAGE_KEY_USER);
       localStorage.removeItem(STORAGE_KEY_TOKEN);
     } catch {
-      // Ignore local storage error
+      // Ignore storage error
     }
   };
 

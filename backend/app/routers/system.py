@@ -38,6 +38,7 @@ async def get_system_health():
         "status": "OPERATIONAL",
         "system": "CIPHERTRACE Confidential Document Security & Provenance",
         "version": "1.0.0-ENTERPRISE",
+        "server_boot_id": settings.BOOT_ID,
         "mode": settings.get_mode_label(),
         "timestamp": datetime.utcnow().isoformat(),
         "cryptographic_suite": {

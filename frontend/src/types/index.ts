@@ -146,6 +146,7 @@ export interface SystemHealth {
   status: string;
   system: string;
   version: string;
+  server_boot_id?: string;
   timestamp: string;
   cryptographic_suite: {
     kem: string;

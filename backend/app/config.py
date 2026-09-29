@@ -13,6 +13,7 @@ Usage:
 """
 
 import os
+import uuid
 from dataclasses import dataclass, field
 from typing import List
 
@@ -30,6 +31,9 @@ def _bool_env(key: str, default: bool = False) -> bool:
 @dataclass(frozen=True)
 class CipherTraceSettings:
     """Immutable application settings loaded from environment at startup."""
+
+    # Unique process boot ID generated fresh on every server startup/restart
+    BOOT_ID: str = field(default_factory=lambda: uuid.uuid4().hex)
 
     # ── Operational Mode ──────────────────────────────────────────────
     # DEMO_MODE=true  → allows quick login, local ledger, demo passwords

@@ -103,12 +103,6 @@ async def get_current_user_from_token(
         token = access_token
 
     if not token:
-        # In DEMO_MODE, allow fallback for development convenience if no token provided
-        if settings.DEMO_MODE:
-            res = await db.execute(select(User).order_by(User.id.asc()))
-            u = res.scalars().first()
-            if u:
-                return u
         raise HTTPException(status_code=401, detail="Authentication token required")
 
     # In DEMO_MODE, support legacy TOKEN-<id>-<uuid> tokens
