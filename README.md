@@ -44,8 +44,8 @@ This system is designed for high-security defense environments where traditional
 ├── /contracts          # Blockchain Chain-of-Custody Smart Contracts
 │   └── DocumentLedger.sol
 │
-├── setup.sh            # One-click dependency installer (Linux / Mac)
-├── setup.bat           # One-click dependency installer (Windows)
+├── setup.sh            # One-click dependency installer
+├── setup/              # Dependency installer scripts (install_dependencies.bat / .sh)
 ├── requirements.txt    # Unified dependencies
 └── README.md           # Defense Documentation
 ```
@@ -55,8 +55,7 @@ This system is designed for high-security defense environments where traditional
 ### 🚀 One-Click Setup & Launch
 
 #### Step 1: Install Dependencies
-* **Linux / Mac:** `./setup.sh`
-* **Windows:** Run `setup.bat` (or `pip install -r requirements.txt`)
+* **Automated Installation:** Run `setup/install_dependencies.bat` (Windows) or `./setup/install_dependencies.sh` (Linux/Mac). Alternatively: `pip install -r requirements.txt`.
 
 #### Step 2: Start Backend Server
 ```bash
