@@ -1,5 +1,6 @@
 import os
 import uuid
+import secrets
 from typing import List, Optional
 from datetime import datetime, timedelta, timezone
 import jwt
@@ -66,7 +67,7 @@ def create_access_token(user_id: int, username: str, role: str) -> str:
     return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
 
-def user_to_schema(u: User) -> UserSchema:
+def user_to_schema(u: User, include_secret: bool = True) -> UserSchema:
     kem_preview = f"0x{u.kem_public_key[:16].hex()}... ({len(u.kem_public_key)} B)" if u.kem_public_key else "0x0000... (0 B)"
     dsa_preview = f"0x{u.dsa_public_key[:16].hex()}... ({len(u.dsa_public_key)} B)" if u.dsa_public_key else "0x0000... (0 B)"
     return UserSchema(
@@ -85,7 +86,7 @@ def user_to_schema(u: User) -> UserSchema:
         key_status=u.key_status or "ACTIVE",
         ml_kem_pub_preview=kem_preview,
         ml_dsa_pub_preview=dsa_preview,
-        keystore_password=u.keystore_password or ""
+        keystore_password=(u.keystore_password or "") if include_secret else ""
     )
 
 
@@ -189,11 +190,15 @@ async def register(req: RegisterRequest, response: Response, db: AsyncSession = 
     # Pre-allocate user ID
     user_id_seed = int(uuid.uuid4().int % 900000 + 100000)
 
+    # Generate 16-bit pseudorandom keystore passcode (0x0000 to 0xFFFF)
+    keystore_secret_val = secrets.randbelow(65536)
+    keystore_secret = f"0x{keystore_secret_val:04X}"
+
     # Store private keys exclusively in encrypted keystore (NEVER in SQLite)
     keystore_path, kem_key_id, dsa_key_id = KeystoreManager.create_keystore(
         user_id=user_id_seed,
         username=cleaned_username,
-        password=req.password,
+        password=keystore_secret,
         kem_private_key=kem_priv,
         dsa_private_key=dsa_priv,
         kem_public_key=kem_pub,
@@ -204,7 +209,7 @@ async def register(req: RegisterRequest, response: Response, db: AsyncSession = 
     new_user = User(
         username=cleaned_username,
         password_hash=hash_password(req.password),
-        keystore_password=req.password,
+        keystore_password=keystore_secret,
         name=req.display_name.strip() or cleaned_username.capitalize(),
         navy_id=navy_id,
         rank=req.rank or "User",
@@ -351,7 +356,7 @@ async def list_users(db: AsyncSession = Depends(get_db)):
     """Lists registered users (public cryptographic metadata only; NO private keys)."""
     res = await db.execute(select(User).order_by(User.id.asc()))
     users = res.scalars().all()
-    return [user_to_schema(u) for u in users]
+    return [user_to_schema(u, include_secret=False) for u in users]
 
 
 @router.get("/me", response_model=UserSchema)

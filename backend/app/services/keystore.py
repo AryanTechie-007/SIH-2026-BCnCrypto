@@ -119,8 +119,8 @@ class KeystoreManager:
             kem_key_id: str (SHA3-256 fingerprint of KEM public key)
             signing_key_id: str (SHA3-256 fingerprint of DSA public key)
         """
-        if not password or len(password) < 8:
-            raise KeystoreError("Keystore password must be at least 8 characters long")
+        if not password or len(password) < 4:
+            raise KeystoreError("Keystore password cannot be empty")
 
         # Derive key IDs (fingerprints)
         kem_key_id = CryptoEngine.sha3_256(kem_public_key)[:32]

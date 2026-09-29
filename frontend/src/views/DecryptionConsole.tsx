@@ -426,14 +426,35 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
             )}
           </div>
 
-          {/* Keystore Password - unlocks the recipient's ML-KEM-768 / ML-DSA-65 private keys */}
+          {/* Keystore Passcode - unlocks the recipient's ML-KEM-768 / ML-DSA-65 private keys */}
           <div>
-            <div style={{ fontSize: '10px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', marginBottom: '6px' }}>
-              KEYSTORE PASSWORD (YOUR ACCOUNT PASSWORD):
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <div style={{ fontSize: '10px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
+                KEYSTORE PASSCODE (16-BIT PSEUDORANDOM VALUE):
+              </div>
+              {currentUser?.keystore_password && (
+                <button
+                  type="button"
+                  onClick={() => setKeystorePassword(currentUser.keystore_password || '')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#38bdf8',
+                    fontSize: '10px',
+                    fontFamily: 'var(--font-mono)',
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                    padding: 0
+                  }}
+                >
+                  Auto-Fill My Passcode ({currentUser.keystore_password})
+                </button>
+              )}
             </div>
             <input
-              type="password"
-              autoComplete="current-password"
+              type="text"
+              placeholder="e.g. 0x7B4E"
+              autoComplete="off"
               value={keystorePassword}
               onChange={e => setKeystorePassword(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && !isDecrypting) handleExecuteDecrypt(); }}
@@ -449,6 +470,9 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
                 borderRadius: '3px'
               }}
             />
+            <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px' }}>
+              Find your unique 16-bit passcode under the <strong>Account Management</strong> tab.
+            </div>
           </div>
 
           {/* Action Button */}

@@ -23,6 +23,7 @@ export interface UserAccount {
   clearance_level: string;
   device_id: string;
   status: string;
+  role?: string;
   ml_kem_pub_preview: string;
   ml_dsa_pub_preview: string;
   keystore_password?: string;

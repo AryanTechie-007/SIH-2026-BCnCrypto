@@ -31,7 +31,7 @@ async def list_enrolled_officers(db: AsyncSession = Depends(get_db)):
             key_status=u.key_status or "ACTIVE",
             ml_kem_pub_preview=f"0x{u.kem_public_key[:16].hex()}... ({len(u.kem_public_key)} bytes)",
             ml_dsa_pub_preview=f"0x{u.dsa_public_key[:16].hex()}... ({len(u.dsa_public_key)} bytes)",
-            keystore_password=u.keystore_password or ""
+            keystore_password=""
         )
         for u in users
     ]
@@ -60,5 +60,5 @@ async def get_officer(officer_id: int, db: AsyncSession = Depends(get_db)):
         key_status=u.key_status or "ACTIVE",
         ml_kem_pub_preview=f"0x{u.kem_public_key[:16].hex()}... ({len(u.kem_public_key)} bytes)",
         ml_dsa_pub_preview=f"0x{u.dsa_public_key[:16].hex()}... ({len(u.dsa_public_key)} bytes)",
-        keystore_password=u.keystore_password or ""
+        keystore_password=""
     )

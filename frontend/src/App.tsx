@@ -74,7 +74,7 @@ export function App() {
       if (d.status === 'fulfilled') setDocuments(d.value);
       if (o.status === 'fulfilled') {
         setOfficers(o.value);
-        // Evict session if user does not exist in database
+        // Evict session if user does not exist in database, or sync keystore_password if missing
         try {
           const savedUser = localStorage.getItem(STORAGE_KEY_USER);
           if (savedUser) {
@@ -83,6 +83,13 @@ export function App() {
               localStorage.removeItem(STORAGE_KEY_USER);
               localStorage.removeItem(STORAGE_KEY_TOKEN);
               setCurrentUser(null);
+            } else if (!parsed.keystore_password) {
+              ApiClient.getCurrentUser().then(fresh => {
+                if (fresh && fresh.keystore_password) {
+                  setCurrentUser(fresh);
+                  localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(fresh));
+                }
+              }).catch(() => {});
             }
           }
         } catch {
@@ -185,6 +192,7 @@ export function App() {
                 officers={officers}
                 currentUser={currentUser}
                 onAccountCreated={refreshAllData}
+                onOpenAuth={() => setIsAuthOpen(true)}
               />
             )}
 

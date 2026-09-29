@@ -45,12 +45,32 @@ def _keystore_path_for(user: User) -> str:
 
 def _resolve_keystore_password(req_password: Optional[str], user: User) -> str:
     """Resolves password to unlock local encrypted recipient keystore."""
+    keystore_path = _keystore_path_for(user)
+
     if req_password:
-        return req_password
+        p = req_password.strip()
+        if os.path.exists(keystore_path) and KeystoreManager.verify_password(keystore_path, p):
+            return p
+        candidates = [p, p.upper(), p.lower()]
+        if p.startswith("0x") or p.startswith("0X"):
+            raw = p[2:]
+            candidates.extend([raw, raw.upper(), raw.lower()])
+        else:
+            candidates.extend([f"0x{p}", f"0x{p.upper()}", f"0x{p.lower()}"])
+        if user.keystore_password:
+            candidates.append(user.keystore_password)
+
+        if os.path.exists(keystore_path):
+            for cand in candidates:
+                if KeystoreManager.verify_password(keystore_path, cand):
+                    return cand
+        return p
+
+    if user.keystore_password and os.path.exists(keystore_path):
+        if KeystoreManager.verify_password(keystore_path, user.keystore_password):
+            return user.keystore_password
 
     if settings.DEMO_MODE:
-        # Try known demo passwords
-        keystore_path = _keystore_path_for(user)
         if os.path.exists(keystore_path):
             for pwd in DEMO_PASSWORDS:
                 if KeystoreManager.verify_password(keystore_path, pwd):
