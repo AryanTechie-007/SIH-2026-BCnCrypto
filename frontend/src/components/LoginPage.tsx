@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ApiClient } from '../api/client';
 import { UserAccount, Officer } from '../types';
 import { LogIn, UserPlus, Shield, AlertOctagon, ShieldCheck, Cpu } from 'lucide-react';
+import { InteractiveSpottedBackground } from './InteractiveSpottedBackground';
 
 interface LoginPageProps {
   onLoginSuccess: (user: UserAccount, token: string) => void;
@@ -68,21 +69,19 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
       minHeight: '100vh',
       width: '100vw',
       backgroundColor: '#000000',
-      backgroundImage: `
-        radial-gradient(circle, rgba(37, 99, 235, 0.35) 1.5px, transparent 1.5px),
-        radial-gradient(circle at 50% 20%, rgba(37, 99, 235, 0.12), transparent 70%)
-      `,
-      backgroundSize: '24px 24px, 100% 100%',
-      backgroundPosition: '0 0, center',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
       padding: '24px',
-      color: 'var(--text-main)'
+      color: 'var(--text-main)',
+      position: 'relative',
+      overflow: 'hidden'
     }}>
+      <InteractiveSpottedBackground />
+
       {/* Brand Header */}
-      <div style={{ textAlign: 'center', marginBottom: '28px', maxWidth: '520px' }}>
+      <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', marginBottom: '28px', maxWidth: '520px' }}>
         <div style={{
           display: 'inline-flex',
           alignItems: 'center',
@@ -121,12 +120,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
 
       {/* Main Authentication Card */}
       <div style={{
+        position: 'relative',
+        zIndex: 1,
         width: '100%',
         maxWidth: '460px',
-        backgroundColor: 'var(--bg-panel)',
+        backgroundColor: 'rgba(10, 10, 10, 0.94)',
+        backdropFilter: 'blur(10px)',
         border: '1px solid var(--border-hard)',
         borderRadius: '6px',
-        boxShadow: '0 20px 40px rgba(0, 0, 0, 0.5)',
+        boxShadow: '0 20px 40px rgba(0, 0, 0, 0.6)',
         overflow: 'hidden'
       }}>
         {/* Card Tab Bar */}
