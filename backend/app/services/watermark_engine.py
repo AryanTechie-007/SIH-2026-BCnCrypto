@@ -46,7 +46,7 @@ class WatermarkEngine:
     FRAME_DATA_LEN = 16         # 16 bytes raw payload (128 bits + 7 bits control = 135 bits)
     ECC_STRATEGY = "Reed-Solomon RS(31, 27) over GF(2^5)"
 
-    def __init__(self, embed_strength: float = 8.0, render_dpi: int = 150):
+    def __init__(self, embed_strength: float = 18.0, render_dpi: int = 150):
         # RS(31, 27) over GF(2^5): 4 parity symbols, corrects 2 errors
         self.rs = RSCodec(self.PARITY_SYMBOLS, c_exp=self.SYMBOL_BITS)
         self.block_size = 8

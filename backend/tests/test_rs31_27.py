@@ -19,7 +19,7 @@ from reedsolo import ReedSolomonError
 class TestRS31_27WatermarkEngine(unittest.TestCase):
 
     def setUp(self):
-        self.engine = WatermarkEngine(embed_strength=8.0, render_dpi=150)
+        self.engine = WatermarkEngine(embed_strength=18.0, render_dpi=150)
         self.sample_pdf = os.path.abspath(os.path.join(os.path.dirname(__file__), 'sample_rs31_27.pdf'))
         self.output_pdf = os.path.abspath(os.path.join(os.path.dirname(__file__), 'output_rs31_27.pdf'))
 
