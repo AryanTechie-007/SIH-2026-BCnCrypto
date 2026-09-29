@@ -6,7 +6,7 @@ This system is designed for high-security defense environments where traditional
 ### 🏛️ The Three Pillars of QuantumGuard
 1. **The Backend (AI/PQC Brain):** FastAPI engine orchestrating NIST FIPS 203 ML-KEM + X25519 Hybrid Encryption, real-time Dynamic AI Sensitivity Classification, and Forensic Bit-Error-Rate (BER) confidence scoring.
 2. **The Desktop App (Command Center):** CustomTkinter modern dark-themed "Defense-Grade" workstation app featuring real-time AI Sensitivity gauge, file encryption, and chain-of-custody audit logs.
-3. **The Android Port (Field Access):** Native Kotlin client with biometric authentication, FLAG_SECURE display protection, and on-device hybrid decryption.
+3. **The Web & Forensic Workstation:** React + TypeScript interactive workstation UI for envelope distribution, decapsulation, forensic leak analysis, and Hyperledger Fabric DLT auditing.
 
 ---
 
@@ -36,14 +36,14 @@ This system is designed for high-security defense environments where traditional
 │   ├── main_app.py     # Dark-themed UI with real-time AI Sensitivity Gauge
 │   └── assets/         # UI assets and logos
 │
-├── /android            # Native Kotlin Android Mobile App
-│   ├── /app/src/main/java/com/sih2026/quantumguard/HybridSecurityManager.kt
-│   └── build.gradle.kts
+├── /frontend           # React + TypeScript Web Workstation Console
+│   ├── src/            # Encryption, Decryption & Forensic Leak Labs
+│   └── package.json
 │
-├── /contracts          # Blockchain Chain-of-Custody Logic
+├── /forensic-audit     # Hyperledger Fabric DLT Forensic Audit Chaincode & Client
+├── /contracts          # Blockchain Chain-of-Custody Smart Contracts
 │   └── DocumentLedger.sol
 │
-├── /frontend           # React + TypeScript Web Console (Optional)
 ├── setup.sh            # One-click dependency installer (Linux / Mac)
 ├── setup.bat           # One-click dependency installer (Windows)
 ├── requirements.txt    # Unified dependencies
@@ -70,8 +70,10 @@ cd backend && python main.py
 python desktop/main_app.py
 ```
 
-#### Step 4: Open Android Mobile App
-Open the `./android` folder in **Android Studio** and run on device/emulator.
+#### Step 4: Start Web Workstation Console
+```bash
+cd frontend && npm run dev
+```
 
 ---
 
@@ -154,10 +156,6 @@ QuantumGuard guarantees that **no recipient can access a confidential document w
 * Calculates court-admissible confidence scoring ($\text{Confidence} = \max(0, 100 - (\text{BER} \times 500))$).
 * Determines evidentiary admissibility (`VALID` vs. `QUESTIONABLE`) and reconstruction success rate.
 
-### 4. 📱 Android Field Client (`HybridSecurityManager`)
-* **Hardware Shielding:** Enforces `FLAG_SECURE` window policies to prevent screenshotting, screen capture, and display tampering on mobile devices.
-* **On-Device Hybrid Decryption:** Unpacks quantum and classical secret envelopes directly on endpoint memory.
-
 ---
 
 ## 🛠️ Software Stack & Key Libraries
@@ -165,7 +163,7 @@ QuantumGuard guarantees that **no recipient can access a confidential document w
 | Component | Library / Tool | Standard / Specification |
 | :--- | :--- | :--- |
 | **Desktop UI** | `customtkinter` | Modern Defense-Grade Dark UI |
-| **Mobile Client** | Kotlin / Android Jetpack | Material 3 + Biometrics |
+| **Web Workstation** | React 18 / TypeScript / Vite | Modern Tactical Dark UI |
 | **Post-Quantum KEM** | `liboqs` / `mlkem` | NIST FIPS 203 (ML-KEM-512 / 768 / 1024) |
 | **Post-Quantum Signatures** | `liboqs` / `dilithium-py` | NIST FIPS 204 (ML-DSA-65) |
 | **Classical Asymmetric** | `cryptography` (X25519) | RFC 7748 |
@@ -174,3 +172,4 @@ QuantumGuard guarantees that **no recipient can access a confidential document w
 | **Smart Contracts** | Solidity & Chaincode | Immutable Chain-of-Custody |
 | **Forward Error Correction**| `reedsolo` | Reed-Solomon RS(255, 127) over GF(2^8) |
 | **Web API Engine** | `fastapi`, `uvicorn` | ASGI High-Performance Async |
+

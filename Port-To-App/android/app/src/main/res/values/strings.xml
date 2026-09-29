@@ -1,7 +1,0 @@
-<resources>
-    <string name="app_name">CIPHERTRACE</string>
-    <string name="app_tagline">Post-Quantum Cryptographic Field Terminal</string>
-    <string name="biometric_title">Biometric Cryptographic Authorization</string>
-    <string name="biometric_subtitle">Authenticate using biometric hardware to authorize post-quantum decapsulation</string>
-    <string name="biometric_negative">Cancel</string>
-</resources>
