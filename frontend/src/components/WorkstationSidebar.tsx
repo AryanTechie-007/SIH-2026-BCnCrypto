@@ -201,18 +201,24 @@ export const WorkstationSidebar: React.FC<WorkstationSidebarProps> = ({
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
               <div
                 style={{
-                  background: 'linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)',
-                  color: '#ffffff',
-                  padding: '5px 7px',
-                  fontSize: '11px',
-                  fontWeight: 900,
-                  letterSpacing: '0.08em',
-                  borderRadius: '4px',
-                  boxShadow: '0 2px 6px rgba(37, 99, 235, 0.3)',
+                  width: '28px',
+                  height: '28px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                   flexShrink: 0
                 }}
               >
-                CT
+                <img
+                  src="/logo.png"
+                  alt="CipherTrace Logo"
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'contain',
+                    filter: 'drop-shadow(0 0 5px rgba(56, 189, 248, 0.45))'
+                  }}
+                />
               </div>
               <div
                 style={{
@@ -270,17 +276,24 @@ export const WorkstationSidebar: React.FC<WorkstationSidebarProps> = ({
           >
             <div
               style={{
-                background: 'linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)',
-                color: '#ffffff',
-                padding: '5px 7px',
-                fontSize: '11px',
-                fontWeight: 900,
-                letterSpacing: '0.08em',
-                borderRadius: '4px',
-                boxShadow: '0 2px 6px rgba(37, 99, 235, 0.3)'
+                width: '32px',
+                height: '32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
               }}
             >
-              CT
+              <img
+                src="/logo.png"
+                alt="CipherTrace Logo"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'contain',
+                  filter: 'drop-shadow(0 0 6px rgba(56, 189, 248, 0.5))'
+                }}
+              />
             </div>
 
             <button

@@ -97,7 +97,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
           letterSpacing: '0.04em',
           marginBottom: '14px'
         }}>
-          <Shield size={13} />
+          <img
+            src="/logo.png"
+            alt="CipherTrace Logo"
+            style={{ width: '15px', height: '15px', objectFit: 'contain', filter: 'drop-shadow(0 0 4px rgba(56, 189, 248, 0.5))' }}
+          />
           <span>CIPHERTRACE</span>
         </div>
         <h1 style={{
