@@ -526,12 +526,12 @@ export const AccountManagementConsole: React.FC<AccountManagementConsoleProps> =
                 <Lock size={15} style={{ flexShrink: 0, marginTop: '2px', color: '#60a5fa' }} />
                 <div>
                   Your post-quantum private keys are secured inside your local encrypted keystore.
-                  The <strong>16-bit pseudorandom passcode</strong> below is decoupled from your login password.
+                  The <strong>16-bit keystore passcode</strong> below is decoupled from your login password.
                   Use this passcode in the <strong>Decryption Lab</strong> to unlock incoming encrypted documents.
                 </div>
               </div>
 
-              {/* 16-Bit Pseudorandom Passcode Display Box */}
+              {/* 16-Bit Passcode Display Box */}
               <div style={{
                 backgroundColor: 'var(--bg-core)',
                 border: '1px solid var(--border-hard)',
@@ -545,7 +545,7 @@ export const AccountManagementConsole: React.FC<AccountManagementConsoleProps> =
               }}>
                 <div>
                   <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.05em', marginBottom: '4px' }}>
-                    16-BIT PSEUDORANDOM KEYSTORE PASSCODE
+                    16-BIT KEYSTORE PASSCODE
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <span className="font-mono" style={{
@@ -622,7 +622,7 @@ export const AccountManagementConsole: React.FC<AccountManagementConsoleProps> =
                     <span>ENTROPY DERIVATION</span>
                   </div>
                   <div style={{ color: '#93c5fd', fontSize: '11px' }}>
-                    16-Bit Pseudorandom Integer (0x0000 - 0xFFFF)
+                    16-Bit Key Passcode (0x0000 - 0xFFFF)
                   </div>
                 </div>
               </div>
