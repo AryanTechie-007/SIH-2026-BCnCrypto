@@ -67,8 +67,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
     <div style={{
       minHeight: '100vh',
       width: '100vw',
-      backgroundColor: 'var(--bg-core)',
-      backgroundImage: 'radial-gradient(circle at 50% 15%, rgba(2, 132, 199, 0.08), transparent 60%)',
+      backgroundColor: '#000000',
+      backgroundImage: `
+        radial-gradient(circle, rgba(37, 99, 235, 0.35) 1.5px, transparent 1.5px),
+        radial-gradient(circle at 50% 20%, rgba(37, 99, 235, 0.12), transparent 70%)
+      `,
+      backgroundSize: '24px 24px, 100% 100%',
+      backgroundPosition: '0 0, center',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
@@ -204,7 +209,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
                   type="text"
                   value={username}
                   onChange={e => setUsername(e.target.value)}
-                  placeholder="e.g. alice, bob, charlie"
                   className="tactical-input"
                   required
                 />
@@ -218,7 +222,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
                   type="password"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  placeholder="Enter security password"
                   className="tactical-input"
                   required
                 />
@@ -252,7 +255,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
                   type="text"
                   value={username}
                   onChange={e => setUsername(e.target.value)}
-                  placeholder="Unique username identifier"
                   className="tactical-input"
                   required
                 />
@@ -266,7 +268,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
                   type="text"
                   value={displayName}
                   onChange={e => setDisplayName(e.target.value)}
-                  placeholder="Alice Chen"
                   className="tactical-input"
                   required
                 />
@@ -280,7 +281,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
                   type="password"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  placeholder="Create strong passphrase"
                   className="tactical-input"
                   required
                 />

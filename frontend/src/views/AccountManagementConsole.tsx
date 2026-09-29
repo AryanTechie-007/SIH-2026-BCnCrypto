@@ -210,7 +210,6 @@ export const AccountManagementConsole: React.FC<AccountManagementConsoleProps> =
                 type="text"
                 value={fullName}
                 onChange={e => setFullName(e.target.value)}
-                placeholder="e.g. Sarah Connor"
                 style={{
                   width: '100%',
                   padding: '9px 12px',
@@ -232,7 +231,6 @@ export const AccountManagementConsole: React.FC<AccountManagementConsoleProps> =
                 type="text"
                 value={username}
                 onChange={e => setUsername(e.target.value)}
-                placeholder="e.g. sarah.connor"
                 style={{
                   width: '100%',
                   padding: '9px 12px',
@@ -271,7 +269,6 @@ export const AccountManagementConsole: React.FC<AccountManagementConsoleProps> =
                 type="text"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                placeholder="Min 8 characters password"
                 style={{
                   width: '100%',
                   padding: '9px 12px',
@@ -333,7 +330,6 @@ export const AccountManagementConsole: React.FC<AccountManagementConsoleProps> =
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Filter by name, username, ID..."
                 style={{
                   background: 'transparent',
                   border: 'none',

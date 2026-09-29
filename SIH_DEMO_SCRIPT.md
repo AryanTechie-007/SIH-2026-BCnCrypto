@@ -14,7 +14,7 @@
 1. **Navigate to "Documents" tab**.
 2. **Show document payload**: Point to `CONFIDENTIAL_FINANCIAL_AUDIT.pdf`.
 3. **Point out the SHA3-256 Digest**: *"This is our tamper anchor. We never encrypt the entire file separately per recipient."*
-4. **Select Recipients**: Check *Alice Chen* and *Bob Smith*.
+4. **Select Recipients**: Check *Recipient 1* and *Recipient 2*.
 5. **Click "SECURE ENVELOPE DISTRIBUTE"**:
    - Explain: *"We use hybrid envelope encryption: one AES-256-GCM document ciphertext, but the 256-bit Document Encryption Key is encapsulated using NIST FIPS 203 **ML-KEM-768** lattice cryptography per recipient."*
    - Show the generated key envelopes.
@@ -23,7 +23,7 @@
 
 ### 🎬 Scene 2: Recipient Terminal (Atomic Decryption & PQC Signing) — 60s
 1. **Navigate to "Decrypt" tab**.
-2. **Select User**: Choose *Alice Chen (`USR-0231`)*.
+2. **Select User**: Choose *Recipient 1 (`USR-0231`)*.
 3. **Show Credentials**: Point to authorized device ID and ML-DSA-65 signing key ID in the secure enclave.
 4. **Click "DECRYPT & AUTHORIZE DOCUMENT"**:
    - Watch the animated **6-step atomic security checklist**:
@@ -36,7 +36,7 @@
 5. **Show Result**:
    - Document is decrypted.
    - Point to the **Watermark Identifier**: `WM-7A91...`.
-   - **Crucial Point**: *"If Alice decrypts the same file again 10 minutes later, an entirely new nonce, watermark ID, and ML-DSA signature are generated. Every viewing session has its own forensic timeline."*
+   - **Crucial Point**: *"If Recipient 1 decrypts the same file again 10 minutes later, an entirely new nonce, watermark ID, and ML-DSA signature are generated. Every viewing session has its own forensic timeline."*
 
 ---
 
@@ -47,7 +47,7 @@
    - Watch the 6-stage pipeline animate:
      - Rasterization $\rightarrow$ DCT frequency sampling $\rightarrow$ Reed-Solomon ECC decoding $\rightarrow$ Ledger search $\rightarrow$ ML-DSA verification $\rightarrow$ Merkle proof verification.
 4. **Show Hero Result**:
-   - **ATTRIBUTION VERIFIED**: Alice Chen (`USR-0231`).
+   - **ATTRIBUTION VERIFIED**: Recipient 1 (`USR-0231`).
    - Organization: *Operations Directorate*.
    - Exact Timestamp and Device ID.
    - 6-Link Cryptographic Verification: **All Passed**.
@@ -91,7 +91,7 @@
 ## Top 5 Judge Questions & Golden Answers
 
 ### Q1: *"Why do you need blockchain/DLT in an air-gapped system?"*
-> **Answer**: *"A centralized SQL database has a 'root admin' who can run `UPDATE logs SET recipient = 'Bob' WHERE event_id = '123'`. In defense and military scenarios, insider threats are critical. Our permissioned DLT ensures that multiple authorities (Security, Audit, and Forensic command) maintain cryptographic replicas with SHA3-256 hash chaining and Merkle trees. No single admin can rewrite history."*
+> **Answer**: *"A centralized SQL database has a 'root admin' who can run `UPDATE logs SET recipient = 'User B' WHERE event_id = '123'`. In defense and military scenarios, insider threats are critical. Our permissioned DLT ensures that multiple authorities (Security, Audit, and Forensic command) maintain cryptographic replicas with SHA3-256 hash chaining and Merkle trees. No single admin can rewrite history."*
 
 ### Q2: *"Why Post-Quantum Cryptography (ML-KEM and ML-DSA) right now?"*
 > **Answer**: *"NIST finalized FIPS 203 (ML-KEM) and FIPS 204 (ML-DSA) in August 2024. Defense documents distributed today have a 20-to-30-year operational classification. Under 'Store Now, Decrypt Later' threats, adversaries store encrypted intercepts until quantum computers can break RSA/ECC. Using ML-KEM-768 and ML-DSA-65 ensures post-quantum secrecy and non-repudiation."*

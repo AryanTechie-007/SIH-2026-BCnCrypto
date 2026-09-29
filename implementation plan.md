@@ -179,16 +179,16 @@ SIH 2026/
    - Double-click `start_demo.bat` (Windows) or execute `./start_demo.sh` (Linux).
    - UI opens at `http://localhost:5173`.
 3. **Stage 1 (Sender Distribution)**:
-   - Log in as Alice Chen (`USR-0001`).
+   - Log in as Authorized Sender (`USR-0001`).
    - Upload confidential document (`CONFIDENTIAL_REPORT.pdf`).
-   - Designate Alice Chen and Bob Smith as authorized recipients. Exclude Charlie Davis.
+   - Designate Recipient A and Recipient B as authorized recipients. Exclude Unauthorized User (`USR-0003`).
    - Click **ENCRYPT & DISTRIBUTE**: AES-256-GCM encrypts payload; ML-KEM-768 encapsulates DEK per authorized recipient.
 4. **Stage 2 (Access Control Verification)**:
-   - Switch active identity to Charlie Davis (`USR-0003`).
+   - Switch active identity to Unauthorized User (`USR-0003`).
    - Attempt decryption: Enclave blocks decryption with HTTP 403 `ACCESS DENIED` alert.
 5. **Stage 3 (Authorized Decryption & Non-Repudiation)**:
-   - Switch active identity to Alice Chen.
-   - Unlock local encrypted keystore (`user_alice.keystore`).
+   - Switch active identity to Recipient A.
+   - Unlock local encrypted keystore (`recipient_keystore.keystore`).
    - ML-KEM decapsulates DEK inside keystore memory; document is decrypted; unique 127-byte RS(255,127) watermark is embedded in the 2D DCT luminance channel.
    - Recipient's local ML-DSA-65 private key signs the event receipt.
    - Event and signature are committed to the permissioned blockchain.
@@ -196,7 +196,7 @@ SIH 2026/
 6. **Stage 4 (Forensic Attribution & Evidence)**:
    - Ingest leaked PDF in the Forensic Console.
    - 2D DCT extracts hidden bitstream; RS(255,127) corrects symbol errors; Watermark ID recovered.
-   - System queries ledger (`LookupByWatermark`), executes 6 cryptographic verification gates, and confirms Alice Chen as the source of the leak with 100% mathematical confidence.
+   - System queries ledger (`LookupByWatermark`), executes 6 cryptographic verification gates, and confirms Recipient A as the source of the leak with 100% mathematical confidence.
    - Download court-admissible signed Evidence Bundle JSON.
 7. **Stage 5 (Adversarial Robustness Lab)**:
    - Subject watermarked document to JPEG Q35 compression and 12% margin crop.

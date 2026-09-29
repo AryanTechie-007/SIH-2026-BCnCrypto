@@ -212,7 +212,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   type="text"
                   value={username}
                   onChange={e => setUsername(e.target.value)}
-                  placeholder="Enter username"
                   className="tactical-input"
                   style={{ width: '100%', padding: '10px 12px', fontSize: '12px' }}
                   required
@@ -227,7 +226,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   type="password"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  placeholder="Enter your account password"
                   className="tactical-input"
                   style={{ width: '100%', padding: '10px 12px', fontSize: '12px' }}
                   required
@@ -255,7 +253,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     type="text"
                     value={username}
                     onChange={e => setUsername(e.target.value)}
-                    placeholder="Enter username"
                     className="tactical-input"
                     style={{ width: '100%', padding: '8px 10px', fontSize: '12px' }}
                     required
@@ -269,7 +266,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     type="text"
                     value={displayName}
                     onChange={e => setDisplayName(e.target.value)}
-                    placeholder="Enter full name"
                     className="tactical-input"
                     style={{ width: '100%', padding: '8px 10px', fontSize: '12px' }}
                     required
@@ -286,7 +282,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     type="password"
                     value={password}
                     onChange={e => setPassword(e.target.value)}
-                    placeholder="Create password"
                     className="tactical-input"
                     style={{ width: '100%', padding: '8px 10px', fontSize: '12px' }}
                     required
@@ -320,7 +315,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   type="text"
                   value={deviceId}
                   onChange={e => setDeviceId(e.target.value)}
-                  placeholder="Enter device name"
                   className="tactical-input"
                   style={{ width: '100%', padding: '8px 10px', fontSize: '12px' }}
                 />

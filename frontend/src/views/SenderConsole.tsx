@@ -258,7 +258,7 @@ export const SenderConsole: React.FC<SenderConsoleProps> = ({ currentUser, onOpe
                 {onOpenAuth && (
                   <button onClick={onOpenAuth} className="tactical-btn tactical-btn-secondary" style={{ margin: '0 auto', fontSize: '11px' }}>
                     <UserPlus size={12} />
-                    <span>Register User Accounts (Alice / Bob / Aryan)</span>
+                    <span>Register User Accounts</span>
                   </button>
                 )}
               </div>
