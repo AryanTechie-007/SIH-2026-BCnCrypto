@@ -8,13 +8,11 @@ import {
   Eye,
   EyeOff,
   ShieldCheck,
-  AlertCircle,
   RefreshCw,
   UserCheck,
   Cpu,
   HardDrive,
   Lock,
-  UserPlus,
   Terminal,
   ShieldAlert
 } from 'lucide-react';
@@ -37,14 +35,7 @@ export const AccountManagementConsole: React.FC<AccountManagementConsoleProps> =
   const [isLoading, setIsLoading] = useState(false);
   const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
 
-  // Optional drawer for enrolling secondary identities on this workstation
-  const [showEnrollDrawer, setShowEnrollDrawer] = useState(false);
-  const [fullName, setFullName] = useState('');
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [enrollError, setEnrollError] = useState<string | null>(null);
-  const [enrollSuccess, setEnrollSuccess] = useState<string | null>(null);
+
 
   // Synchronize and refresh currentUser profile from backend
   const fetchLatestProfile = async () => {
@@ -77,44 +68,6 @@ export const AccountManagementConsole: React.FC<AccountManagementConsoleProps> =
     navigator.clipboard.writeText(secret);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
-  };
-
-  const handleEnrollIdentity = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const cleanUser = username.trim().toLowerCase();
-    if (!cleanUser || !password) {
-      setEnrollError('Username and account login password are required.');
-      return;
-    }
-    if (password.length < 8) {
-      setEnrollError('Login password must be at least 8 characters long.');
-      return;
-    }
-
-    try {
-      setIsSubmitting(true);
-      setEnrollError(null);
-      setEnrollSuccess(null);
-
-      const res = await ApiClient.register({
-        username: cleanUser,
-        password: password,
-        display_name: fullName.trim() || cleanUser,
-        rank: 'User',
-        device_id: `DEV-${cleanUser.toUpperCase()}`
-      });
-
-      const secretVal = res.user.keystore_password || 'Assigned';
-      setEnrollSuccess(`Identity '${res.user.name}' enrolled! 16-bit Keystore Secret: ${secretVal}`);
-      setFullName('');
-      setUsername('');
-      setPassword('');
-      if (onAccountCreated) onAccountCreated();
-    } catch (err: any) {
-      setEnrollError(err.message || 'Failed to enroll new identity.');
-    } finally {
-      setIsSubmitting(false);
-    }
   };
 
   // If no user is logged in
@@ -216,165 +169,8 @@ export const AccountManagementConsole: React.FC<AccountManagementConsoleProps> =
             <RefreshCw size={12} className={isLoading ? 'spin' : ''} />
             <span>{isLoading ? 'Syncing...' : 'Sync Enclave'}</span>
           </button>
-          <button
-            onClick={() => setShowEnrollDrawer(!showEnrollDrawer)}
-            className="tactical-btn"
-            style={{
-              padding: '6px 14px',
-              fontSize: '11px',
-              backgroundColor: showEnrollDrawer ? 'rgba(37, 99, 235, 0.2)' : 'transparent',
-              borderColor: 'var(--border-hard)',
-              color: '#93c5fd'
-            }}
-          >
-            <UserPlus size={12} />
-            <span>{showEnrollDrawer ? 'Close Enrollment' : 'Enroll Another Identity'}</span>
-          </button>
         </div>
       </div>
-
-      {/* Optional Collapsible Enrollment Drawer (starts closed, never clutters) */}
-      {showEnrollDrawer && (
-        <div style={{
-          backgroundColor: 'var(--bg-panel)',
-          border: '1px solid var(--border-hard)',
-          borderLeft: '4px solid #38bdf8',
-          borderRadius: '4px',
-          padding: '20px',
-          animation: 'fadeIn 0.2s ease-in'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-            <UserPlus size={16} color="#38bdf8" />
-            <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#ffffff', margin: 0 }}>
-              Enroll Additional Operator Identity
-            </h3>
-            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-              (Registers a separate post-quantum identity with its own 16-bit keystore passcode)
-            </span>
-          </div>
-
-          {enrollError && (
-            <div style={{
-              backgroundColor: 'rgba(239, 68, 68, 0.1)',
-              border: '1px solid #ef4444',
-              color: '#fca5a5',
-              padding: '10px 14px',
-              borderRadius: '4px',
-              fontSize: '11px',
-              marginBottom: '14px',
-              display: 'flex',
-              gap: '8px',
-              alignItems: 'center'
-            }}>
-              <AlertCircle size={14} style={{ flexShrink: 0 }} />
-              <span>{enrollError}</span>
-            </div>
-          )}
-
-          {enrollSuccess && (
-            <div style={{
-              backgroundColor: 'rgba(16, 185, 129, 0.1)',
-              border: '1px solid #10b981',
-              color: '#6ee7b7',
-              padding: '10px 14px',
-              borderRadius: '4px',
-              fontSize: '11px',
-              marginBottom: '14px',
-              display: 'flex',
-              gap: '8px',
-              alignItems: 'center'
-            }}>
-              <ShieldCheck size={14} style={{ flexShrink: 0 }} />
-              <span>{enrollSuccess}</span>
-            </div>
-          )}
-
-          <form onSubmit={handleEnrollIdentity} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr)) 160px', gap: '12px', alignItems: 'end' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '10px', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '4px', letterSpacing: '0.04em' }}>
-                FULL NAME
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. Alex Mercer"
-                value={fullName}
-                onChange={e => setFullName(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  backgroundColor: 'var(--bg-input)',
-                  border: '1px solid var(--border-hard)',
-                  borderRadius: '3px',
-                  color: '#ffffff',
-                  fontSize: '12px'
-                }}
-                required
-              />
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '10px', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '4px', letterSpacing: '0.04em' }}>
-                USERNAME
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. amercer"
-                value={username}
-                onChange={e => setUsername(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  backgroundColor: 'var(--bg-input)',
-                  border: '1px solid var(--border-hard)',
-                  borderRadius: '3px',
-                  color: '#ffffff',
-                  fontSize: '12px'
-                }}
-                required
-              />
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '10px', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '4px', letterSpacing: '0.04em' }}>
-                LOGIN PASSWORD
-              </label>
-              <input
-                type="password"
-                placeholder="Min 8 characters"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  backgroundColor: 'var(--bg-input)',
-                  border: '1px solid var(--border-hard)',
-                  borderRadius: '3px',
-                  color: '#ffffff',
-                  fontSize: '12px'
-                }}
-                required
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="tactical-btn tactical-btn-primary"
-              style={{
-                padding: '9px 14px',
-                fontSize: '11px',
-                fontWeight: 700,
-                backgroundColor: '#2563eb',
-                borderColor: '#3b82f6',
-                height: '37px'
-              }}
-            >
-              <Key size={13} />
-              <span>{isSubmitting ? 'GENERATING...' : 'ENROLL'}</span>
-            </button>
-          </form>
-        </div>
-      )}
 
       {/* Primary Account Grid: Profile Card (Left) and Keystore Credentials Card (Right) */}
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 380px) 1fr', gap: '20px', alignItems: 'start' }}>
