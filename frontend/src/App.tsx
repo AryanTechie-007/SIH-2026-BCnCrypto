@@ -103,6 +103,7 @@ export function App() {
 
   const handleLoginSuccess = (user: UserAccount, token: string) => {
     setCurrentUser(user);
+    setDocuments([]);
     try {
       localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user));
       localStorage.setItem(STORAGE_KEY_TOKEN, token);
@@ -115,6 +116,8 @@ export function App() {
 
   const handleLogout = () => {
     setCurrentUser(null);
+    setDocuments([]);
+    setBlocks([]);
     try {
       localStorage.removeItem(STORAGE_KEY_USER);
       localStorage.removeItem(STORAGE_KEY_TOKEN);

@@ -26,8 +26,14 @@ async function safeFetch(url: string, options?: RequestInit): Promise<Response> 
   const executeFetch = async (targetUrl: string, timeout: number): Promise<Response> => {
     const controller = new AbortController();
     const timer = timeout > 0 ? setTimeout(() => controller.abort(), timeout) : null;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('ciphertrace_operator_token') : null;
+    const authHeaders: Record<string, string> = token ? { 'Authorization': `Bearer ${token}` } : {};
     const fetchOptions: RequestInit = {
       ...options,
+      headers: {
+        ...authHeaders,
+        ...(options?.headers || {})
+      },
       signal: options?.signal || controller.signal
     };
     try {

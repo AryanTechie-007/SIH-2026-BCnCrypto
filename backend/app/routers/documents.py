@@ -44,10 +44,23 @@ def _validate_doc_magic(content: bytes) -> str:
 
 @router.get("", response_model=List[DocumentSchema])
 @router.get("/", response_model=List[DocumentSchema])
-async def list_documents(db: AsyncSession = Depends(get_db)):
-    """Lists all confidential documents registered in the system."""
-    result = await db.execute(select(Document).order_by(Document.id.desc()))
-    docs = result.scalars().all()
+async def list_documents(
+    current_user: Optional[User] = Depends(get_current_user_from_token),
+    db: AsyncSession = Depends(get_db)
+):
+    """Lists confidential documents belonging strictly to the authenticated user session."""
+    if isinstance(current_user, AsyncSession):
+        db = current_user
+        current_user = None
+
+    if current_user and hasattr(current_user, 'id'):
+        result = await db.execute(
+            select(Document).where(Document.uploader_id == current_user.id).order_by(Document.id.desc())
+        )
+        docs = result.scalars().all()
+    else:
+        docs = []
+
     return [
         DocumentSchema(
             id=d.id,
@@ -73,6 +86,7 @@ async def upload_document(
     - Validates file magic bytes (must be authentic PDF).
     - Generates UUID storage path (never trusts browser-provided filename).
     - Computes NIST FIPS 202 SHA3-256 digest.
+    - Scopes document ownership strictly to current_user session.
     """
     if isinstance(current_user, AsyncSession):
         db = current_user
@@ -106,7 +120,8 @@ async def upload_document(
         title=f"CONFIDENTIAL ASSET: {sanitized_display_name.upper()}",
         sha3_hash=doc_hash,
         original_path=target_path,
-        size_bytes=size
+        size_bytes=size,
+        uploader_id=current_user.id if (current_user and hasattr(current_user, "id")) else None
     )
     db.add(new_doc)
     await db.commit()

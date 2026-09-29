@@ -53,8 +53,10 @@ class Document(Base):
     sha3_hash = Column(String, nullable=False)
     original_path = Column(String, nullable=False)
     size_bytes = Column(Integer, nullable=False)
+    uploader_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    uploader = relationship("User", foreign_keys=[uploader_id])
     distributions = relationship("Distribution", back_populates="document", cascade="all, delete-orphan")
 
 
