@@ -28,6 +28,7 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
   // Execution states
   const [isDecrypting, setIsDecrypting] = useState(false);
   const [activeStage, setActiveStage] = useState<number>(0);
+  const [progressPercent, setProgressPercent] = useState<number>(0);
   const [decryptionResult, setDecryptionResult] = useState<DecryptionResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -59,7 +60,8 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
 
     setErrorMessage(null);
     setDecryptionResult(null);
-    setActiveStage(1);
+    setActiveStage(0);
+    setProgressPercent(0);
     setUploadedEncFile(file);
 
     try {
@@ -93,21 +95,41 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
       setErrorMessage(null);
       setDecryptionResult(null);
 
-      // Stage progression animation
+      // Stage 1: Selection & Verification (0% -> 14.3%)
+      setActiveStage(1);
+      setProgressPercent(14.3);
+      await new Promise(r => setTimeout(r, 220));
+
+      // Stage 2: Keystore Authentication (14.3% -> 28.6%)
       setActiveStage(2);
-      await new Promise(r => setTimeout(r, 120));
+      setProgressPercent(28.6);
+      await new Promise(r => setTimeout(r, 250));
+
+      // Stage 3: ML-KEM-768 Decapsulation & AES-GCM (28.6% -> 42.8%)
       setActiveStage(3);
+      setProgressPercent(42.8);
 
       const result = await ApiClient.decryptEnvelopeFile(uploadedEncFile, selectedRecipientId, undefined, keystorePassword.trim());
 
-      // Finish stages
+      // Stage 4: 2D DCT Forensic Watermark (42.8% -> 57.1%)
       setActiveStage(4);
-      await new Promise(r => setTimeout(r, 150));
+      setProgressPercent(57.1);
+      await new Promise(r => setTimeout(r, 240));
+
+      // Stage 5: ML-DSA-65 Audit Signature (57.1% -> 71.4%)
       setActiveStage(5);
-      await new Promise(r => setTimeout(r, 150));
+      setProgressPercent(71.4);
+      await new Promise(r => setTimeout(r, 240));
+
+      // Stage 6: Distributed Consensus Commit (71.4% -> 85.7%)
       setActiveStage(6);
-      await new Promise(r => setTimeout(r, 150));
+      setProgressPercent(85.7);
+      await new Promise(r => setTimeout(r, 240));
+
+      // Stage 7: Plaintext Verification & Release (85.7% -> 100%)
       setActiveStage(7);
+      setProgressPercent(100);
+      await new Promise(r => setTimeout(r, 260));
 
       setDecryptionResult(result);
       setKeystorePassword('');
@@ -115,6 +137,7 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
     } catch (err: any) {
       setErrorMessage(err.message || 'Decryption failed. Recipient may not be authorized for this document.');
       setActiveStage(0);
+      setProgressPercent(0);
     } finally {
       setIsDecrypting(false);
     }
@@ -137,49 +160,130 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
   return (
     <div style={{ padding: '24px', maxWidth: '1440px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-      {/* 7-Step Pipeline Breadcrumb Bar */}
+      {/* 7-Step Pipeline Breadcrumb Bar with Left-to-Right Moving Green Bar */}
       <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(7, 1fr)',
-        gap: '6px',
+        position: 'relative',
         backgroundColor: 'var(--bg-panel)',
         border: '1px solid var(--border-hard)',
-        padding: '10px 14px'
+        padding: '12px 14px 16px',
+        borderRadius: '4px',
+        overflow: 'hidden'
       }}>
-        {stages.map((stage, idx) => {
-          const stepNum = idx + 1;
-          const isDone = activeStage > stepNum;
-          const isCurrent = activeStage === stepNum;
+        {/* Continuous Master Green Progress Bar Moving from Left to Right */}
+        <div style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          height: '3px',
+          width: `${progressPercent}%`,
+          background: 'linear-gradient(90deg, #059669 0%, #10b981 50%, #34d399 100%)',
+          boxShadow: progressPercent > 0 ? '0 0 10px rgba(16, 185, 129, 0.8), 0 0 20px rgba(16, 185, 129, 0.4)' : 'none',
+          transition: 'width 0.28s cubic-bezier(0.4, 0, 0.2, 1)',
+          zIndex: 10
+        }} />
 
-          return (
-            <div
-              key={stage.num}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '6px 10px',
-                backgroundColor: isCurrent ? 'rgba(56, 189, 248, 0.12)' : isDone ? 'rgba(16, 185, 129, 0.08)' : 'var(--bg-input)',
-                border: isCurrent ? '1px solid #38bdf8' : isDone ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid var(--border-hard)',
-                borderRadius: '3px',
-                fontSize: '11px',
-                fontFamily: 'var(--font-mono)'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ color: isCurrent ? '#38bdf8' : isDone ? '#34d399' : 'var(--text-dim)', fontWeight: 700 }}>
-                  {stage.num}
-                </span>
-                <span style={{ color: isCurrent ? '#38bdf8' : isDone ? '#34d399' : 'var(--text-dim)', fontSize: '11px' }}>
-                  {stage.name}
+        {/* Steps Grid */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(7, 1fr)',
+          gap: '6px'
+        }}>
+          {stages.map((stage, idx) => {
+            const stepStart = (idx / 7) * 100;
+            const stepEnd = ((idx + 1) / 7) * 100;
+            
+            // Calculate fill percentage of the green bar moving through this specific step (0% to 100%)
+            const stepFill = Math.max(0, Math.min(100, ((progressPercent - stepStart) / (stepEnd - stepStart)) * 100));
+            const isDone = stepFill >= 100;
+            const isCurrent = stepFill > 0 && stepFill < 100;
+
+            return (
+              <div
+                key={stage.num}
+                style={{
+                  position: 'relative',
+                  overflow: 'hidden',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '7px 10px',
+                  backgroundColor: 'var(--bg-input)',
+                  border: isDone
+                    ? '1px solid rgba(16, 185, 129, 0.4)'
+                    : isCurrent
+                    ? '1px solid #38bdf8'
+                    : '1px solid var(--border-hard)',
+                  borderRadius: '3px',
+                  fontSize: '11px',
+                  fontFamily: 'var(--font-mono)',
+                  transition: 'border-color 0.2s ease'
+                }}
+              >
+                {/* Green bar fill sweeping from left to right through this step */}
+                <div style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  bottom: 0,
+                  width: `${stepFill}%`,
+                  background: isDone
+                    ? 'rgba(16, 185, 129, 0.12)'
+                    : 'linear-gradient(90deg, rgba(16, 185, 129, 0.08) 0%, rgba(52, 211, 153, 0.22) 100%)',
+                  borderRight: isCurrent ? '2px solid #34d399' : 'none',
+                  boxShadow: isCurrent ? '0 0 10px rgba(52, 211, 153, 0.6)' : 'none',
+                  transition: 'width 0.25s linear',
+                  pointerEvents: 'none',
+                  zIndex: 0
+                }} />
+
+                {/* Sub-bar line at bottom of each box moving from left to right */}
+                <div style={{
+                  position: 'absolute',
+                  bottom: 0,
+                  left: 0,
+                  height: '2px',
+                  width: `${stepFill}%`,
+                  background: 'linear-gradient(90deg, #10b981, #34d399)',
+                  boxShadow: stepFill > 0 ? '0 0 6px rgba(16, 185, 129, 0.8)' : 'none',
+                  transition: 'width 0.25s linear',
+                  zIndex: 1
+                }} />
+
+                {/* Step content above the moving green bar */}
+                <div style={{ position: 'relative', zIndex: 2, display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                  <span style={{
+                    color: isDone ? '#34d399' : isCurrent ? '#38bdf8' : 'var(--text-dim)',
+                    fontWeight: 700,
+                    flexShrink: 0
+                  }}>
+                    {stage.num}
+                  </span>
+                  <span style={{
+                    color: isDone ? '#34d399' : isCurrent ? '#ffffff' : 'var(--text-dim)',
+                    fontSize: '11px',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis'
+                  }}>
+                    {stage.name}
+                  </span>
+                </div>
+
+                <span style={{
+                  position: 'relative',
+                  zIndex: 2,
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  color: isDone ? '#34d399' : isCurrent ? '#38bdf8' : 'var(--text-dim)',
+                  flexShrink: 0,
+                  marginLeft: '4px'
+                }}>
+                  {isDone ? '✓' : isCurrent ? '▶' : '·'}
                 </span>
               </div>
-              <span style={{ fontSize: '10px', color: isDone ? '#34d399' : isCurrent ? '#38bdf8' : 'var(--text-dim)' }}>
-                {isDone ? '✓' : isCurrent ? '■' : '·'}
-              </span>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
 
       {/* Error Alert if any */}
