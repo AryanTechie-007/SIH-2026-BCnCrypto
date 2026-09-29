@@ -26,11 +26,6 @@ os.makedirs(RETURNS_DIR, exist_ok=True)
 watermark_engine = WatermarkEngine()
 ledger_engine = LedgerEngine()
 
-DEMO_PASSWORDS = [
-    "password123",
-    "OfficerAuth2026!"
-]
-
 
 def _keystore_path_for(user: User) -> str:
     """Resolves the recipient keystore file, prioritizing canonical naming and tolerating foreign paths."""
@@ -51,41 +46,45 @@ def _keystore_path_for(user: User) -> str:
 
 
 def _resolve_keystore_password(req_password: Optional[str], user: User) -> str:
-    """Resolves password to unlock local encrypted recipient keystore."""
+    """
+    Validates and resolves the user's keystore passcode.
+    Strict enforcement: The user MUST provide their passcode, and it MUST verify against
+    their local keystore file. No silent database fallback or demo bypass permitted.
+    """
+    if not req_password or not req_password.strip():
+        raise HTTPException(
+            status_code=400,
+            detail=f"Keystore passcode is required to decrypt for recipient {user.name}."
+        )
+
     keystore_path = _keystore_path_for(user)
+    if not os.path.exists(keystore_path):
+        raise HTTPException(
+            status_code=404,
+            detail=f"Local keystore file not found for recipient {user.name}."
+        )
 
-    if req_password:
-        p = req_password.strip()
-        if os.path.exists(keystore_path) and KeystoreManager.verify_password(keystore_path, p):
-            return p
-        candidates = [p, p.upper(), p.lower()]
-        if p.startswith("0x") or p.startswith("0X"):
-            raw = p[2:]
-            candidates.extend([raw, raw.upper(), raw.lower()])
-        else:
-            candidates.extend([f"0x{p}", f"0x{p.upper()}", f"0x{p.lower()}"])
-        if user.keystore_password:
-            candidates.append(user.keystore_password)
+    p = req_password.strip()
 
-        if os.path.exists(keystore_path):
-            for cand in candidates:
-                if KeystoreManager.verify_password(keystore_path, cand):
-                    return cand
+    # Exact match check
+    if KeystoreManager.verify_password(keystore_path, p):
         return p
 
-    if user.keystore_password and os.path.exists(keystore_path):
-        if KeystoreManager.verify_password(keystore_path, user.keystore_password):
-            return user.keystore_password
+    # Standard hex format variants (e.g. '0x6998', '6998', lowercase, uppercase)
+    candidates = [p, p.upper(), p.lower()]
+    if p.lower().startswith("0x"):
+        raw = p[2:]
+        candidates.extend([raw, raw.upper(), raw.lower()])
+    else:
+        candidates.extend([f"0x{p}", f"0x{p.upper()}", f"0x{p.lower()}"])
 
-    if settings.DEMO_MODE:
-        if os.path.exists(keystore_path):
-            for pwd in DEMO_PASSWORDS:
-                if KeystoreManager.verify_password(keystore_path, pwd):
-                    return pwd
+    for cand in candidates:
+        if KeystoreManager.verify_password(keystore_path, cand):
+            return cand
 
     raise HTTPException(
         status_code=401,
-        detail=f"Keystore password required to unlock local ML-KEM-768 and ML-DSA-65 keys for recipient {user.name}."
+        detail="Invalid keystore passcode: could not unlock private keys"
     )
 
 

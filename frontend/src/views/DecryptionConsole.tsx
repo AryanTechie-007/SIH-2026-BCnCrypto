@@ -78,6 +78,16 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
       return;
     }
 
+    if (!uploadedEncFile) {
+      setErrorMessage("Please upload an encrypted .enc package file first.");
+      return;
+    }
+
+    if (!keystorePassword.trim()) {
+      setErrorMessage("Please enter your keystore passcode to unlock private keys and decrypt.");
+      return;
+    }
+
     try {
       setIsDecrypting(true);
       setErrorMessage(null);
@@ -88,13 +98,7 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
       await new Promise(r => setTimeout(r, 120));
       setActiveStage(3);
 
-      if (!uploadedEncFile) {
-        setErrorMessage("Please upload an encrypted .enc package file first.");
-        setIsDecrypting(false);
-        setActiveStage(0);
-        return;
-      }
-      const result = await ApiClient.decryptEnvelopeFile(uploadedEncFile, selectedRecipientId, undefined, keystorePassword);
+      const result = await ApiClient.decryptEnvelopeFile(uploadedEncFile, selectedRecipientId, undefined, keystorePassword.trim());
 
       // Finish stages
       setActiveStage(4);
@@ -360,22 +364,23 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
           {/* Action Button */}
           <button
             onClick={handleExecuteDecrypt}
-            disabled={isDecrypting || !uploadedEncFile}
+            disabled={isDecrypting || !uploadedEncFile || !keystorePassword.trim()}
             style={{
               padding: '14px',
-              backgroundColor: isDecrypting ? '#1e293b' : '#0284c7',
-              color: '#ffffff',
+              backgroundColor: isDecrypting || !uploadedEncFile || !keystorePassword.trim() ? '#1e293b' : '#0284c7',
+              color: isDecrypting || !uploadedEncFile || !keystorePassword.trim() ? '#64748b' : '#ffffff',
               border: 'none',
               fontSize: '12px',
               fontFamily: 'var(--font-mono)',
               fontWeight: 800,
               letterSpacing: '0.04em',
-              cursor: isDecrypting || !uploadedEncFile ? 'not-allowed' : 'pointer',
+              cursor: isDecrypting || !uploadedEncFile || !keystorePassword.trim() ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: '10px',
-              borderRadius: '3px'
+              borderRadius: '3px',
+              transition: 'all 0.15s ease'
             }}
           >
             {isDecrypting ? (
