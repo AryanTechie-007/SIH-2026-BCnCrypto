@@ -359,7 +359,7 @@ export const EvidenceConsole: React.FC = () => {
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', fontFamily: 'var(--font-mono)' }}>
                   {[
-                    { label: 'Gate 1: Watermark & RS Parity', ok: analysisResult.verification_gates.watermark_valid },
+                    { label: 'Gate 1: Watermark & Hadamard Orthogonal Decoding', ok: analysisResult.verification_gates.watermark_valid },
                     { label: 'Gate 2: Decryption Session in Ledger', ok: analysisResult.verification_gates.ledger_event_exists },
                     { label: 'Gate 3: NIST FIPS 204 ML-DSA-65 Signature', ok: analysisResult.verification_gates.ml_dsa_signature_valid },
                     { label: 'Gate 4: Merkle Root Inclusion Proof', ok: analysisResult.verification_gates.merkle_inclusion_valid },

@@ -128,7 +128,7 @@ export const ForensicConsole: React.FC = () => {
               <h3>The 6 Cryptographic Verification Gates</h3>
             </div>
             <div className="tactical-panel-body" style={{ fontSize: '11px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div><strong>Gate 1:</strong> Watermark Payload Format & RS Parity Valid</div>
+              <div><strong>Gate 1:</strong> Watermark Payload Format & Hadamard Orthogonal Decoding Valid</div>
               <div><strong>Gate 2:</strong> Decryption Session Exists in Immutable Ledger</div>
               <div><strong>Gate 3:</strong> NIST FIPS 204 ML-DSA-65 Signature Authenticity</div>
               <div><strong>Gate 4:</strong> Ledger Merkle Root Inclusion Proof Valid</div>
@@ -220,7 +220,7 @@ export const ForensicConsole: React.FC = () => {
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
                     {[
-                      { label: 'Gate 1: Watermark Payload Format & RS Parity', ok: analysisResult.verification_gates.watermark_valid },
+                      { label: 'Gate 1: Watermark & Hadamard Orthogonal Decoding', ok: analysisResult.verification_gates.watermark_valid },
                       { label: 'Gate 2: Decryption Session Ledger Presence', ok: analysisResult.verification_gates.ledger_event_exists },
                       { label: 'Gate 3: NIST FIPS 204 ML-DSA-65 Signature', ok: analysisResult.verification_gates.ml_dsa_signature_valid },
                       { label: 'Gate 4: Merkle Root Inclusion Verification', ok: analysisResult.verification_gates.merkle_inclusion_valid },
