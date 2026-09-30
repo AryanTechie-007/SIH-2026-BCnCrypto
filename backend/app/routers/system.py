@@ -47,7 +47,7 @@ async def get_system_health():
             "backend": backend_info["backend"],
             "symmetric": "AES-256-GCM (NIST SP 800-38D)",
             "hashing": "SHA3-256 (NIST FIPS 202)",
-            "ecc": "Walsh-Hadamard Transform Orthogonal Spreading (WHT/DSSS)"
+            "ecc": "Reed-Solomon RS(255, 127)"
         },
         "ledger": ledger_status,
         "keystore_storage": "Encrypted Recipient Keystores (Argon2id + AES-256-GCM)",

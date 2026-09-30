@@ -1,6 +1,7 @@
 import os
 import uuid
 import json
+import asyncio
 import hashlib
 from datetime import datetime
 from typing import Dict, Any, List, Optional
@@ -32,6 +33,9 @@ os.makedirs(UPLOAD_TEMP_DIR, exist_ok=True)
 
 watermark_engine = WatermarkEngine()
 ledger_engine = LedgerEngine()
+
+# Overall / candidate confidence ceiling when only the 10-byte ID beacon (not the full frame) was recovered.
+BEACON_ONLY_CONFIDENCE = 80.0
 
 ALLOWED_MIME_SIGNATURES = {
     b"%PDF": "pdf",
@@ -76,7 +80,8 @@ async def evaluate_suspect_stream(file_name: str, file_bytes: bytes, db: AsyncSe
     """
     Authoritative Forensic Pipeline:
     uploaded leaked document
-    → Walsh-Hadamard Transform (WHT/DSSS) orthogonal decoding & coherent correlation
+    → watermark extraction (native geometry → page-box/rescale/phase search → ID beacon),
+      RS(255, 127) frame decoding + HMAC authentication
     → watermark ID
     → Hyperledger Fabric LookupByWatermark (authoritative distributed query)
     → retrieve ledger record & local state
@@ -94,29 +99,44 @@ async def evaluate_suspect_stream(file_name: str, file_bytes: bytes, db: AsyncSe
             detail=f"Uploaded file exceeds maximum allowed size ({settings.MAX_UPLOAD_SIZE_MB} MB)"
         )
 
-    # 2. Safe temporary path resolution using UUID
+    # 2. Exact canonical render sizes recorded at embed time (tried first by the geometry search)
+    size_res = await db.execute(
+        select(WatermarkRecord.render_width, WatermarkRecord.render_height)
+        .where(WatermarkRecord.render_width.isnot(None), WatermarkRecord.render_height.isnot(None))
+        .distinct()
+    )
+    known_sizes = [(int(w), int(h)) for w, h in size_res.all()]
+
+    # 3. Safe temporary path resolution using UUID
     safe_ext = _validate_file_magic(file_bytes, file_name)
     temp_path = os.path.join(UPLOAD_TEMP_DIR, f"{uuid.uuid4().hex}.{safe_ext}")
     try:
         with open(temp_path, "wb") as buffer:
             buffer.write(file_bytes)
 
-        # 3. 2D DCT / Hadamard extraction & coherent correlation decoding
-        extracted_payload, metrics = watermark_engine.extract_watermark(temp_path)
+        # 4. Extraction: native geometry -> page-box/rescale/phase search -> ID beacon. CPU-bound
+        # (up to several seconds for a file that carries no watermark), so keep it off the event loop.
+        extracted_payload, metrics = await asyncio.to_thread(
+            watermark_engine.extract_watermark, temp_path, known_sizes
+        )
     finally:
         _safe_remove(temp_path)
 
-    # 4. Extract watermark identifier
+    # 5. A detection is ONLY an authenticated one (frame HMAC or beacon tag verified by the engine);
+    # otherwise there is no watermark ID at all - never a fabricated one.
     ber = float(metrics.get("bit_error_rate", 100.0))
-    is_detected = bool(metrics.get("watermark_detected", False) and extracted_payload is not None)
-    watermark_id = None
-
-    if extracted_payload:
-        parsed_frame = metrics.get("frame")
-        if parsed_frame and parsed_frame.get("watermark_id"):
-            watermark_id = parsed_frame["watermark_id"]
-        else:
-            watermark_id = extracted_payload[:10].hex().lower()
+    is_detected = bool(
+        metrics.get("watermark_detected", False)
+        and metrics.get("authenticity_tag_valid", False)
+        and extracted_payload is not None
+    )
+    tier = metrics.get("attribution_tier", "none") if is_detected else "none"
+    beacon_only = (tier == "beacon")
+    ecc_strategy = metrics.get("ecc_strategy") or watermark_engine.ECC_STRATEGY
+    recovery_pct = float(metrics.get("payload_recovery_pct", 0.0)) if is_detected else 0.0
+    watermark_id = metrics.get("watermark_id") if is_detected else None
+    if not is_detected:
+        extracted_payload = None
 
     # Load users for candidate list
     users_res = await db.execute(select(User))
@@ -142,67 +162,10 @@ async def evaluate_suspect_stream(file_name: str, file_bytes: bytes, db: AsyncSe
         )
         target_wm = wm_res.scalars().first()
 
-    # If no exact match yet but payload exists, try payload comparison
-    if not target_wm and extracted_payload:
-        all_wm_res = await db.execute(select(WatermarkRecord))
-        for wm in all_wm_res.scalars().all():
-            if wm.watermark_payload == extracted_payload[:len(wm.watermark_payload)]:
-                target_wm = wm
-                watermark_id = wm.watermark_id or wm.watermark_hex[:20].lower()
-                break
-
-    # Tier 3: Robust Forensic Bit-Distance Attribution for Screen Captures & Compressed Leaks
-    if not target_wm:
-        candidate_hex = None
-        if watermark_id and len(watermark_id) >= 16:
-            candidate_hex = watermark_id
-        elif extracted_payload and len(extracted_payload) >= 10:
-            candidate_hex = extracted_payload[:10].hex().lower()
-
-        if candidate_hex:
-            try:
-                cand_bytes = bytes.fromhex(candidate_hex)[:10]
-                all_wm_res = await db.execute(select(WatermarkRecord))
-                records = all_wm_res.scalars().all()
-
-                best_sim = 0.0
-                runner_up_sim = 0.0
-                best_record = None
-
-                for rec in records:
-                    rec_hex = rec.watermark_id or (rec.watermark_hex[:20] if rec.watermark_hex else "")
-                    if not rec_hex or len(rec_hex) < 16:
-                        continue
-                    try:
-                        rec_bytes = bytes.fromhex(rec_hex)[:10]
-                        total_bits = min(len(cand_bytes), len(rec_bytes)) * 8
-                        matching_bits = sum(
-                            8 - bin(b1 ^ b2).count('1')
-                            for b1, b2 in zip(cand_bytes, rec_bytes)
-                        )
-                        sim = (matching_bits / float(total_bits)) * 100.0 if total_bits > 0 else 0.0
-
-                        if sim > best_sim:
-                            runner_up_sim = best_sim
-                            best_sim = sim
-                            best_record = rec
-                        elif sim > runner_up_sim:
-                            runner_up_sim = sim
-                    except Exception:
-                        continue
-
-                # Statistically robust threshold: at least 75% bit similarity (binomial p < 4e-6)
-                # and at least 10% separation from runner-up candidate
-                separation = best_sim - runner_up_sim
-                if best_record and best_sim >= 75.0 and (separation >= 10.0 or len(records) <= 1):
-                    target_wm = best_record
-                    watermark_id = best_record.watermark_id or best_record.watermark_hex[:20].lower()
-                    is_detected = True
-                    metrics["watermark_detected"] = True
-                    metrics["confidence"] = round(best_sim / 100.0, 4)
-                    metrics["bit_error_rate"] = round(100.0 - best_sim, 2)
-            except Exception:
-                pass
+    # Attribution requires a genuinely authenticated watermark (frame HMAC or beacon tag). There is
+    # deliberately no bit-correlation or payload-comparison fallback: white page areas extract as
+    # mostly-'0' bits, which "matched" zero-padded candidates and attributed unrelated files to a real
+    # user, and the stored 32-byte HMAC digest can never equal the start of an extracted frame anyway.
 
     # Resolve event, distribution, user, and document
     matched_event = None
@@ -245,8 +208,8 @@ async def evaluate_suspect_stream(file_name: str, file_bytes: bytes, db: AsyncSe
     for u in all_users:
         is_this_user = (matched_user and u.id == matched_user.id)
         if is_this_user and is_detected:
-            conf = 100.0
-            m_type = "CONFIRMED_MATCH"
+            conf = BEACON_ONLY_CONFIDENCE if beacon_only else 100.0
+            m_type = "PROBABILISTIC" if beacon_only else "CONFIRMED_MATCH"
         else:
             conf = 0.0
             m_type = "CLEARED"
@@ -296,6 +259,8 @@ async def evaluate_suspect_stream(file_name: str, file_bytes: bytes, db: AsyncSe
 
         all_gates_passed = all([gate1_wm_valid, gate2_event_exists, gate3_sig_valid, gate4_merkle_valid, gate5_doc_match, gate6_chain_valid])
         overall_conf = 100.0 if all_gates_passed else 90.0
+        if beacon_only:
+            overall_conf = min(overall_conf, BEACON_ONLY_CONFIDENCE)
 
         # Construct Evidence Bundle
         raw_bundle = {
@@ -324,23 +289,37 @@ async def evaluate_suspect_stream(file_name: str, file_bytes: bytes, db: AsyncSe
         raw_bundle["bundle_sha3_digest"] = bundle_digest
         evidence_bundle = EvidenceBundle(**raw_bundle)
 
-        narrative = (
-            f"POSITIVE FORENSIC ATTRIBUTION CONFIRMED: Leaked document positively attributed to "
-            f"{matched_user.name} ({matched_user.navy_id}). "
-            f"Decryption performed on authorized device {matched_event.device_id} at {matched_event.timestamp.isoformat()} UTC. "
-            f"Recipient NIST FIPS 204 ML-DSA-65 digital signature verified authentic against ledger record. "
-            f"Immutable distributed ledger audit verified."
-        )
+        if beacon_only:
+            narrative = (
+                f"ATTRIBUTED WITH WARNINGS: Only the CIPHERTRACE watermark ID beacon could be recovered "
+                f"(watermark {watermark_id}); the full forensic frame did not survive the capture "
+                f"(heavy downscaling / re-compression, e.g. a screenshot). The authenticated ID matches the "
+                f"decryption event of {matched_user.name} ({matched_user.navy_id}) on device "
+                f"{matched_event.device_id} at {matched_event.timestamp.isoformat()} UTC, and the ledger "
+                f"record was verified. This establishes which ledger record the file derives from, but the "
+                f"document hash, recipient fingerprint and session nonce embedded in the full frame could "
+                f"not be independently recovered from this file."
+            )
+        else:
+            narrative = (
+                f"POSITIVE FORENSIC ATTRIBUTION CONFIRMED: Leaked document positively attributed to "
+                f"{matched_user.name} ({matched_user.navy_id}). "
+                f"Decryption performed on authorized device {matched_event.device_id} at {matched_event.timestamp.isoformat()} UTC. "
+                f"Recipient NIST FIPS 204 ML-DSA-65 digital signature verified authentic against ledger record. "
+                f"Immutable distributed ledger audit verified."
+            )
 
         return ForensicAnalysisResponse(
             file_name=file_name,
-            status="IDENTIFIED",
+            status="ATTRIBUTED_WITH_WARNINGS" if beacon_only else "IDENTIFIED",
             watermark_detected=True,
+            authenticity_tag_valid=True,
+            attribution_tier=tier,
             watermark_id=watermark_id,
             extracted_payload_hex=extracted_payload.hex().lower(),
-            payload_recovery_pct=float(metrics.get("payload_recovery_pct", 100.0)),
+            payload_recovery_pct=recovery_pct,
             bit_error_rate=ber,
-            ecc_strategy=metrics.get("ecc_strategy", "Walsh-Hadamard Transform Orthogonal Spreading (WHT/DSSS)"),
+            ecc_strategy=ecc_strategy,
             recipient=OfficerSchema(
                 id=matched_user.id,
                 username=matched_user.username,
@@ -393,27 +372,33 @@ async def evaluate_suspect_stream(file_name: str, file_bytes: bytes, db: AsyncSe
         fabric_consensus_valid=False
     )
 
-    if extracted_payload:
+    if is_detected:
         narrative = (
-            f"UNKNOWN WATERMARK: A CIPHERTRACE watermark was decoded (ID {watermark_id}), but it matches no "
-            f"decryption event recorded on this node. No registered user can be attributed."
+            f"UNKNOWN WATERMARK: An authentic CIPHERTRACE watermark was decoded (ID {watermark_id}), but it "
+            f"matches no decryption event recorded on this node. No registered user can be attributed."
         )
     else:
+        reason = metrics.get("failure_reason")
         narrative = (
-            f"NO WATERMARK DETECTED: No CIPHERTRACE watermark could be decoded from this file. "
+            f"NO WATERMARK DETECTED: No authenticated CIPHERTRACE watermark could be recovered from this file"
+            f"{f' ({reason})' if reason else ''}. "
             f"It was either never decrypted through this system, or it has been altered too heavily "
-            f"(e.g. cropped) for the watermark to survive. No registered user is implicated."
+            f"(e.g. content cropped away, photographed, or destroyed by re-compression) for the watermark to "
+            f"survive. No registered user is implicated."
         )
 
     return ForensicAnalysisResponse(
         file_name=file_name,
         status="UNATTRIBUTED",
-        watermark_detected=False,
+        watermark_detected=is_detected,
+        authenticity_tag_valid=is_detected,
+        attribution_tier=tier,
+        failure_reason=None if is_detected else metrics.get("failure_reason"),
         watermark_id=watermark_id,
         extracted_payload_hex=extracted_payload.hex().lower() if extracted_payload else None,
-        payload_recovery_pct=0.0,
+        payload_recovery_pct=recovery_pct,
         bit_error_rate=ber,
-        ecc_strategy=metrics.get("ecc_strategy", "Walsh-Hadamard Transform Orthogonal Spreading (WHT/DSSS)"),
+        ecc_strategy=ecc_strategy,
         recipient=None,
         top_suspect_name="None (Cleared)",
         match_confidence=0.0,
@@ -491,7 +476,7 @@ async def export_evidence_package(event_id: int, db: AsyncSession = Depends(get_
         "signature_verification": "VALID",
         "watermark_verification": "VALID",
         "document_hash_verification": "VALID",
-        "hadamard_orthogonal_profile": "Sylvester-Hadamard H_64 Orthogonal Basis (WHT/DSSS)",
+        "reed_solomon_profile": wm.reed_solomon_profile,
         "cryptographic_standards": {
             "pqc_signature": "NIST FIPS 204 (ML-DSA-65)",
             "pqc_kem": "NIST FIPS 203 (ML-KEM-768)",

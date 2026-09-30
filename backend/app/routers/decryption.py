@@ -283,15 +283,20 @@ async def decrypt_document(
     finally:
         _safe_remove(temp_plain_path)
 
+    # Canonical render geometry of the delivered file, so forensics can try it first on screenshots
+    render_w, render_h = watermark_engine.render_size(watermarked_path, watermark_engine.render_dpi)
+
     # Record watermark record
     wm_record = WatermarkRecord(
         event_id=new_event.id,
         watermark_id=watermark_id,
         watermark_payload=payload,
         watermark_hex=watermark_hex,
-        protocol_version=2,
-        reed_solomon_profile="RS(255,127)",
+        protocol_version=watermark_engine.PROTOCOL_VERSION,
+        reed_solomon_profile=watermark_engine.RS_PROFILE_LABEL,
         watermarked_path=watermarked_path,
+        render_width=render_w,
+        render_height=render_h,
         created_at=ts
     )
     db.add(wm_record)
@@ -512,14 +517,18 @@ async def decrypt_uploaded_envelope(
     finally:
         _safe_remove(temp_plain_path)
 
+    render_w, render_h = watermark_engine.render_size(watermarked_path, watermark_engine.render_dpi)
+
     wm_record = WatermarkRecord(
         event_id=new_event.id,
         watermark_id=watermark_id,
         watermark_payload=payload,
         watermark_hex=watermark_hex,
-        protocol_version=2,
-        reed_solomon_profile="RS(255,127)",
+        protocol_version=watermark_engine.PROTOCOL_VERSION,
+        reed_solomon_profile=watermark_engine.RS_PROFILE_LABEL,
         watermarked_path=watermarked_path,
+        render_width=render_w,
+        render_height=render_h,
         created_at=ts
     )
     db.add(wm_record)

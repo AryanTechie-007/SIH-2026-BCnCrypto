@@ -359,7 +359,7 @@ export const EvidenceConsole: React.FC = () => {
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', fontFamily: 'var(--font-mono)' }}>
                   {[
-                    { label: 'Gate 1: Watermark & Hadamard Orthogonal Decoding', ok: analysisResult.verification_gates.watermark_valid },
+                    { label: 'Gate 1: Watermark & RS Parity', ok: analysisResult.verification_gates.watermark_valid },
                     { label: 'Gate 2: Decryption Session in Ledger', ok: analysisResult.verification_gates.ledger_event_exists },
                     { label: 'Gate 3: NIST FIPS 204 ML-DSA-65 Signature', ok: analysisResult.verification_gates.ml_dsa_signature_valid },
                     { label: 'Gate 4: Merkle Root Inclusion Proof', ok: analysisResult.verification_gates.merkle_inclusion_valid },
@@ -404,14 +404,14 @@ export const EvidenceConsole: React.FC = () => {
                 <div style={{ backgroundColor: 'var(--bg-input)', padding: '10px', border: '1px solid var(--border-hard)', borderRadius: '3px' }}>
                   <div style={{ color: 'var(--text-dim)', fontSize: '10px' }}>BIT ERROR RATE (BER):</div>
                   <div style={{ color: '#38bdf8', fontWeight: 700, marginTop: '2px' }}>
-                    {analysisResult.bit_error_rate.toFixed(2)}%
+                    {analysisResult.watermark_detected ? `${analysisResult.bit_error_rate.toFixed(2)}%` : 'N/A'}
                   </div>
                 </div>
 
                 <div style={{ backgroundColor: 'var(--bg-input)', padding: '10px', border: '1px solid var(--border-hard)', borderRadius: '3px' }}>
                   <div style={{ color: 'var(--text-dim)', fontSize: '10px' }}>ECC RECOVERY:</div>
                   <div style={{ color: '#38bdf8', fontWeight: 700, marginTop: '2px' }}>
-                    {analysisResult.payload_recovery_pct.toFixed(1)}%
+                    {analysisResult.watermark_detected ? `${analysisResult.payload_recovery_pct.toFixed(1)}%` : 'N/A'}
                   </div>
                 </div>
               </div>

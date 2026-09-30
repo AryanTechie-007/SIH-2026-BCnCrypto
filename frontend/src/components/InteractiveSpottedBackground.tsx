@@ -20,9 +20,9 @@ interface Dot {
 
 export const InteractiveSpottedBackground: React.FC<InteractiveSpottedBackgroundProps> = ({
   gap = 26,
-  baseRadius = 1.1,
-  proximity = 110,
-  glowRadius = 160
+  baseRadius = 1.3,
+  proximity = 170,
+  glowRadius = 260
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -78,7 +78,7 @@ export const InteractiveSpottedBackground: React.FC<InteractiveSpottedBackground
             vx: 0,
             vy: 0,
             radius: baseRadius,
-            alpha: 0.20
+            alpha: 0.28
           });
         }
       }
@@ -124,7 +124,7 @@ export const InteractiveSpottedBackground: React.FC<InteractiveSpottedBackground
     // Physics parameters
     const spring = 0.08;
     const damping = 0.82;
-    const pushStrength = 4;
+    const pushStrength = 14;
 
     const render = () => {
       ctx.clearRect(0, 0, width, height);
@@ -141,8 +141,8 @@ export const InteractiveSpottedBackground: React.FC<InteractiveSpottedBackground
       // Draw interactive ambient radial glow spotlight behind spots
       if (mouseX > -500 && mouseX < width + 500 && mouseY > -500 && mouseY < height + 500) {
         const spotlight = ctx.createRadialGradient(mouseX, mouseY, 0, mouseX, mouseY, glowRadius);
-        spotlight.addColorStop(0, 'rgba(37, 99, 235, 0.09)');
-        spotlight.addColorStop(0.4, 'rgba(56, 189, 248, 0.04)');
+        spotlight.addColorStop(0, 'rgba(37, 99, 235, 0.18)');
+        spotlight.addColorStop(0.4, 'rgba(56, 189, 248, 0.08)');
         spotlight.addColorStop(1, 'rgba(0, 0, 0, 0)');
         ctx.fillStyle = spotlight;
         ctx.fillRect(0, 0, width, height);
@@ -150,7 +150,7 @@ export const InteractiveSpottedBackground: React.FC<InteractiveSpottedBackground
 
       // Draw baseline background subtle gradient at center
       const centerGlow = ctx.createRadialGradient(width / 2, height * 0.25, 0, width / 2, height * 0.25, width * 0.6);
-      centerGlow.addColorStop(0, 'rgba(37, 99, 235, 0.06)');
+      centerGlow.addColorStop(0, 'rgba(37, 99, 235, 0.08)');
       centerGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
       ctx.fillStyle = centerGlow;
       ctx.fillRect(0, 0, width, height);
@@ -168,7 +168,7 @@ export const InteractiveSpottedBackground: React.FC<InteractiveSpottedBackground
         let targetX = dot.x0;
         let targetY = dot.y0;
         let targetRadius = baseRadius;
-        let targetAlpha = 0.20;
+        let targetAlpha = 0.25;
         let rColor = 37;
         let gColor = 99;
         let bColor = 235;
@@ -178,15 +178,15 @@ export const InteractiveSpottedBackground: React.FC<InteractiveSpottedBackground
           const factor = Math.max(0, 1 - dist / proximity); // 1 at mouse, 0 at outer boundary
           const easeFactor = factor * factor; // Non-linear falloff for natural feel
 
-          // Push dot away from mouse gently
+          // Push dot away from mouse
           const angle = Math.atan2(dy, dx);
           const push = easeFactor * pushStrength;
           targetX = dot.x0 + Math.cos(angle) * push;
           targetY = dot.y0 + Math.sin(angle) * push;
 
-          // Scale radius and alpha subtly (gentle magnification)
-          targetRadius = baseRadius + easeFactor * 0.45;
-          targetAlpha = 0.22 + easeFactor * 0.28;
+          // Scale radius and alpha
+          targetRadius = baseRadius + easeFactor * 1.6;
+          targetAlpha = 0.3 + easeFactor * 0.65;
 
           // Transition color towards vibrant cyan/sky-blue
           rColor = Math.round(37 + easeFactor * (56 - 37));

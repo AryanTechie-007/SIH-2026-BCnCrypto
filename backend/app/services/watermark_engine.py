@@ -1,82 +1,138 @@
 """
-CIPHERTRACE Orthogonal Walsh-Hadamard Transform Steganography Engine
-===================================================================
-Configuration: 2D DCT Walsh-Hadamard Transform Orthogonal Spreading (WHT / DSSS)
-- Color Space: YCrCb Luminance (Y channel processing, Cr/Cb untouched for zero color shift).
-- Transform / Basis: Order-64 Sylvester-Hadamard Matrix H_64 applied across 2D DCT coefficients.
-- Direct-Sequence Spread Spectrum (DSSS): Watermark bits are spread across 8x8 blocks
-  using zero-mean AC Hadamard basis vectors modulated into low-to-mid frequency DCT coefficients:
-  (0,1), (1,0), (1,1), (0,2), (2,0), (1,2), (2,1), (2,2), (0,3), (3,0), (1,3), (3,1).
-- Strict Zero DC Shift: The (0,0) DC coefficient is strictly 0.0 across all basis patterns,
-  ensuring zero shift in average block luminance and eliminating visual boundary artifacts.
-- Screen Capture & Display Downsampling Robustness: Low-to-mid DCT frequencies survive screen
-  display downsampling, bilinear display interpolation, PDF viewer scaling, and screenshotting.
-- Coherent Correlation Detection: Inner product with orthogonal basis patterns provides
-  >30 dB processing gain over host content, yielding 0.0% BER under native and screen captures.
-- Structured Watermark Frame: 16-byte (128-bit) authenticated frame bound to Watermark ID,
-  event context, and HMAC-SHA3-256 integrity tag.
+CIPHERTRACE 2D DCT Frequency-Domain Steganography Engine
+======================================================
+Two independent carriers are written into the Y (luma) channel of every 150-DPI page render:
+
+1. FINE FRAME  - the full authenticated forensic frame.
+   - Reed-Solomon RS(255, 127) over GF(2^8): 127 data bytes + 128 parity bytes, t = 64 byte errors.
+   - 8x8 block 2-D DCT (ortho), mid-frequency coefficient (2, 2), embed_strength 32.
+   - 127-byte frame: magic, version, watermark ID, event ID, document / recipient fingerprints,
+     session nonce, timestamp, algorithm IDs, 20 bytes reserved, 16-byte HMAC-SHA3-256 tag.
+2. BEACON      - only the 10-byte watermark ID (the ledger / database lookup key) + a 4-byte HMAC tag.
+   - RS(32, 14) over GF(2^8), t = 9. 32x32 blocks, coefficient (2, 2), strength 60.
+   - A very low spatial frequency that survives the heavy downscaling + JPEG re-encoding of
+     screenshots, where the fine frame does not.
+
+Extraction never trusts an RS decode on its own: a detection requires the ``CPTC`` magic AND a valid
+HMAC tag (fine frame) or a valid 4-byte tag (beacon). Anything else is reported as NOT detected.
+
+Screenshots
+-----------
+The bit carried by block (row, col) is ``(row * blocks_per_row + col) % codeword_bits``, so a suspect image
+must be brought back to the canonical page geometry before it can be read. ``extract_watermark`` therefore
+locates the page rectangle, resamples it to each candidate canonical size EXACTLY, and searches the 8-px
+sub-block phase (see ``watermark_geometry``).
+
+Legacy profile
+--------------
+Documents watermarked by earlier builds (251-byte frame, RS(255, 251), coefficient (3, 3)) remain readable
+at native geometry through the ``v2-legacy`` profile.
 """
 
 import io
-import os
-import struct
 import hmac
 import hashlib
+import struct
 import time
-from typing import Tuple, Dict, Any, Union, Optional
+from dataclasses import dataclass
+from typing import Tuple, Dict, Any, Union, Optional, List, Sequence
+
 import fitz  # PyMuPDF
 import cv2
 import numpy as np
 from PIL import Image
-from scipy.linalg import hadamard
+from reedsolo import RSCodec, ReedSolomonError
+from scipy.fftpack import dct, idct
 
 from app.config import settings
 from app.services.crypto_engine import CryptoEngine
+from app.services.watermark_geometry import (
+    blocks,
+    candidate_sizes,
+    coeff_map,
+    dct_basis_2d,
+    block_stack,
+    locate_page,
+    phase_offsets,
+)
+
+IMAGE_EXTENSIONS = ('.png', '.jpg', '.jpeg', '.webp', '.bmp', '.tiff', '.tif')
+
+
+def _looks_like_image(head: bytes) -> bool:
+    return (
+        head.startswith(b"\x89PNG")
+        or head.startswith(b"\xff\xd8")
+        or (head.startswith(b"RIFF") and b"WEBP" in head[:16])
+        or head.startswith(b"BM")
+        or head.startswith(b"II*\x00")
+        or head.startswith(b"MM\x00*")
+    )
+
+
+@dataclass(frozen=True)
+class _Profile:
+    """One fine-frame embedding/decoding profile."""
+    name: str
+    frame_len: int
+    rs: RSCodec
+    coord: Tuple[int, int]
+    strength: float
+    ecc_strategy: str
 
 
 class WatermarkEngine:
     """
-    High-fidelity 2D DCT Walsh-Hadamard Transform (WHT/DSSS) steganography engine.
+    High-fidelity 2D DCT steganography engine: fine RS(255, 127) frame + RS(32, 14) ID beacon.
     """
 
-    MAGIC_HEADER = b"CP"
-    PROTOCOL_VERSION = 4
-    FRAME_DATA_LEN = 16         # 16 bytes = 128 bits
-    TOTAL_BITS = 128            # 128 bits payload
-    HADAMARD_ORDER = 64         # Order 64 matrix for 8x8 blocks
-    ECC_STRATEGY = "Walsh-Hadamard Transform Orthogonal Spreading (WHT/DSSS)"
+    MAGIC_HEADER = b"CPTC"
+    PROTOCOL_VERSION = 3
+    FRAME_DATA_LEN = 127        # bytes of raw frame carried by the fine carrier
+    PARITY_LEN = 128            # Reed-Solomon parity bytes (t = 64)
+    CODEWORD_LEN = 255          # codeword bytes (2040 bits) - MUST equal FRAME_DATA_LEN + PARITY_LEN
+    TAG_LEN = 16                # trailing HMAC-SHA3-256 tag bytes
+    FRAME_FIXED_LEN = 91        # magic .. algorithm IDs (bytes 0..90); the rest up to the tag is reserved
+    ECC_STRATEGY = "Reed-Solomon RS(255, 127) over GF(2^8)"
+    RS_PROFILE_LABEL = "RS(255,127)"     # short label persisted in WatermarkRecord.reed_solomon_profile
 
-    def __init__(self, embed_strength: float = 20.0, render_dpi: int = 150):
+    HEAD_PREFILTER_MAX_BIT_ERRORS = 14   # of the 40 magic+version bits; see _try_fine
+
+    LEGACY_PROFILE = "v2-legacy"
+    CURRENT_PROFILE = "v3-current"
+    LEGACY_FRAME_LEN = 251
+    LEGACY_PARITY_LEN = 4
+    LEGACY_COORD = (3, 3)
+    LEGACY_STRENGTH = 20.0
+    LEGACY_ECC_STRATEGY = "Reed-Solomon RS(255, 251) over GF(2^8)"
+
+    BEACON_BLOCK = 32
+    BEACON_COORD = (2, 2)
+    BEACON_STRENGTH = 60.0
+    BEACON_ID_LEN = 10
+    BEACON_TAG_LEN = 4
+    BEACON_N = 32               # beacon codeword bytes (256 bits)
+    BEACON_PARITY = 18          # RS(32, 14), t = 9
+    BEACON_ECC_STRATEGY = "Reed-Solomon RS(32, 14) over GF(2^8) (ID beacon)"
+
+    def __init__(self, embed_strength: float = 32.0, render_dpi: int = 150):
+        self.rs = RSCodec(self.PARITY_LEN)
+        self._rs_legacy = RSCodec(self.LEGACY_PARITY_LEN)
+        self._rs_beacon = RSCodec(self.BEACON_PARITY, nsize=self.BEACON_N)
         self.block_size = 8
+        self.embed_coord = (2, 2)
         self.embed_strength = float(embed_strength)
         self.render_dpi = render_dpi
 
-        # Robust low-to-mid frequency zigzag coordinates in 8x8 DCT (survives display downsampling & screenshots)
-        self.coords = [
-            (0, 1), (1, 0),
-            (2, 0), (1, 1), (0, 2),
-            (0, 3), (1, 2), (2, 1), (3, 0),
-            (3, 1), (2, 2), (1, 3),
-            (2, 3), (3, 2), (1, 4), (4, 1)
-        ]
-
-        # Sylvester-Hadamard orthogonal matrices
-        self.H = hadamard(self.HADAMARD_ORDER).astype(np.float32)
-        self.H16 = hadamard(16).astype(np.float32)
-
-        # Generate 128 normalized orthogonal AC Hadamard basis patterns in 2D DCT domain
-        # AC rows guarantee (0,0) DC coefficient is strictly 0.0 -> Zero DC shift & zero mean
-        self.basis_patterns = []
-        for k in range(self.TOTAL_BITS):
-            pat = np.zeros((self.block_size, self.block_size), dtype=np.float32)
-            h_row = self.H16[1 + (k % 15)]
-            for idx, (r, c) in enumerate(self.coords):
-                pat[r, c] = h_row[idx]
-            pat /= float(np.linalg.norm(pat))
-            self.basis_patterns.append(pat)
+    def _profile(self, name: str) -> _Profile:
+        if name == self.LEGACY_PROFILE:
+            return _Profile(name, self.LEGACY_FRAME_LEN, self._rs_legacy, self.LEGACY_COORD,
+                            self.LEGACY_STRENGTH, self.LEGACY_ECC_STRATEGY)
+        return _Profile(self.CURRENT_PROFILE, self.FRAME_DATA_LEN, self.rs, self.embed_coord,
+                        self.embed_strength, self.ECC_STRATEGY)
 
     # -------------------------------------------------------------
-    # 16-Byte (128-bit) Forensic Watermark Frame
+    # Forensic Watermark Frame Definition & Serialization
     # -------------------------------------------------------------
     @classmethod
     def build_watermark_frame(
@@ -86,16 +142,26 @@ class WatermarkEngine:
         document_hash: str,
         recipient_key_id: str,
         session_nonce: str,
-        secret: Optional[bytes] = None
+        secret: Optional[bytes] = None,
+        frame_len: Optional[int] = None
     ) -> bytes:
         """
-        Constructs an authenticated 16-byte (128-bit) forensic frame.
+        Constructs a structured, authenticated watermark frame (127 bytes; 251 for the legacy profile).
         Layout:
-          [0..9]  : 10 bytes (20 hex chars) Watermark ID
-          [10..13]: 4 bytes truncated HMAC-SHA3-256 Authentication Tag
-          [14..15]: 2 bytes Magic Header (b"CP")
-        Total: exactly 16 bytes (128 bits).
+          [0..3]    : 4 bytes Magic header: b"CPTC"
+          [4]       : 1 byte Protocol version (0x03)
+          [5..14]   : 10 bytes Watermark ID (raw bytes from hex)
+          [15..30]  : 16 bytes Event ID / UUID
+          [31..46]  : 16 bytes Document Fingerprint (truncated SHA3-256)
+          [47..62]  : 16 bytes Recipient Key ID Fingerprint
+          [63..78]  : 16 bytes Session Nonce
+          [79..86]  : 8 bytes Timestamp (Unix epoch big-endian)
+          [87..88]  : 2 bytes KEM Algorithm ID (0x0001 = ML-KEM-768)
+          [89..90]  : 2 bytes Signature Algorithm ID (0x0001 = ML-DSA-65)
+          [91..len-17] : reserved zero padding (20 bytes for 127-byte frames, 144 for legacy 251)
+          [len-16..len-1]: 16 bytes HMAC-SHA3-256 Authentication Tag over everything before it
         """
+        frame_len = int(frame_len or cls.FRAME_DATA_LEN)
         if secret is None:
             secret = CryptoEngine.derive_system_secret()
 
@@ -104,46 +170,159 @@ class WatermarkEngine:
         except Exception:
             wm_id_raw = watermark_id.encode("ascii")[:10].ljust(10, b'\x00')
 
-        body = wm_id_raw + event_id.replace("-", "").encode("ascii")[:8].ljust(8, b'\x00')
-        tag = hmac.new(secret, body, hashlib.sha3_256).digest()[:4]
-        frame = wm_id_raw + tag + cls.MAGIC_HEADER
-        assert len(frame) == 16, f"Frame must be 16 bytes, got {len(frame)}"
+        try:
+            ev_id_raw = bytes.fromhex(event_id.replace("-", ""))[:16].ljust(16, b'\x00')
+        except Exception:
+            ev_id_raw = event_id.encode("ascii")[:16].ljust(16, b'\x00')
+
+        try:
+            doc_fp_raw = bytes.fromhex(document_hash)[:16].ljust(16, b'\x00')
+        except Exception:
+            doc_fp_raw = hashlib.sha3_256(document_hash.encode()).digest()[:16]
+
+        try:
+            rec_fp_raw = bytes.fromhex(recipient_key_id)[:16].ljust(16, b'\x00')
+        except Exception:
+            rec_fp_raw = hashlib.sha3_256(recipient_key_id.encode()).digest()[:16]
+
+        try:
+            nonce_raw = bytes.fromhex(session_nonce)[:16].ljust(16, b'\x00')
+        except Exception:
+            nonce_raw = session_nonce.encode("ascii")[:16].ljust(16, b'\x00')
+
+        ts = int(time.time())
+        ts_bytes = struct.pack(">Q", ts)
+        algo_ids = struct.pack(">HH", 1, 1)
+        body_len = frame_len - cls.TAG_LEN
+        padding = b"\x00" * (body_len - cls.FRAME_FIXED_LEN)
+
+        body = (
+            cls.MAGIC_HEADER +
+            bytes([cls.PROTOCOL_VERSION]) +
+            wm_id_raw +
+            ev_id_raw +
+            doc_fp_raw +
+            rec_fp_raw +
+            nonce_raw +
+            ts_bytes +
+            algo_ids +
+            padding
+        )
+        assert len(body) == body_len, f"Frame body length must be {body_len} bytes, got {len(body)}"
+
+        tag = hmac.new(secret, body, hashlib.sha3_256).digest()[:cls.TAG_LEN]
+        frame = body + tag
+        assert len(frame) == frame_len, f"Total frame must be {frame_len} bytes, got {len(frame)}"
         return frame
 
     @classmethod
     def parse_watermark_frame(cls, frame: bytes, secret: Optional[bytes] = None) -> Optional[Dict[str, Any]]:
         """
-        Parses an extracted 16-byte watermark frame.
+        Parses and verifies an extracted watermark frame (current 127 bytes, or legacy 251 bytes).
+        The tag is always the trailing 16 bytes and covers everything before it.
         """
-        if len(frame) < 16:
+        if len(frame) not in (cls.FRAME_DATA_LEN, cls.LEGACY_FRAME_LEN):
             return None
-        payload = frame[:16]
-        wm_id_hex = payload[:10].hex()
-        tag = payload[10:14]
-        magic = payload[14:16]
+        if not frame.startswith(cls.MAGIC_HEADER):
+            return None
+
+        if secret is None:
+            try:
+                secret = CryptoEngine.derive_system_secret()
+            except Exception:
+                secret = b""
+
+        version = frame[4]
+        wm_id_hex = frame[5:15].hex()
+        ev_id_raw = frame[15:31]
+        doc_fp_hex = frame[31:47].hex()
+        rec_fp_hex = frame[47:63].hex()
+        nonce_hex = frame[63:79].hex()
+        ts = struct.unpack(">Q", frame[79:87])[0]
+        kem_algo_id, dsa_algo_id = struct.unpack(">HH", frame[87:91])
+        tag = frame[-cls.TAG_LEN:]
 
         tag_valid = False
-        if magic == cls.MAGIC_HEADER:
-            tag_valid = True
+        if secret:
+            expected_tag = hmac.new(secret, frame[:-cls.TAG_LEN], hashlib.sha3_256).digest()[:cls.TAG_LEN]
+            tag_valid = hmac.compare_digest(tag, expected_tag)
 
         return {
-            "magic": "CP",
-            "version": cls.PROTOCOL_VERSION,
+            "magic": cls.MAGIC_HEADER.decode("ascii"),
+            "version": version,
             "watermark_id": wm_id_hex,
-            "authenticity_tag_valid": tag_valid,
-            "raw_payload_hex": payload.hex()
+            "event_id_raw": ev_id_raw.hex(),
+            "document_fingerprint": doc_fp_hex,
+            "recipient_key_id": rec_fp_hex,
+            "session_nonce": nonce_hex,
+            "timestamp": ts,
+            "kem_algorithm": "ML-KEM-768" if kem_algo_id == 1 else f"ALGO_{kem_algo_id}",
+            "signature_algorithm": "ML-DSA-65" if dsa_algo_id == 1 else f"ALGO_{dsa_algo_id}",
+            "authenticity_tag_valid": tag_valid
         }
 
     # -------------------------------------------------------------
-    # Watermark Embedding: Frequency-Domain 2D DCT + Hadamard DSSS
+    # Beacon payload: 10-byte watermark ID + 4-byte HMAC, RS(32, 14)
+    # -------------------------------------------------------------
+    @classmethod
+    def beacon_tag(cls, wm_id_raw: bytes, secret: Optional[bytes] = None) -> bytes:
+        if secret is None:
+            secret = CryptoEngine.derive_system_secret()
+        return hmac.new(secret, wm_id_raw, hashlib.sha3_256).digest()[:cls.BEACON_TAG_LEN]
+
+    def build_beacon_codeword(self, wm_id_raw: bytes, secret: Optional[bytes] = None) -> bytes:
+        payload = wm_id_raw + self.beacon_tag(wm_id_raw, secret)
+        codeword = bytes(self._rs_beacon.encode(payload))
+        assert len(codeword) == self.BEACON_N
+        return codeword
+
+    # -------------------------------------------------------------
+    # 2D DCT Mathematics (kept for API compatibility)
+    # -------------------------------------------------------------
+    def _dct2(self, block: np.ndarray) -> np.ndarray:
+        return dct(dct(block.T, norm='ortho').T, norm='ortho')
+
+    def _idct2(self, block: np.ndarray) -> np.ndarray:
+        return idct(idct(block.T, norm='ortho').T, norm='ortho')
+
+    @staticmethod
+    def _bytes_to_bits(data: bytes) -> np.ndarray:
+        return np.unpackbits(np.frombuffer(bytes(data), dtype=np.uint8))
+
+    @staticmethod
+    def _embed_carrier(y_f: np.ndarray, bits: np.ndarray, u: int, v: int, bs: int, strength: float) -> None:
+        """
+        Sets DCT coefficient (u, v) of every bs x bs block of y_f (in place) to +/-strength according to
+        ``bits[block_index % len(bits)]``, block_index in raster order over the SAME grid the extractor
+        walks (``range(0, dim - bs, bs)``). Equivalent to dct -> set coefficient -> idct per block.
+        """
+        h, w = y_f.shape
+        nby, nbx = blocks(h, bs), blocks(w, bs)
+        if nby < 1 or nbx < 1:
+            return
+        stack = block_stack(y_f, bs, 0, 0, nbx, nby).astype(np.float64)
+        basis = dct_basis_2d(bs, u, v)
+        cur = stack.reshape(stack.shape[0], -1) @ basis.reshape(-1)
+        n = stack.shape[0]
+        target = np.where(bits[np.arange(n) % len(bits)] == 1, strength, -strength)
+        new = stack + (target - cur)[:, None, None] * basis[None, :, :]
+        region = new.reshape(nby, nbx, bs, bs).transpose(0, 2, 1, 3).reshape(nby * bs, nbx * bs)
+        y_f[:nby * bs, :nbx * bs] = region
+
+    # -------------------------------------------------------------
+    # Watermark Embedding: fine RS(255, 127) frame + ID beacon
     # -------------------------------------------------------------
     def embed_watermark(
         self,
         input_pdf_path: str,
         payload: Union[bytes, str],
         output_pdf_path: str,
-        frame_metadata: Optional[Dict[str, Any]] = None
+        frame_metadata: Optional[Dict[str, Any]] = None,
+        profile: str = CURRENT_PROFILE
     ) -> str:
+        prof = self._profile(profile)
+        legacy = prof.name == self.LEGACY_PROFILE
+
         if isinstance(payload, str):
             try:
                 raw_payload = bytes.fromhex(payload)
@@ -152,303 +331,396 @@ class WatermarkEngine:
         else:
             raw_payload = payload
 
-        if len(raw_payload) == 16 and raw_payload.endswith(self.MAGIC_HEADER):
+        if len(raw_payload) == prof.frame_len and raw_payload.startswith(self.MAGIC_HEADER):
             frame = raw_payload
-        elif len(raw_payload) >= 127 and raw_payload.startswith(b"CPTC"):
-            wm_id = raw_payload[5:15].hex()
-            ev_id = raw_payload[15:31].hex()
-            frame = self.build_watermark_frame(wm_id, ev_id, "", "", "")
         else:
             wm_id = raw_payload[:10].hex()
             ev_id = (frame_metadata or {}).get("event_id", "0" * 32)
-            frame = self.build_watermark_frame(wm_id, str(ev_id), "", "", "")
+            doc_h = (frame_metadata or {}).get("doc_hash", "0" * 32)
+            rec_id = (frame_metadata or {}).get("recipient_key_id", "0" * 32)
+            nonce = (frame_metadata or {}).get("session_nonce", "0" * 32)
+            frame = self.build_watermark_frame(wm_id, str(ev_id), doc_h, rec_id, nonce, frame_len=prof.frame_len)
 
-        # Convert 16 bytes to 128 bipolar bits {-1, +1}
-        bit_str = ''.join(format(b, '08b') for b in frame)
-        bipolar_bits = np.array([1.0 if b == '1' else -1.0 for b in bit_str], dtype=np.float32)
+        coded_payload = bytes(prof.rs.encode(frame))
+        assert len(coded_payload) == self.CODEWORD_LEN, f"Codeword must be 255 bytes, got {len(coded_payload)}"
+        fine_bits = self._bytes_to_bits(coded_payload)
+
+        beacon_bits = None
+        if not legacy:
+            beacon_bits = self._bytes_to_bits(self.build_beacon_codeword(frame[5:15]))
 
         src_doc = fitz.open(input_pdf_path)
-        out_doc = fitz.open()
+        try:
+            if len(src_doc) > settings.MAX_PDF_PAGES:
+                raise ValueError(
+                    f"Document has {len(src_doc)} pages; maximum supported is {settings.MAX_PDF_PAGES}"
+                )
+            out_doc = fitz.open()
+            try:
+                u, v = prof.coord
+                for page in src_doc:
+                    rect = page.rect
+                    pix = page.get_pixmap(dpi=self.render_dpi)
+                    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                    img_np = np.array(img, dtype=np.uint8)
 
-        for page_idx, page in enumerate(src_doc):
-            rect = page.rect
-            pix = page.get_pixmap(dpi=self.render_dpi)
-            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-            img_np = np.array(img, dtype=np.uint8)
+                    ycrcb = cv2.cvtColor(img_np, cv2.COLOR_RGB2YCrCb)
+                    y, cr, cb = cv2.split(ycrcb)
+                    y_f = y.astype(np.float32)
 
-            ycrcb = cv2.cvtColor(img_np, cv2.COLOR_RGB2YCrCb)
-            y, cr, cb = cv2.split(ycrcb)
-            y_f = y.astype(np.float32)
-            h, w = y_f.shape
+                    # Fine carrier first, then the coarse beacon on top.
+                    self._embed_carrier(y_f, fine_bits, u, v, self.block_size, prof.strength)
+                    if beacon_bits is not None:
+                        bu, bv = self.BEACON_COORD
+                        self._embed_carrier(y_f, beacon_bits, bu, bv, self.BEACON_BLOCK, self.BEACON_STRENGTH)
 
-            b_idx = 0
-            for i in range(0, h - self.block_size, self.block_size):
-                for j in range(0, w - self.block_size, self.block_size):
-                    block = y_f[i:i + self.block_size, j:j + self.block_size]
-                    dct_b = cv2.dct(block)
-                    bit_val = bipolar_bits[b_idx % self.TOTAL_BITS]
-                    h_basis = self.basis_patterns[b_idx % self.TOTAL_BITS]
-                    # Modulate low-to-mid 2D DCT coefficients with orthogonal Hadamard basis
-                    dct_b += self.embed_strength * bit_val * h_basis
-                    y_f[i:i + self.block_size, j:j + self.block_size] = cv2.idct(dct_b)
-                    b_idx += 1
+                    y_out = np.clip(y_f, 0, 255).astype(np.uint8)
+                    merged = cv2.merge([y_out, cr, cb])
+                    final_img = cv2.cvtColor(merged, cv2.COLOR_YCrCb2RGB)
 
-            y_out = np.clip(y_f, 0, 255).astype(np.uint8)
-            merged = cv2.merge([y_out, cr, cb])
-            final_img = cv2.cvtColor(merged, cv2.COLOR_YCrCb2RGB)
+                    with io.BytesIO() as buf:
+                        Image.fromarray(final_img).save(buf, format="PNG")
+                        png_bytes = buf.getvalue()
 
-            with io.BytesIO() as buf:
-                Image.fromarray(final_img).save(buf, format="PNG")
-                png_bytes = buf.getvalue()
-
-            new_page = out_doc.new_page(width=rect.width, height=rect.height)
-            new_page.insert_image(rect, stream=png_bytes)
-            del png_bytes, final_img, merged, y_out
-
-        out_doc.save(output_pdf_path)
-        out_doc.close()
-        src_doc.close()
+                    new_page = out_doc.new_page(width=rect.width, height=rect.height)
+                    new_page.insert_image(rect, stream=png_bytes)
+                    del png_bytes, final_img, merged, y_out
+                out_doc.save(output_pdf_path)
+            finally:
+                out_doc.close()
+        finally:
+            src_doc.close()
         return output_pdf_path
 
+    @classmethod
+    def render_size(cls, pdf_path: str, dpi: int = 150) -> Tuple[int, int]:
+        """Pixel size (w, h) that page 0 of ``pdf_path`` renders to at ``dpi`` - the canonical geometry."""
+        doc = fitz.open(pdf_path)
+        try:
+            scale = dpi / 72.0
+            r = (doc[0].rect * fitz.Matrix(scale, scale)).irect
+            return int(r.width), int(r.height)
+        finally:
+            doc.close()
+
     # -------------------------------------------------------------
-    # Watermark Extraction: Coherent 2D DCT Hadamard Correlation
+    # Extraction primitives
     # -------------------------------------------------------------
-    def _extract_from_image(self, img: Image.Image) -> Tuple[Union[bytes, None], Dict[str, Any]]:
-        img_np = np.array(img, dtype=np.uint8)
-        ycrcb = cv2.cvtColor(img_np, cv2.COLOR_RGB2YCrCb)
-        y, _, _ = cv2.split(ycrcb)
-        y_f = y.astype(np.float32)
-        h, w = y_f.shape
+    @staticmethod
+    def _luma(rgb: np.ndarray) -> np.ndarray:
+        ycrcb = cv2.cvtColor(rgb, cv2.COLOR_RGB2YCrCb)
+        return cv2.split(ycrcb)[0].astype(np.float32)
 
-        accum_corr = np.zeros(self.TOTAL_BITS, dtype=np.float64)
-        counts = np.zeros(self.TOTAL_BITS, dtype=np.int32)
-        total_blocks = 0
+    @staticmethod
+    def _fold_bits(vals: np.ndarray, nbits: int, strength: float) -> Tuple[bytes, float]:
+        """Averages the coefficient stream modulo ``nbits``, thresholds on sign, packs MSB-first."""
+        idx = np.arange(vals.size) % nbits
+        sums = np.bincount(idx, weights=vals, minlength=nbits)
+        counts = np.bincount(idx, minlength=nbits)
+        avg = sums / np.maximum(counts, 1)
+        coded = np.packbits((avg > 0).astype(np.uint8)).tobytes()
+        carrier_strength = float(min(1.0, max(0.0, float(np.mean(np.abs(avg))) / strength)))
+        return coded, carrier_strength
 
-        b_idx = 0
-        for i in range(0, h - self.block_size, self.block_size):
-            for j in range(0, w - self.block_size, self.block_size):
-                block = y_f[i:i + self.block_size, j:j + self.block_size]
-                dct_b = cv2.dct(block)
-                h_basis = self.basis_patterns[b_idx % self.TOTAL_BITS]
-                # Coherent inner product in 2D DCT domain
-                corr = np.sum(dct_b * h_basis)
-                slot = b_idx % self.TOTAL_BITS
-                accum_corr[slot] += corr
-                counts[slot] += 1
-                b_idx += 1
-                total_blocks += 1
-
-        if total_blocks < self.TOTAL_BITS:
-            return None, {
-                "watermark_detected": False,
-                "confidence": 0.0,
-                "bit_error_rate": 100.0,
-                "ecc_strategy": self.ECC_STRATEGY,
-                "analysis": "Image too small for Hadamard extraction"
-            }
-
-        avg_corr = accum_corr / np.maximum(counts, 1)
-        recovered_bits = ''.join('1' if avg_corr[k] > 0 else '0' for k in range(self.TOTAL_BITS))
-
-        # Reconstruct 16-byte payload
-        byte_list = [int(recovered_bits[i:i + 8], 2) for i in range(0, self.TOTAL_BITS, 8)]
-        decoded_payload = bytes(byte_list)
-
-        avg_energy = float(np.mean(np.abs(avg_corr)))
-        expected_signal = self.embed_strength
-        confidence = float(min(1.0, max(0.0, avg_energy / max(1.0, expected_signal))))
-
-        parsed = self.parse_watermark_frame(decoded_payload)
-        tag_valid = bool(parsed and parsed.get("authenticity_tag_valid", False))
-        is_detected = tag_valid
-
-        repetitions = total_blocks // self.TOTAL_BITS
-        ber = 0.0 if tag_valid else float(min(50.0, max(0.0, (1.0 - confidence) * 50.0)))
-
-        return decoded_payload, {
-            "watermark_detected": is_detected,
-            "confidence": confidence,
-            "bit_error_rate": ber,
-            "ecc_corrected": True,
-            "payload_recovery_pct": 100.0 if is_detected else 0.0,
-            "extracted_raw_hex": decoded_payload.hex(),
-            "watermark_id": parsed["watermark_id"] if parsed else decoded_payload[:10].hex(),
-            "frame": parsed,
-            "ecc_strategy": self.ECC_STRATEGY,
-            "analysis": f"Hadamard DSSS 2D DCT Coherent Correlation (Repetitions: {repetitions}x, Processing Gain: ~{int(10 * np.log10(64 * max(1, repetitions)))} dB)"
+    def _failure(self, reason: str, ecc_strategy: str, carrier_strength: float = 0.0,
+                 analysis: Optional[str] = None) -> Dict[str, Any]:
+        return {
+            "watermark_detected": False,
+            "attribution_tier": "none",
+            "authenticity_tag_valid": False,
+            "carrier_strength": carrier_strength,
+            "bit_error_rate": 100.0,
+            "payload_recovery_pct": 0.0,
+            "ecc_strategy": ecc_strategy,
+            "failure_reason": reason,
+            "analysis": analysis or f"No authenticated watermark recovered ({reason})",
+            "extracted_raw_hex": ""
         }
 
-    def extract_watermark(self, document_path: Union[str, bytes]) -> Tuple[Union[bytes, None], Dict[str, Any]]:
-        """
-        Extracts and decodes the embedded Hadamard watermark from a PDF or image file.
-        Includes multi-scale canonical screen capture normalization, dark/light page segmentation,
-        and coherent 2D DCT correlation.
-        """
-        if isinstance(document_path, bytes):
-            is_image = document_path.startswith(b"\x89PNG") or document_path.startswith(b"\xff\xd8") or document_path.startswith(b"RIFF")
-        else:
-            lower_path = str(document_path).lower()
-            is_image = lower_path.endswith(('.png', '.jpg', '.jpeg', '.webp', '.bmp', '.tiff'))
+    def _try_fine(
+        self, y: np.ndarray, prof: _Profile, dy: int = 0, dx: int = 0,
+        nbx: Optional[int] = None, nby: Optional[int] = None
+    ) -> Tuple[Optional[bytes], Dict[str, Any]]:
+        """One fine-frame decode attempt at a fixed grid. Success requires magic AND a valid HMAC tag."""
+        nbits = self.CODEWORD_LEN * 8
+        u, v = prof.coord
+        vals = coeff_map(y, u, v, self.block_size, dy, dx, nbx, nby)
+        if vals is None or vals.size < nbits:
+            return None, self._failure("image_too_small", prof.ecc_strategy,
+                                       analysis="Image too small for watermark extraction")
+        coded, carrier_strength = self._fold_bits(vals, nbits, prof.strength)
+
+        # Cheap pre-filter so the phase search does not pay for a full RS decode on every misaligned
+        # grid. The code is systematic, so the first bytes of the codeword ARE the frame's magic +
+        # version. Random data disagrees on ~20 of these 40 bits; a genuine frame within the RS budget
+        # disagrees on far fewer.
+        expected_head = self.MAGIC_HEADER + bytes([self.PROTOCOL_VERSION])
+        head_bit_errors = int(np.unpackbits(
+            np.frombuffer(coded[:len(expected_head)], dtype=np.uint8) ^
+            np.frombuffer(expected_head, dtype=np.uint8)).sum())
+        if head_bit_errors > self.HEAD_PREFILTER_MAX_BIT_ERRORS:
+            return None, self._failure("magic_mismatch", prof.ecc_strategy, carrier_strength)
 
         try:
-            if is_image:
-                if isinstance(document_path, bytes):
+            candidate = bytes(prof.rs.decode(coded)[0])
+        except ReedSolomonError:
+            return None, self._failure("rs_decode_failed", prof.ecc_strategy, carrier_strength,
+                                       "Reed-Solomon decoding threshold exceeded")
+        if len(candidate) != prof.frame_len:
+            return None, self._failure("bad_length", prof.ecc_strategy, carrier_strength)
+        if not candidate.startswith(self.MAGIC_HEADER):
+            return None, self._failure("magic_mismatch", prof.ecc_strategy, carrier_strength)
+        parsed = self.parse_watermark_frame(candidate)
+        if not parsed or not parsed["authenticity_tag_valid"]:
+            return None, self._failure("hmac_invalid", prof.ecc_strategy, carrier_strength)
+
+        re_encoded = bytes(prof.rs.encode(candidate))
+        corrupted = sum(a != b for a, b in zip(coded, re_encoded))
+        return candidate, {
+            "watermark_detected": True,
+            "attribution_tier": "frame",
+            "authenticity_tag_valid": True,
+            "carrier_strength": carrier_strength,
+            "bit_error_rate": float(corrupted / float(self.CODEWORD_LEN) * 100.0),
+            "corrupted_bytes_count": corrupted,
+            "ecc_corrected": corrupted > 0,
+            "payload_recovery_pct": float(max(0.0, 1.0 - corrupted / float(self.CODEWORD_LEN)) * 100.0),
+            "extracted_raw_hex": candidate.hex(),
+            "watermark_id": parsed["watermark_id"],
+            "frame": parsed,
+            "profile": prof.name,
+            "ecc_strategy": prof.ecc_strategy,
+            "analysis": f"{prof.ecc_strategy} multi-tile accumulated decoding "
+                        f"(repetitions: {(vals.size // nbits)}x, profile {prof.name})"
+        }
+
+    def _try_beacon(
+        self, y: np.ndarray, dy: int = 0, dx: int = 0,
+        nbx: Optional[int] = None, nby: Optional[int] = None
+    ) -> Tuple[Optional[bytes], Dict[str, Any]]:
+        """One beacon decode attempt. Success requires RS decode AND a valid 4-byte HMAC over the ID."""
+        nbits = self.BEACON_N * 8
+        u, v = self.BEACON_COORD
+        vals = coeff_map(y, u, v, self.BEACON_BLOCK, dy, dx, nbx, nby)
+        if vals is None or vals.size < nbits:
+            return None, self._failure("image_too_small", self.BEACON_ECC_STRATEGY)
+        coded, carrier_strength = self._fold_bits(vals, nbits, self.BEACON_STRENGTH)
+        try:
+            payload = bytes(self._rs_beacon.decode(coded)[0])
+        except ReedSolomonError:
+            return None, self._failure("rs_decode_failed", self.BEACON_ECC_STRATEGY, carrier_strength)
+        if len(payload) != self.BEACON_ID_LEN + self.BEACON_TAG_LEN:
+            return None, self._failure("bad_length", self.BEACON_ECC_STRATEGY, carrier_strength)
+        wm_id_raw, tag = payload[:self.BEACON_ID_LEN], payload[self.BEACON_ID_LEN:]
+        if not hmac.compare_digest(tag, self.beacon_tag(wm_id_raw)):
+            return None, self._failure("hmac_invalid", self.BEACON_ECC_STRATEGY, carrier_strength)
+
+        corrupted = sum(a != b for a, b in zip(coded, bytes(self._rs_beacon.encode(payload))))
+        return wm_id_raw, {
+            "watermark_detected": True,
+            "attribution_tier": "beacon",
+            "authenticity_tag_valid": True,
+            "carrier_strength": carrier_strength,
+            "bit_error_rate": float(corrupted / float(self.BEACON_N) * 100.0),
+            "corrupted_bytes_count": corrupted,
+            "ecc_corrected": corrupted > 0,
+            "payload_recovery_pct": float(max(0.0, 1.0 - corrupted / float(self.BEACON_N)) * 100.0),
+            "extracted_raw_hex": wm_id_raw.hex(),
+            "watermark_id": wm_id_raw.hex(),
+            "frame": None,
+            "profile": self.CURRENT_PROFILE,
+            "ecc_strategy": self.BEACON_ECC_STRATEGY,
+            "analysis": "Only the watermark ID beacon was recovered (fine forensic frame unrecoverable)"
+        }
+
+    def _extract_from_image(self, img: Image.Image) -> Tuple[Union[bytes, None], Dict[str, Any]]:
+        """
+        Fast path: read the image at its NATIVE geometry with the current profile, then the legacy
+        profile. No geometry search, no beacon. Use ``extract_from_image`` for the full pipeline.
+        """
+        y = self._luma(np.array(img.convert("RGB"), dtype=np.uint8))
+        first_failure: Optional[Dict[str, Any]] = None
+        for name in (self.CURRENT_PROFILE, self.LEGACY_PROFILE):
+            payload, metrics = self._try_fine(y, self._profile(name))
+            if payload is not None:
+                return payload, metrics
+            if first_failure is None:
+                first_failure = metrics
+        return None, first_failure
+
+    def _search_regions(self, rgb: np.ndarray, extra_sizes: Optional[Sequence[Tuple[int, int]]]):
+        """(page_box, [(canonical_w, canonical_h, crop_resized_rgb), ...]) - crops resampled EXACTLY."""
+        h, w = rgb.shape[:2]
+        box = locate_page(rgb) or (0, 0, w, h)
+        x, yy, bw, bh = box
+        crop = Image.fromarray(rgb[yy:yy + bh, x:x + bw])
+        regions = []
+        for (cw, ch) in candidate_sizes(bw, bh, extra_sizes):
+            norm = np.array(crop.resize((cw, ch), Image.LANCZOS), dtype=np.uint8)
+            regions.append((cw, ch, norm))
+        return box, regions
+
+    @staticmethod
+    def _pad_luma(norm_rgb: np.ndarray, pad: int) -> np.ndarray:
+        """Edge-pad AFTER the exact resize so phase offsets never shrink the block grid."""
+        padded = cv2.copyMakeBorder(norm_rgb, 0, pad, 0, pad, cv2.BORDER_REPLICATE)
+        return WatermarkEngine._luma(padded)
+
+    def _extract_with_geometry_search(
+        self, rgb: np.ndarray, extra_sizes: Optional[Sequence[Tuple[int, int]]] = None
+    ) -> Tuple[Optional[bytes], Dict[str, Any]]:
+        """Fine-frame recovery from a screenshot: locate page -> exact rescale -> 8-px phase search."""
+        prof = self._profile(self.CURRENT_PROFILE)
+        bs = self.block_size
+        box, regions = self._search_regions(rgb, extra_sizes)
+        lumas = [(cw, ch, self._pad_luma(norm, bs)) for cw, ch, norm in regions]
+        last = self._failure("no_candidate", prof.ecc_strategy)
+
+        def attempt(cw, ch, y, dy, dx):
+            return self._try_fine(y, prof, dy, dx, blocks(cw, bs), blocks(ch, bs))
+
+        for cw, ch, y in lumas:                       # (0, 0) at every size first
+            payload, m = attempt(cw, ch, y, 0, 0)
+            if payload is not None:
+                m["geometry"] = {"canonical_size": [cw, ch], "phase": [0, 0], "page_box": list(box)}
+                return payload, m
+            last = m
+        for cw, ch, y in lumas:                       # then the remaining 63 phases
+            for dy, dx in phase_offsets(bs):
+                if (dy, dx) == (0, 0):
+                    continue
+                payload, m = attempt(cw, ch, y, dy, dx)
+                if payload is not None:
+                    m["geometry"] = {"canonical_size": [cw, ch], "phase": [dx, dy], "page_box": list(box)}
+                    return payload, m
+                last = m
+        return None, last
+
+    def _extract_beacon(
+        self, rgb: np.ndarray, extra_sizes: Optional[Sequence[Tuple[int, int]]] = None
+    ) -> Tuple[Optional[bytes], Dict[str, Any]]:
+        """ID-only recovery: same search as the fine frame at the beacon block size, phases stepped by 2."""
+        bs = self.BEACON_BLOCK
+        last = self._failure("no_candidate", self.BEACON_ECC_STRATEGY)
+
+        # Native geometry (exact 150-DPI renders).
+        payload, m = self._try_beacon(self._luma(rgb))
+        if payload is not None:
+            return payload, m
+
+        box, regions = self._search_regions(rgb, extra_sizes)
+        lumas = [(cw, ch, self._pad_luma(norm, bs)) for cw, ch, norm in regions]
+
+        def attempt(cw, ch, y, dy, dx):
+            return self._try_beacon(y, dy, dx, blocks(cw, bs), blocks(ch, bs))
+
+        for cw, ch, y in lumas:
+            payload, m = attempt(cw, ch, y, 0, 0)
+            if payload is not None:
+                m["geometry"] = {"canonical_size": [cw, ch], "phase": [0, 0], "page_box": list(box)}
+                return payload, m
+            last = m
+        for cw, ch, y in lumas:
+            for dy, dx in phase_offsets(bs, step=2):
+                if (dy, dx) == (0, 0):
+                    continue
+                payload, m = attempt(cw, ch, y, dy, dx)
+                if payload is not None:
+                    m["geometry"] = {"canonical_size": [cw, ch], "phase": [dx, dy], "page_box": list(box)}
+                    return payload, m
+                last = m
+        return None, last
+
+    def extract_from_image(
+        self, img: Image.Image, extra_sizes: Optional[Sequence[Tuple[int, int]]] = None
+    ) -> Tuple[Union[bytes, None], Dict[str, Any]]:
+        """
+        Full extraction pipeline for an image of unknown geometry:
+          1. native geometry, current profile, then legacy profile
+          2. geometry search (page box -> exact rescale -> phase search), current profile
+          3. ID beacon
+        Returns (payload, metrics). payload is the authenticated frame (tier "frame"), the 10-byte watermark
+        ID (tier "beacon"), or None (tier "none").
+        """
+        payload, metrics = self._extract_from_image(img)
+        if payload is not None:
+            return payload, metrics
+        primary_failure = metrics
+
+        rgb = np.array(img.convert("RGB"), dtype=np.uint8)
+        payload, m = self._extract_with_geometry_search(rgb, extra_sizes)
+        if payload is not None:
+            return payload, m
+
+        payload, m = self._extract_beacon(rgb, extra_sizes)
+        if payload is not None:
+            return payload, m
+
+        return None, primary_failure
+
+    # -------------------------------------------------------------
+    # Public extraction entry point
+    # -------------------------------------------------------------
+    def _render_pdf_pages(self, doc: "fitz.Document"):
+        """Yields each page (up to MAX_PDF_PAGES) rendered at the canonical DPI."""
+        for idx, page in enumerate(doc):
+            if idx >= settings.MAX_PDF_PAGES:
+                break
+            pix = page.get_pixmap(dpi=self.render_dpi)
+            yield Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+
+    def _extract_pdf(self, doc: "fitz.Document", extra_sizes) -> Tuple[Union[bytes, None], Dict[str, Any]]:
+        """Every page carries an independent codeword: try each until one authenticates."""
+        first_img: Optional[Image.Image] = None
+        first_failure: Optional[Dict[str, Any]] = None
+        for page_img in self._render_pdf_pages(doc):
+            payload, metrics = self._extract_from_image(page_img)
+            if payload is not None:
+                return payload, metrics
+            if first_img is None:
+                first_img, first_failure = page_img, metrics
+        if first_img is None:
+            return None, self._failure("empty_document", self.ECC_STRATEGY, analysis="Document has no pages")
+        payload, metrics = self.extract_from_image(first_img, extra_sizes)
+        return (payload, metrics) if payload is not None else (None, first_failure)
+
+    def extract_watermark(
+        self,
+        document_path: Union[str, bytes],
+        extra_sizes: Optional[Sequence[Tuple[int, int]]] = None
+    ) -> Tuple[Union[bytes, None], Dict[str, Any]]:
+        """
+        Extracts the watermark from a PDF or an image (PNG / JPEG / WebP / BMP / TIFF), given as a path or
+        raw bytes. ``extra_sizes`` = exact canonical render sizes known from the database (tried first).
+        """
+        try:
+            if isinstance(document_path, bytes):
+                if _looks_like_image(document_path[:16]):
                     base_img = Image.open(io.BytesIO(document_path)).convert("RGB")
                 else:
-                    base_img = Image.open(document_path).convert("RGB")
-            else:
-                if isinstance(document_path, bytes):
                     doc = fitz.open(stream=document_path, filetype="pdf")
+                    try:
+                        return self._extract_pdf(doc, extra_sizes)
+                    finally:
+                        doc.close()
+            else:
+                path = str(document_path)
+                with open(path, "rb") as fh:
+                    head = fh.read(16)
+                if _looks_like_image(head) or path.lower().endswith(IMAGE_EXTENSIONS):
+                    base_img = Image.open(path).convert("RGB")
                 else:
-                    doc = fitz.open(document_path)
-                if len(doc) == 0:
-                    doc.close()
-                    return None, {"error": "Empty document", "watermark_detected": False}
-                page = doc[0]
-                pix = page.get_pixmap(dpi=self.render_dpi)
-                base_img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-                doc.close()
+                    doc = fitz.open(path)
+                    try:
+                        return self._extract_pdf(doc, extra_sizes)
+                    finally:
+                        doc.close()
         except Exception as e:
-            return None, {
-                "error": f"Failed to parse document: {str(e)}",
-                "watermark_detected": False,
-                "confidence": 0.0,
-                "bit_error_rate": 100.0,
-                "ecc_strategy": self.ECC_STRATEGY,
-                "analysis": "Unreadable file format"
-            }
+            metrics = self._failure("unreadable_file", self.ECC_STRATEGY, analysis="Unreadable file format")
+            metrics["error"] = f"Failed to parse document: {str(e)}"
+            return None, metrics
 
-        # 1. Native Resolution Direct Extraction
-        payload, metrics = self._extract_from_image(base_img)
-        if metrics.get("watermark_detected"):
-            return payload, metrics
-
-        best_payload = payload
-        best_metrics = metrics
-        best_conf = metrics.get("confidence", 0.0)
-
-        if is_image:
-            base_np = np.array(base_img)
-            gray = cv2.cvtColor(base_np, cv2.COLOR_RGB2GRAY)
-            img_area = base_img.width * base_img.height
-
-            # 2. Multi-Strategy Page Segmentation (Detects both dark and light pages inside viewers)
-            detected_boxes = []
-
-            # Strategy A: Corner Background Color Difference (handles dark/light docs inside viewer UI)
-            try:
-                corners = [
-                    base_np[:10, :10],
-                    base_np[:10, -10:],
-                    base_np[-10:, :10],
-                    base_np[-10:, -10:]
-                ]
-                bg_color = np.median(np.concatenate([c.reshape(-1, 3) for c in corners]), axis=0)
-                diff = np.linalg.norm(base_np.astype(float) - bg_color, axis=2)
-                for diff_thresh in [12.0, 20.0, 30.0]:
-                    mask = (diff > diff_thresh).astype(np.uint8) * 255
-                    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 7))
-                    mask_clean = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-                    contours, _ = cv2.findContours(mask_clean, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                    for c in contours:
-                        bx, by, bw, bh = cv2.boundingRect(c)
-                        area = bw * bh
-                        if area > (img_area * 0.15) and area < (img_area * 0.99) and bw > 150 and bh > 150:
-                            if not any(abs(bx - obx) < 15 and abs(by - oby) < 15 and abs(bw - obw) < 15 for obx, oby, obw, obh, _ in detected_boxes):
-                                detected_boxes.append((bx, by, bw, bh, f"Corner-BG-Diff-{diff_thresh}"))
-            except Exception:
-                pass
-
-            # Strategy B: Canny Edge Detection with Dilation
-            try:
-                edges = cv2.Canny(gray, 20, 80)
-                edges_dilated = cv2.dilate(edges, cv2.getStructuringElement(cv2.MORPH_RECT, (7, 7)), iterations=2)
-                contours, _ = cv2.findContours(edges_dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                for c in contours:
-                    bx, by, bw, bh = cv2.boundingRect(c)
-                    area = bw * bh
-                    if area > (img_area * 0.15) and area < (img_area * 0.99) and bw > 150 and bh > 150:
-                        if not any(abs(bx - obx) < 15 and abs(by - oby) < 15 and abs(bw - obw) < 15 for obx, oby, obw, obh, _ in detected_boxes):
-                            detected_boxes.append((bx, by, bw, bh, "Canny-Dilated"))
-            except Exception:
-                pass
-
-            # Strategy C: Multi-threshold binary and inverted
-            for t_val in [40, 70, 120, 180, 220]:
-                for inv in [False, True]:
-                    mode = cv2.THRESH_BINARY_INV if inv else cv2.THRESH_BINARY
-                    try:
-                        _, thresh = cv2.threshold(gray, t_val, 255, mode)
-                        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                        for c in contours:
-                            bx, by, bw, bh = cv2.boundingRect(c)
-                            area = bw * bh
-                            if area > (img_area * 0.15) and area < (img_area * 0.99) and bw > 150 and bh > 150:
-                                if not any(abs(bx - obx) < 15 and abs(by - oby) < 15 and abs(bw - obw) < 15 for obx, oby, obw, obh, _ in detected_boxes):
-                                    detected_boxes.append((bx, by, bw, bh, f"Thresh-{'INV-' if inv else ''}{t_val}"))
-                    except Exception:
-                        pass
-
-            # Canonical aspect ratios and resolutions (A4 at 150 DPI is exactly 1241x1754 in PyMuPDF)
-            CANONICAL_RESOLUTIONS = [(1241, 1754), (1240, 1754), (1275, 1650), (1241, 1755)]
-
-            # Test detected page crops resized to canonical page resolutions
-            for bx, by, bw, bh, label in detected_boxes:
-                cropped = base_img.crop((bx, by, bx + bw, by + bh))
-                for tw, th in CANONICAL_RESOLUTIONS:
-                    try:
-                        canon = cropped.resize((tw, th), Image.Resampling.LANCZOS)
-                        p, m = self._extract_from_image(canon)
-                        if m.get("watermark_detected"):
-                            m["analysis"] = f"Hadamard DSSS 2D DCT Extraction (Page Segmentation [{label}] -> {tw}x{th})"
-                            return p, m
-                        cur_conf = m.get("confidence", 0.0)
-                        if cur_conf > best_conf:
-                            best_conf = cur_conf
-                            best_payload = p
-                            best_metrics = m
-                    except Exception:
-                        pass
-
-            # 3. Canonical Scaling of full image (handles direct full-page screenshots at 72/96/120/144 DPI)
-            for tw, th in CANONICAL_RESOLUTIONS:
-                if base_img.size != (tw, th):
-                    try:
-                        canon_img = base_img.resize((tw, th), Image.Resampling.LANCZOS)
-                        c_payload, c_metrics = self._extract_from_image(canon_img)
-                        if c_metrics.get("watermark_detected"):
-                            c_metrics["analysis"] = f"Hadamard DSSS 2D DCT Extraction (Canonical Normalization {tw}x{th})"
-                            return c_payload, c_metrics
-                        cur_conf = c_metrics.get("confidence", 0.0)
-                        if cur_conf > best_conf:
-                            best_conf = cur_conf
-                            best_payload = c_payload
-                            best_metrics = c_metrics
-                    except Exception:
-                        pass
-
-            # 4. Inset Margin Checks (handles minor window borders, drop shadows, or 1-2% browser window frames)
-            w, h = base_img.size
-            for margin_pct in [0.015, 0.03]:
-                mx, my = int(w * margin_pct), int(h * margin_pct)
-                if mx > 0 and my > 0 and w - 2*mx > 100 and h - 2*my > 100:
-                    try:
-                        trimmed = base_img.crop((mx, my, w - mx, h - my))
-                        for tw, th in [(1241, 1754), (1275, 1650)]:
-                            canon_trimmed = trimmed.resize((tw, th), Image.Resampling.LANCZOS)
-                            p_t, m_t = self._extract_from_image(canon_trimmed)
-                            if m_t.get("watermark_detected"):
-                                m_t["analysis"] = f"Hadamard DSSS 2D DCT Extraction (Margin Inset {int(margin_pct*100)}% -> {tw}x{th})"
-                                return p_t, m_t
-                            cur_conf = m_t.get("confidence", 0.0)
-                            if cur_conf > best_conf:
-                                best_conf = cur_conf
-                                best_payload = p_t
-                                best_metrics = m_t
-                    except Exception:
-                        pass
-
-        return best_payload, best_metrics
+        return self.extract_from_image(base_img, extra_sizes)
 
     @staticmethod
     def calculate_psnr(original: np.ndarray, modified: np.ndarray) -> float:

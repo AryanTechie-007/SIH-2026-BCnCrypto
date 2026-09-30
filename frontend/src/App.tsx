@@ -87,7 +87,7 @@ export function App() {
               sessionStorage.removeItem(STORAGE_KEY_USER);
               sessionStorage.removeItem(STORAGE_KEY_TOKEN);
               setCurrentUser(null);
-            } else {
+            } else if (!parsed.keystore_password) {
               ApiClient.getCurrentUser().then(fresh => {
                 if (fresh && fresh.keystore_password) {
                   setCurrentUser(fresh);

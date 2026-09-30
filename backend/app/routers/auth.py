@@ -184,9 +184,9 @@ async def register(req: RegisterRequest, response: Response, db: AsyncSession = 
     # Pre-allocate user ID
     user_id_seed = int(uuid.uuid4().int % 900000 + 100000)
 
-    # Generate 32-bit pseudorandom hexadecimal keystore passcode (0x00000000 to 0xFFFFFFFF)
-    keystore_secret_val = secrets.randbelow(2**32)
-    keystore_secret = f"0x{keystore_secret_val:08X}"
+    # Generate 16-bit pseudorandom keystore passcode (0x0000 to 0xFFFF)
+    keystore_secret_val = secrets.randbelow(65536)
+    keystore_secret = f"0x{keystore_secret_val:04X}"
 
     # Store private keys exclusively in encrypted keystore (NEVER in SQLite)
     keystore_path, kem_key_id, dsa_key_id = KeystoreManager.create_keystore(

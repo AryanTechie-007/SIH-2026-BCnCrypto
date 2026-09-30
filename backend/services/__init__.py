@@ -6,6 +6,7 @@ if _backend_dir not in sys.path:
     sys.path.insert(0, _backend_dir)
 
 from app.services.crypto_engine import CryptoEngine, HybridPQCEngine, QuantumCrypto, KeyEncapsulation
+from app.services.ai_engine import DocumentIntelligence
 from app.services.forensics import ForensicAuditor
 
 __all__ = [
@@ -13,5 +14,6 @@ __all__ = [
     "HybridPQCEngine",
     "QuantumCrypto",
     "KeyEncapsulation",
+    "DocumentIntelligence",
     "ForensicAuditor",
 ]

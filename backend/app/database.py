@@ -31,10 +31,31 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
     cursor.close()
 
 
+def _add_missing_columns(sync_conn):
+    """
+    Idempotent, additive column migrations. ``create_all`` never alters an existing table, so columns
+    added to a model after a database was first created are added here (guarded by PRAGMA table_info).
+    """
+    additions = {
+        "watermark_records": [
+            ("render_width", "INTEGER"),
+            ("render_height", "INTEGER"),
+        ],
+    }
+    for table, columns in additions.items():
+        existing = {row[1] for row in sync_conn.exec_driver_sql(f"PRAGMA table_info({table})").fetchall()}
+        if not existing:
+            continue  # table absent; create_all made it with the full schema
+        for name, col_type in columns:
+            if name not in existing:
+                sync_conn.exec_driver_sql(f"ALTER TABLE {table} ADD COLUMN {name} {col_type}")
+
+
 async def init_db():
     """Initializes database schema."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(_add_missing_columns)
 
 
 async def get_db():

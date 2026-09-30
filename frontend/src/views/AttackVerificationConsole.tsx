@@ -64,7 +64,7 @@ export const AttackVerificationConsole: React.FC = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
           <span className="tactical-badge badge-amber">STAGE 4</span>
           <span className="tactical-badge badge-slate">ADVERSARIAL ATTACK ENGINE</span>
-          <span className="tactical-badge badge-slate">WALSH-HADAMARD ORTHOGONAL RECOVERY BENCHMARK</span>
+          <span className="tactical-badge badge-slate">REED-SOLOMON ECC RECOVERY BENCHMARK</span>
         </div>
         <h1 style={{ fontSize: '20px', fontWeight: 800, letterSpacing: '0.03em', color: '#ffffff' }}>
           ADVERSARIAL WATERMARK ROBUSTNESS & DEGRADATION LAB
@@ -167,7 +167,7 @@ export const AttackVerificationConsole: React.FC = () => {
                     </div>
 
                     <div style={{ backgroundColor: '#090d15', padding: '12px', border: '1px solid var(--border-hard)' }}>
-                      <div style={{ fontSize: '10px', color: 'var(--text-dim)' }}>HADAMARD ORTHOGONAL RECOVERY:</div>
+                      <div style={{ fontSize: '10px', color: 'var(--text-dim)' }}>REED-SOLOMON RECOVERY:</div>
                       <div className="font-mono" style={{ fontSize: '18px', fontWeight: 800, color: '#10b981' }}>
                         {result.payload_recovery_pct.toFixed(1)}%
                       </div>

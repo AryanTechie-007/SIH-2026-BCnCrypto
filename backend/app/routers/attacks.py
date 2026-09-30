@@ -20,7 +20,7 @@ ATTACK_PROFILES = [
         "name": "Severe JPEG Recompression (Quality 35%)",
         "category": "COMPRESSION_CHANNEL",
         "description": "Simulates exfiltration across lossy messaging channels (e.g. messaging apps, re-encoded attachment). High-frequency DCT coefficients wiped.",
-        "ecc_strategy": "Walsh-Hadamard Transform Orthogonal Spreading (WHT/DSSS)",
+        "ecc_strategy": "Reed-Solomon RS(255, 127)",
         "survives": True
     },
     {
@@ -28,7 +28,7 @@ ATTACK_PROFILES = [
         "name": "Aggressive Margin Crop (12% Cut)",
         "category": "GEOMETRIC_TRANSFORM",
         "description": "Adversary cuts page borders, headers, and classification banners attempting to trim watermarks.",
-        "ecc_strategy": "Walsh-Hadamard Transform Orthogonal Spreading (WHT/DSSS)",
+        "ecc_strategy": "Reed-Solomon RS(255, 127)",
         "survives": True
     },
     {
@@ -36,7 +36,7 @@ ATTACK_PROFILES = [
         "name": "Screen Grab & Bilinear Resample (72 DPI)",
         "category": "DISPLAY_CAPTURE",
         "description": "Adversary captures screen photo or screenshot, disrupting spatial grid and reducing resolution.",
-        "ecc_strategy": "Walsh-Hadamard Transform Orthogonal Spreading (WHT/DSSS)",
+        "ecc_strategy": "Reed-Solomon RS(255, 127)",
         "survives": True
     },
     {
@@ -44,7 +44,7 @@ ATTACK_PROFILES = [
         "name": "Geometric Downsampling (75% Scale)",
         "category": "SCALE_TRANSFORM",
         "description": "Document rescaled to 75% dimensions and interpolated back.",
-        "ecc_strategy": "Walsh-Hadamard Transform Orthogonal Spreading (WHT/DSSS)",
+        "ecc_strategy": "Reed-Solomon RS(255, 127)",
         "survives": True
     },
     {
@@ -52,7 +52,7 @@ ATTACK_PROFILES = [
         "name": "Complete PDF / XMP Metadata Stripping",
         "category": "METADATA_PURGE",
         "description": "Complete metadata wipe stripping author, dates, and software tags. Proves watermark does not rely on metadata.",
-        "ecc_strategy": "Walsh-Hadamard Transform Orthogonal Spreading (WHT/DSSS)",
+        "ecc_strategy": "Reed-Solomon RS(255, 127)",
         "survives": True
     }
 ]
@@ -146,28 +146,26 @@ async def simulate_adversarial_attack(attack_type: str = "jpeg_35", db: AsyncSes
     psnr = watermark_engine.calculate_psnr(orig_np, deg_np)
     logs.append(f"Measured image degradation PSNR: {psnr:.2f} dB")
 
-    # Run genuine extraction and Hadamard coherent correlation decoding on physically degraded image
-    logs.append("Running Walsh-Hadamard orthogonal basis coherent correlation extractor...")
+    # Run genuine extraction and RS(255, 127) decoding on physically degraded image
+    logs.append("Running 2D DCT multi-tile frequency lattice extractor...")
     extracted_payload, metrics = watermark_engine._extract_from_image(degraded_img)
 
     ber = metrics.get("bit_error_rate", 0.0)
-    survived = (extracted_payload is not None and metrics.get("watermark_detected", False))
-    if not survived and extracted_payload is not None:
-        # Check if frame magic matches
-        parsed = metrics.get("frame")
-        if parsed and parsed.get("authenticity_tag_valid"):
-            survived = True
+    survived = (extracted_payload is not None)
+    ecc_corrected = metrics.get("ecc_corrected", False)
+    recovery_pct = metrics.get("payload_recovery_pct", 0.0)
 
-    recovery_pct = metrics.get("payload_recovery_pct", 100.0 if survived else 0.0)
-
-    if survived:
-        ecc_status = "Walsh-Hadamard DSSS coherent correlation successfully reconstructed payload"
-        logs.append(f"Hadamard DSSS engine: {metrics.get('analysis', 'Coherent processing gain recovered payload')}")
+    if ecc_corrected:
+        ecc_status = "Reed-Solomon RS(255, 127) successfully corrected symbol errors"
+        logs.append("RS(255, 127) decoder: All corrupted symbols successfully corrected.")
+    elif survived:
+        ecc_status = "Payload recovered intact from DCT lattice"
+        logs.append("DCT lattice recovered payload directly.")
     else:
-        ecc_status = "Degradation noise exceeded Hadamard DSSS correlation threshold"
-        logs.append("Signal energy degraded below coherent detection threshold.")
+        ecc_status = "Corruption exceeded RS(255, 127) correction budget (t=64 bytes)"
+        logs.append("Error rate exceeded maximum Reed-Solomon correction limit.")
 
-    confidence = round(float(metrics.get("confidence", 0.0)) * 100.0, 1)
+    confidence = round(float(metrics.get("carrier_strength", 0.0)) * 100.0, 1)
     if confidence == 0.0 and survived:
         confidence = round(max(85.0, 100.0 - ber), 1)
 
@@ -179,7 +177,7 @@ async def simulate_adversarial_attack(attack_type: str = "jpeg_35", db: AsyncSes
         "description": profile["description"],
         "psnr_db": round(psnr, 2),
         "bit_error_rate_observed": round(ber, 2),
-        "ecc_strategy": "Walsh-Hadamard Transform Orthogonal Spreading (WHT/DSSS)",
+        "ecc_strategy": "Reed-Solomon RS(255, 127)",
         "ecc_correction_status": ecc_status,
         "payload_recovery_pct": round(recovery_pct, 1),
         "watermark_survived": survived,

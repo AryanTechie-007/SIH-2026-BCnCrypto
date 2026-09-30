@@ -451,7 +451,6 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
               value={keystorePassword}
               onChange={e => setKeystorePassword(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && !isDecrypting) handleExecuteDecrypt(); }}
-              placeholder="32-bit hex passcode (e.g. 0x8516B0FA)"
               style={{
                 width: '100%',
                 boxSizing: 'border-box',

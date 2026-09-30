@@ -88,6 +88,11 @@ export interface VerificationGates {
 export interface ForensicAnalysisResult {
   status: 'IDENTIFIED' | 'EXTRACTION_FAILED' | 'UNATTRIBUTED' | 'ATTRIBUTED_WITH_WARNINGS';
   watermark_detected: boolean;
+  /** True only when the recovered watermark's HMAC tag verified. */
+  authenticity_tag_valid?: boolean;
+  /** 'frame' = full forensic frame; 'beacon' = watermark ID only (heavily degraded capture); 'none' = nothing recovered. */
+  attribution_tier?: 'frame' | 'beacon' | 'none';
+  failure_reason?: string | null;
   extracted_payload_hex?: string;
   payload_recovery_pct: number;
   bit_error_rate: number;

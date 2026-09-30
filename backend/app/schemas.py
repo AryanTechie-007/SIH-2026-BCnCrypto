@@ -171,8 +171,13 @@ class EvidenceBundle(BaseModel):
 
 class ForensicAnalysisResponse(BaseModel):
     file_name: Optional[str] = "suspect_document"
-    status: str  # "IDENTIFIED", "ATTRIBUTED_WITH_WARNINGS", "UNATTRIBUTED", "EXTRACTION_FAILED"
+    status: str  # "IDENTIFIED", "ATTRIBUTED_WITH_WARNINGS" (ID beacon only), "UNATTRIBUTED", "EXTRACTION_FAILED"
     watermark_detected: bool
+    # True only when the recovered watermark's HMAC tag verified (frame tag, or beacon tag).
+    authenticity_tag_valid: bool = False
+    # "frame" = full authenticated forensic frame; "beacon" = watermark ID only; "none" = nothing recovered.
+    attribution_tier: str = "none"
+    failure_reason: Optional[str] = None
     watermark_id: Optional[str] = None
     extracted_payload_hex: Optional[str] = None
     payload_recovery_pct: float

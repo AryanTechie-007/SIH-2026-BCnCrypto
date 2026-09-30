@@ -44,8 +44,8 @@ export const ForensicConsole: React.FC = () => {
       <div style={{ marginBottom: '20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
           <span className="tactical-badge badge-red">STAGE 3</span>
-          <span className="tactical-badge badge-slate">HADAMARD ORTHOGONAL BASIS COHERENT CORRELATION</span>
-          <span className="tactical-badge badge-slate">WALSH-HADAMARD (WHT/DSSS) ORTHOGONAL DECODING</span>
+          <span className="tactical-badge badge-slate">2D DCT FREQUENCY LATTICE EXTRACTION</span>
+          <span className="tactical-badge badge-slate">REED-SOLOMON (255, 127) ECC</span>
         </div>
         <h1 style={{ fontSize: '20px', fontWeight: 800, letterSpacing: '0.03em', color: '#ffffff' }}>
           BLIND FORENSIC EXTRACTION & LEAK ATTRIBUTION LAB
@@ -128,7 +128,7 @@ export const ForensicConsole: React.FC = () => {
               <h3>The 6 Cryptographic Verification Gates</h3>
             </div>
             <div className="tactical-panel-body" style={{ fontSize: '11px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div><strong>Gate 1:</strong> Watermark Payload Format & Hadamard Orthogonal Decoding Valid</div>
+              <div><strong>Gate 1:</strong> Watermark Payload Format & RS Parity Valid</div>
               <div><strong>Gate 2:</strong> Decryption Session Exists in Immutable Ledger</div>
               <div><strong>Gate 3:</strong> NIST FIPS 204 ML-DSA-65 Signature Authenticity</div>
               <div><strong>Gate 4:</strong> Ledger Merkle Root Inclusion Proof Valid</div>
@@ -220,7 +220,7 @@ export const ForensicConsole: React.FC = () => {
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
                     {[
-                      { label: 'Gate 1: Watermark & Hadamard Orthogonal Decoding', ok: analysisResult.verification_gates.watermark_valid },
+                      { label: 'Gate 1: Watermark Payload Format & RS Parity', ok: analysisResult.verification_gates.watermark_valid },
                       { label: 'Gate 2: Decryption Session Ledger Presence', ok: analysisResult.verification_gates.ledger_event_exists },
                       { label: 'Gate 3: NIST FIPS 204 ML-DSA-65 Signature', ok: analysisResult.verification_gates.ml_dsa_signature_valid },
                       { label: 'Gate 4: Merkle Root Inclusion Verification', ok: analysisResult.verification_gates.merkle_inclusion_valid },
@@ -256,13 +256,28 @@ export const ForensicConsole: React.FC = () => {
                     <div style={{ color: 'var(--text-dim)' }}>RECOVERED PAYLOAD:</div>
                     <div className="font-mono" style={{ color: '#6ee7b7' }}>{analysisResult.extracted_payload_hex || 'N/A'}</div>
                   </div>
+                  {/* BER / ECC recovery are only meaningful when a watermark actually authenticated. */}
                   <div style={{ backgroundColor: '#090d15', padding: '10px', border: '1px solid var(--border-hard)' }}>
                     <div style={{ color: 'var(--text-dim)' }}>BIT ERROR RATE (BER):</div>
-                    <div className="font-mono" style={{ color: '#38bdf8' }}>{analysisResult.bit_error_rate.toFixed(2)}%</div>
+                    <div className="font-mono" style={{ color: '#38bdf8' }}>
+                      {analysisResult.watermark_detected ? `${analysisResult.bit_error_rate.toFixed(2)}%` : 'N/A'}
+                    </div>
                   </div>
                   <div style={{ backgroundColor: '#090d15', padding: '10px', border: '1px solid var(--border-hard)' }}>
-                    <div style={{ color: 'var(--text-dim)' }}>ORTHOGONAL RECOVERY:</div>
-                    <div className="font-mono" style={{ color: '#ffffff' }}>{analysisResult.payload_recovery_pct.toFixed(1)}%</div>
+                    <div style={{ color: 'var(--text-dim)' }}>ECC RECOVERY:</div>
+                    <div className="font-mono" style={{ color: '#ffffff' }}>
+                      {analysisResult.watermark_detected ? `${analysisResult.payload_recovery_pct.toFixed(1)}%` : 'N/A'}
+                    </div>
+                  </div>
+                  <div style={{ backgroundColor: '#090d15', padding: '10px', border: '1px solid var(--border-hard)', gridColumn: '1 / -1' }}>
+                    <div style={{ color: 'var(--text-dim)' }}>ATTRIBUTION TIER:</div>
+                    <div className="font-mono" style={{ color: analysisResult.attribution_tier === 'beacon' ? '#fbbf24' : '#ffffff' }}>
+                      {analysisResult.attribution_tier === 'frame'
+                        ? 'FULL FORENSIC FRAME (authenticated)'
+                        : analysisResult.attribution_tier === 'beacon'
+                          ? 'WATERMARK ID ONLY (beacon) — full frame did not survive the capture'
+                          : 'NONE'}
+                    </div>
                   </div>
                 </div>
               </div>

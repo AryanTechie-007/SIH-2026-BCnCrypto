@@ -105,6 +105,10 @@ class WatermarkRecord(Base):
     protocol_version = Column(Integer, default=2, nullable=False)
     reed_solomon_profile = Column(String, default="RS(255,127)", nullable=False)
     watermarked_path = Column(String, nullable=False)
+    # Pixel size of page 0's canonical 150-DPI render; lets forensics try the exact geometry first.
+    # Nullable: rows created before this column existed have no recorded size.
+    render_width = Column(Integer, nullable=True)
+    render_height = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     event = relationship("DecryptionEvent", back_populates="watermark")

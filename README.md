@@ -12,8 +12,15 @@ This system is designed for high-security defense environments where traditional
 
 ### 🛠 Key Features
 - **Hybrid PQC:** Implements NIST FIPS 203 (ML-KEM-512 / 768 / 1024) combined with classical Curve25519 (X25519) to ensure security even if one algorithm is compromised.
-- **Forensic Watermarking:** Uses Walsh-Hadamard Transform (WHT/DSSS) orthogonal basis steganography with zero DC shift (PSNR > 45 dB) to track leaks back to specific devices.
-- **Signal-to-Noise Confidence Scoring:** Real-time BER and coherent correlation scoring providing court-admissible forensic evidence packages.
+- **Dynamic AI Policy:** The system reads the document and automatically scales encryption strength based on content sensitivity (`TOP_SECRET` forces ML-KEM-1024 + MFA, `CONFIDENTIAL` enforces ML-KEM-768 + Biometrics).
+- **Forensic Watermarking:** Uses 2D DCT-domain spread-spectrum steganography with Reed-Solomon RS(255,127) Forward Error Correction to track leaks back to specific devices.
+- **Screenshot-Resilient Attribution:** Every page carries two independent carriers in the luma channel — a *fine frame* (127-byte authenticated frame, RS(255,127), 8×8 DCT coefficient (2,2)) and a coarse *ID beacon* (10-byte watermark ID + 4-byte HMAC, RS(32,14), 32×32 DCT coefficient (2,2)). The Forensic Lab locates the page inside a screenshot, resamples it to the canonical 150-DPI geometry, searches the 8-px sub-block phase, and reads the fine frame; if that did not survive (heavy downscaling and/or JPEG re-encoding) it falls back to the beacon. A detection always requires a verified HMAC tag — never RS decoding alone.
+  - **Tier `frame`** → full forensic frame recovered → status `IDENTIFIED`.
+  - **Tier `beacon`** → watermark ID only → status `ATTRIBUTED_WITH_WARNINGS` (capped confidence; the document hash, recipient fingerprint and session nonce in the frame could not be independently recovered).
+  - **Tier `none`** → `UNATTRIBUTED`, with BER / ECC recovery reported as not applicable.
+  - Measured on synthetic viewer screenshots (see `backend/tests/test_screenshot_attribution.py`): lossless captures down to ≈0.5× page scale recover the full frame; downscaled + JPEG-recompressed captures (e.g. 1366×768, q75) recover the ID via the beacon. Content that has been *cropped away* (not merely surrounded by window chrome), rotated, or photographed is not recoverable and is reported honestly as `UNATTRIBUTED`.
+  - Documents watermarked by earlier builds (251-byte frame, RS(255,251), coefficient (3,3)) remain readable at native geometry (`v2-legacy` profile).
+- **Signal-to-Noise Confidence Scoring:** Real-time BER and SNR confidence scoring providing court-admissible forensic evidence packages.
 - **Immutable Ledger:** All access logs and decryption events are committed to Hyperledger Fabric permissioned DLT.
 
 ---
@@ -26,7 +33,7 @@ This system is designed for high-security defense environments where traditional
 ├── /backend            # Python FastAPI + NIST PQC Engine
 │   ├── main.py         # Entrypoint server launcher
 │   ├── /app
-│   │   ├── /services   # PQC crypto_engine, watermark_engine, forensics, ledger_client
+│   │   ├── /services   # PQC crypto_engine, ai_engine, forensics, ledger_client
 │   │   └── /routers    # REST API endpoints (documents, decryption, forensics, ledger)
 │   └── requirements.txt
 │
@@ -83,7 +90,7 @@ CIPHERTRACE guarantees that **no recipient can access a confidential document wi
         │                                               │
         │ Upload PDF & Select Recipients                │ Local Encrypted Keystore
         │ Hybrid PQC (ML-KEM-768 + X25519)              │ (Argon2id + AES-256-GCM)
-        │ Document SHA3-256 Hash                        │ [Private Keys NEVER sent to Server]
+        │ AI Dynamic Sensitivity Classification         │ [Private Keys NEVER sent to Server]
         │                                               │
         ▼                                               ▼
 ┌───────────────────────────────────────────────────────────────┐
@@ -92,10 +99,10 @@ CIPHERTRACE guarantees that **no recipient can access a confidential document wi
 └───────────────┬───────────────────────────────┬───────────────┘
                 │                               │
                 ▼                               ▼
-    SQLite Operational Store        Hadamard Watermark Engine
-    - Public Keys & Key IDs         - 16-byte Authenticated Frame
-    - User Profiles & Roles         - Sylvester-Hadamard H_64 Basis
-    - NO Plaintext Private Keys     - Zero DC Shift (PSNR > 45 dB)
+    SQLite Operational Store        2D DCT Watermark Engine
+    - Public Keys & Key IDs         - 127-byte Authenticated Frame
+    - User Profiles & Roles         - Reed-Solomon RS(255,127) FEC
+    - NO Plaintext Private Keys     - Mid-frequency Modulation
                 │                               │
                 └───────────────┬───────────────┘
                                 │
@@ -113,8 +120,8 @@ CIPHERTRACE guarantees that **no recipient can access a confidential document wi
                                 │
                                 ▼
                     Forensic Attribution Lab
-                    1. Screen Capture Normalization & Page Segmentation
-                    2. Walsh-Hadamard Coherent Correlation Decoding
+                    1. Render & 2D DCT Extraction
+                    2. RS(255,127) Syndrome Decoding
                     3. Fabric / Ledger LookupByWatermark
                     4. ML-DSA-65 Cryptographic Verification
                     5. Document SHA3-256 Hash Verification
@@ -133,10 +140,11 @@ CIPHERTRACE guarantees that **no recipient can access a confidential document wi
 * **AES-256-GCM (NIST SP 800-38D)**: Authenticated symmetric encryption for confidential document payloads.
 * **SHA3-256 (NIST FIPS 202)**: Permutation-based hashing for canonical serialization, Merkle roots, block hash chains, and HMAC-SHA3-256 watermark payload authentication.
 
-### 2. 🛡️ Walsh-Hadamard Transform (WHT/DSSS) Steganography
-* Modulates 8×8 blocks using zero-mean AC basis rows of the order-64 Sylvester-Hadamard matrix $H_{64}$.
-* **Zero DC Shift**: Ensures that the average block luminance is unchanged, eliminating visible ripple or checkerboard artifacts while maintaining high image fidelity (**PSNR > 45 dB**).
-* **Multi-Scale Screen Capture Normalization**: Automatic page contour segmentation and canonical normalization (`1275x1650` Letter and `1240x1754` A4) enables robust watermark recovery from screen captures and photos.
+### 2. 🧠 Dynamic AI Policy Classifier (`DocumentIntelligence`)
+* Automatically scans document text content and classifies sensitivity into defense tiers:
+  * **TOP_SECRET**: Forces `ML-KEM-1024`, `MFA_REQUIRED` authentication, and heavy watermark embedding strength (`0.15`).
+  * **CONFIDENTIAL**: Enforces `ML-KEM-768`, `BIOMETRIC` verification, and watermark strength (`0.10`).
+  * **RESTRICTED / UNCLASSIFIED**: Applies `ML-KEM-512`, `PASSWORD` auth, and watermark strength (`0.05`).
 
 ### 3. 🔬 Forensic Integrity Auditor (`ForensicAuditor`)
 * Real-time Signal-to-Noise Ratio (SNR) and Bit Error Rate (BER) evaluation.

@@ -443,12 +443,12 @@ export const RecipientConsole: React.FC<RecipientConsoleProps> = ({ currentOpera
                   </div>
 
                   <div style={{ padding: '12px', backgroundColor: '#090d15', border: '1px solid var(--border-hard)' }}>
-                    <div style={{ fontSize: '10px', color: 'var(--text-dim)' }}>ORTHOGONAL WATERMARK ID</div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-dim)' }}>2D DCT WATERMARK ID</div>
                     <div className="font-mono" style={{ fontSize: '12px', fontWeight: 700, color: '#34d399', marginTop: '2px' }}>
                       {decryptionResult.watermark_id}
                     </div>
                     <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                      Walsh-Hadamard (WHT/DSSS)
+                      Reed-Solomon (255, 127) FEC
                     </div>
                   </div>
 
