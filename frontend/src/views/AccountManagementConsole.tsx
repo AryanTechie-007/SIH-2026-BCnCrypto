@@ -87,7 +87,7 @@ export const AccountManagementConsole: React.FC<AccountManagementConsoleProps> =
             No Active Operator Session Detected
           </h2>
           <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '24px', lineHeight: 1.6 }}>
-            Sign into your identity account to view your authenticated credentials, post-quantum keypairs, and 16-bit keystore passcode.
+            Sign into your identity account to view your authenticated credentials, post-quantum keypairs, and 32-bit keystore passcode.
           </p>
           {onOpenAuth && (
             <button
@@ -111,7 +111,7 @@ export const AccountManagementConsole: React.FC<AccountManagementConsoleProps> =
     );
   }
 
-  const keystorePass = profile.keystore_password || '0x0000';
+  const keystorePass = profile.keystore_password || '0x00000000';
   const keystoreFile = `user_${profile.id}_${profile.username.replace(/[^a-zA-Z0-9_-]/g, '')}.keystore`;
 
   return (
@@ -149,7 +149,7 @@ export const AccountManagementConsole: React.FC<AccountManagementConsoleProps> =
             </span>
           </div>
           <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
-            Authenticated operator identity, post-quantum keypairs, and local 16-bit keystore credentials.
+            Authenticated operator identity, post-quantum keypairs, and local 32-bit keystore credentials.
           </p>
         </div>
 
@@ -269,10 +269,10 @@ export const AccountManagementConsole: React.FC<AccountManagementConsoleProps> =
           </div>
         </div>
 
-        {/* Right Column: Keystore Security, 16-Bit Passcode, and Cryptographic Keys */}
+        {/* Right Column: Keystore Security, 32-Bit Passcode, and Cryptographic Keys */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
-          {/* 16-Bit Keystore Security Card */}
+          {/* 32-Bit Keystore Security Card */}
           <div style={{
             backgroundColor: 'var(--bg-panel)',
             border: '1px solid var(--border-hard)',
@@ -322,12 +322,12 @@ export const AccountManagementConsole: React.FC<AccountManagementConsoleProps> =
                 <Lock size={15} style={{ flexShrink: 0, marginTop: '2px', color: '#60a5fa' }} />
                 <div>
                   Your post-quantum private keys are secured inside your local encrypted keystore.
-                  The <strong>16-bit keystore passcode</strong> below is decoupled from your login password.
+                  The <strong>32-bit hexadecimal keystore passcode</strong> below is decoupled from your login password.
                   Use this passcode in the <strong>Decryption Lab</strong> to unlock incoming encrypted documents.
                 </div>
               </div>
 
-              {/* 16-Bit Passcode Display Box */}
+              {/* 32-Bit Passcode Display Box */}
               <div style={{
                 backgroundColor: 'var(--bg-core)',
                 border: '1px solid var(--border-hard)',
@@ -341,7 +341,7 @@ export const AccountManagementConsole: React.FC<AccountManagementConsoleProps> =
               }}>
                 <div>
                   <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.05em', marginBottom: '4px' }}>
-                    16-BIT KEYSTORE PASSCODE
+                    32-BIT KEYSTORE PASSCODE
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <span className="font-mono" style={{
@@ -350,7 +350,7 @@ export const AccountManagementConsole: React.FC<AccountManagementConsoleProps> =
                       color: showKeystorePasscode ? '#38bdf8' : 'var(--text-muted)',
                       letterSpacing: showKeystorePasscode ? '0.05em' : '0.2em'
                     }}>
-                      {showKeystorePasscode ? keystorePass : '••••••••'}
+                      {showKeystorePasscode ? keystorePass : '••••••••••'}
                     </span>
                     <button
                       type="button"
@@ -418,7 +418,7 @@ export const AccountManagementConsole: React.FC<AccountManagementConsoleProps> =
                     <span>ENTROPY DERIVATION</span>
                   </div>
                   <div style={{ color: '#93c5fd', fontSize: '11px' }}>
-                    16-Bit Key Passcode (0x0000 - 0xFFFF)
+                    32-Bit Hex Key Passcode (0x00000000 - 0xFFFFFFFF)
                   </div>
                 </div>
               </div>
