@@ -100,7 +100,6 @@ export interface ForensicAnalysisResult {
   status: 'IDENTIFIED' | 'UNATTRIBUTED' | 'ATTRIBUTED_WITH_WARNINGS';
   watermark_detected: boolean;
   watermark_id?: string | null;
-  match_type?: 'EXACT' | 'CLOSEST' | null;
   extracted_payload_hex?: string;
   payload_recovery_pct: number;
   bit_error_rate: number;

@@ -4,9 +4,8 @@ CIPHERTRACE Forensic Leak Lab
 Traces a leaked PDF to the recipient whose copy it is, using only the ledger:
 
 1. Decode the watermark (2D DCT + Hadamard correlation) to get its watermark ID.
-2. Look the ID up on the forensic chaincode. If it came out damaged and nothing
-   matches exactly, take the record whose ID is closest: at least 75% of bits
-   equal, and 10 points ahead of the runner-up.
+2. Look the ID up on the forensic chaincode. Only an exact match attributes the
+   copy: a damaged watermark is reported as unattributed rather than guessed at.
 3. Verify the record: the recipient's ML-DSA-65 signature over it, checked with
    the public key the key registry holds for them, whose fingerprint must also
    match the one in the record.
@@ -22,7 +21,7 @@ import json
 import os
 import uuid
 from datetime import datetime, timezone
-from typing import List, Optional, Tuple
+from typing import Optional, Tuple
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -40,10 +39,6 @@ from app.services.watermark_engine import WatermarkEngine
 from app.schemas import ForensicAnalysisResponse, OfficerSchema, VerificationGates
 
 UPLOAD_TEMP_DIR = os.path.join(settings.UPLOAD_DIR, "forensic_temp")
-
-# Closest-match thresholds for damaged watermarks (see module docstring).
-MIN_SIMILARITY = 75.0
-MIN_SEPARATION = 10.0
 
 watermark_engine = WatermarkEngine()
 
@@ -71,35 +66,6 @@ def _bundle_of(user: User) -> str:
     if not user.bundle_path or not os.path.isdir(user.bundle_path):
         raise ApiError(401, "No ledger identity bundle on this device. Sign in again.")
     return user.bundle_path
-
-
-def _bit_similarity(a_hex: str, b_hex: str) -> Optional[float]:
-    """Percentage of equal bits between two 10-byte watermark IDs."""
-    try:
-        a, b = bytes.fromhex(a_hex)[:10], bytes.fromhex(b_hex)[:10]
-    except ValueError:
-        return None
-    bits = min(len(a), len(b)) * 8
-    if bits == 0:
-        return None
-    equal = sum(8 - bin(x ^ y).count("1") for x, y in zip(a, b))
-    return equal * 100.0 / bits
-
-
-def _closest_record(candidate_hex: str, records: List[dict]) -> Tuple[Optional[dict], float]:
-    """The record whose watermark ID is nearest `candidate_hex`, if it clears both thresholds."""
-    best, best_sim, runner_up = None, 0.0, 0.0
-    for record in records:
-        sim = _bit_similarity(candidate_hex, record.get("watermark_id") or "")
-        if sim is None:
-            continue
-        if sim > best_sim:
-            best, best_sim, runner_up = record, sim, best_sim
-        elif sim > runner_up:
-            runner_up = sim
-    if best and best_sim >= MIN_SIMILARITY and (best_sim - runner_up >= MIN_SEPARATION or len(records) <= 1):
-        return best, best_sim
-    return None, best_sim
 
 
 async def _registered_keys(bundle: str, identity: str, username: str) -> Optional[dict]:
@@ -170,21 +136,14 @@ async def evaluate_suspect_stream(file_name: str, file_bytes: bytes, db: AsyncSe
         frame = metrics.get("frame")
         watermark_id = frame["watermark_id"] if frame and frame.get("watermark_id") else extracted_payload[:10].hex().lower()
 
-    # 2. Find its decryption record on the ledger
+    # 2. Find its decryption record on the ledger (exact watermark ID only)
     bundle, identity = _bundle_of(current_user), current_user.username
-    record, match_type, similarity = None, None, 0.0
-    try:
-        if watermark_id:
+    record = None
+    if watermark_id:
+        try:
             record = await ledger_cli.query_record(bundle, identity, watermark_id)
-            if record:
-                match_type, similarity = "EXACT", 100.0
-        if not record and watermark_id:
-            record, similarity = _closest_record(watermark_id, await ledger_cli.all_records(bundle, identity))
-            if record:
-                match_type = "CLOSEST"
-                ber = round(100.0 - similarity, 2)
-    except LedgerCliError as e:
-        raise _ledger_error(e, "Could not search the ledger")
+        except LedgerCliError as e:
+            raise _ledger_error(e, "Could not search the ledger")
 
     extracted_hex = extracted_payload.hex().lower() if extracted_payload else None
 
@@ -192,7 +151,7 @@ async def evaluate_suspect_stream(file_name: str, file_bytes: bytes, db: AsyncSe
         if extracted_payload:
             narrative = (
                 f"UNKNOWN WATERMARK: A CIPHERTRACE watermark was decoded (ID {watermark_id}), but no decryption "
-                f"record on the ledger matches it (closest: {similarity:.0f}% of bits). No registered user can be attributed."
+                f"record on the ledger has that ID. It may have been damaged in copying. No registered user can be attributed."
             )
         else:
             narrative = (
@@ -222,14 +181,12 @@ async def evaluate_suspect_stream(file_name: str, file_bytes: bytes, db: AsyncSe
         document_hash_match=hashlib.sha256(file_bytes).hexdigest() == (record.get("watermarked_doc_hash") or "").lower()
     )
     recipient = await _recipient(db, recipient_id, keys)
-    found_how = ("matches it exactly" if match_type == "EXACT"
-                 else f"is the closest match to the damaged watermark ({similarity:.0f}% of bits)")
 
     if signature_valid and key_match:
-        status, confidence = "IDENTIFIED", round(similarity, 1)
+        status, confidence = "IDENTIFIED", 100.0
         narrative = (
-            f"POSITIVE FORENSIC ATTRIBUTION: This copy was released to {recipient_id}. The ledger's decryption "
-            f"record {found_how}; it was decrypted at {record.get('timestamp')} and signed by {recipient_id}'s "
+            f"POSITIVE FORENSIC ATTRIBUTION: This copy was released to {recipient_id}. The ledger records that "
+            f"they decrypted it at {record.get('timestamp')}, and that record is signed with {recipient_id}'s "
             f"NIST FIPS 204 ML-DSA-65 key, which the key registry confirms is theirs."
         )
     else:
@@ -238,13 +195,13 @@ async def evaluate_suspect_stream(file_name: str, file_bytes: bytes, db: AsyncSe
                    else "its ML-DSA-65 signature does not verify" if not signature_valid
                    else "it was signed with a key other than the recipient's registered one")
         narrative = (
-            f"UNVERIFIED RECORD: The ledger's decryption record {found_how} and names {recipient_id}, "
+            f"UNVERIFIED RECORD: The ledger's decryption record for this watermark ID names {recipient_id}, "
             f"but {problem}. Do not rely on this attribution."
         )
 
     return ForensicAnalysisResponse(
         file_name=file_name, status=status, watermark_detected=True, watermark_id=record.get("watermark_id"),
-        match_type=match_type, extracted_payload_hex=extracted_hex,
+        extracted_payload_hex=extracted_hex,
         payload_recovery_pct=float(metrics.get("payload_recovery_pct", 100.0)), bit_error_rate=ber,
         ecc_strategy=WatermarkEngine.ECC_STRATEGY, recipient=recipient, top_suspect_name=recipient.name,
         match_confidence=confidence, ledger_record=record, verification_gates=gates,

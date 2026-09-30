@@ -174,7 +174,7 @@ export const EvidenceConsole: React.FC = () => {
               THE 5 VERIFICATION GATES (ALL CHECKED AGAINST THE LEDGER):
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', color: 'var(--text-dim)' }}>
-              <div><strong style={{ color: '#38bdf8' }}>Gate 1:</strong> Watermark decoded (exact or closest match)</div>
+              <div><strong style={{ color: '#38bdf8' }}>Gate 1:</strong> Watermark decoded, exact ledger match</div>
               <div><strong style={{ color: '#38bdf8' }}>Gate 2:</strong> Decryption record on the ledger</div>
               <div><strong style={{ color: '#38bdf8' }}>Gate 3:</strong> Recipient's ML-DSA-65 signature on the record</div>
               <div><strong style={{ color: '#38bdf8' }}>Gate 4:</strong> Signing key registered to the recipient</div>
@@ -358,7 +358,7 @@ export const EvidenceConsole: React.FC = () => {
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', fontFamily: 'var(--font-mono)' }}>
                   {[
-                    { label: `Gate 1: Watermark Decoded${analysisResult.match_type === 'CLOSEST' ? ' (Closest Match)' : ''}`, ok: analysisResult.verification_gates.watermark_valid },
+                    { label: 'Gate 1: Watermark Decoded (Exact Match)', ok: analysisResult.verification_gates.watermark_valid },
                     { label: 'Gate 2: Decryption Record on the Ledger', ok: analysisResult.verification_gates.ledger_event_exists },
                     { label: 'Gate 3: NIST FIPS 204 ML-DSA-65 Signature', ok: analysisResult.verification_gates.ml_dsa_signature_valid },
                     { label: 'Gate 4: Signing Key Registered to Recipient', ok: analysisResult.verification_gates.key_registry_match },

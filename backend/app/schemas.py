@@ -112,7 +112,7 @@ class DecryptionResponse(BaseModel):
 
 
 class VerificationGates(BaseModel):
-    watermark_valid: bool          # a watermark was decoded and its ID matched a ledger record
+    watermark_valid: bool          # a watermark was decoded and its ID exactly matches a ledger record
     ledger_event_exists: bool      # the forensic chaincode holds a decryption record for it
     ml_dsa_signature_valid: bool   # the recipient's ML-DSA-65 signature over that record verifies
     key_registry_match: bool       # the signing key is the one the key registry holds for the recipient
@@ -124,7 +124,6 @@ class ForensicAnalysisResponse(BaseModel):
     status: str  # "IDENTIFIED", "ATTRIBUTED_WITH_WARNINGS", "UNATTRIBUTED"
     watermark_detected: bool
     watermark_id: Optional[str] = None
-    match_type: Optional[str] = None  # "EXACT", or "CLOSEST" for a damaged watermark
     extracted_payload_hex: Optional[str] = None
     payload_recovery_pct: float
     bit_error_rate: float

@@ -25,21 +25,12 @@ ledger_engine = LedgerEngine()
 
 
 def _keystore_path_for(user: User) -> str:
-    """Resolves the recipient keystore file, prioritizing canonical naming and tolerating foreign paths."""
-    canonical = KeystoreManager.get_keystore_path(user.id, user.username)
-    if os.path.exists(canonical):
-        return canonical
-    alt = KeystoreManager.get_keystore_path(user.id)
-    if os.path.exists(alt):
-        return alt
-    stored = user.keystore_path or ""
-    if stored and os.path.exists(stored):
-        return stored
-    name = stored.replace("\\", "/").rsplit("/", 1)[-1] if stored else os.path.basename(canonical)
-    local_target = os.path.join(settings.KEYSTORE_DIR, name)
-    if os.path.exists(local_target):
-        return local_target
-    return canonical
+    """
+    The keystore this session's sign-in found and unlocked (auth.ledger_login sets
+    user.keystore_path). Never guessed from the file name: user IDs restart with
+    every session, so user_<id>_<name>.keystore can be a different keystore.
+    """
+    return user.keystore_path or ""
 
 
 def _safe_remove(file_path: str):
@@ -105,19 +96,17 @@ async def decrypt_uploaded_envelope(
     if not user:
         raise ApiError(404, "Recipient user identity record not found in system registry")
 
+    # Match by username, the recipient's ledger identity. recipient_id in the envelope is a
+    # row ID in the sender's local database and means nothing on this machine.
     recipients_list = enc_data.get("recipients", [])
-    matched = None
-    for r in recipients_list:
-        if r.get("recipient_id") == user.id or r.get("username") == user.username:
-            matched = r
-            break
+    matched = next((r for r in recipients_list if r.get("username") == user.username), None)
 
     if not matched:
         raise ApiError(403, f"ACCESS DENIED: {user.name} ({user.navy_id}) was not designated as an authorized recipient in this encrypted .enc envelope.")
 
     keystore_path = _keystore_path_for(user)
     if not os.path.exists(keystore_path):
-        raise ApiError(500, "Recipient local keystore not found")
+        raise ApiError(500, "Your keystore is no longer on this device. Sign in again.")
 
     password = session_passphrase
 

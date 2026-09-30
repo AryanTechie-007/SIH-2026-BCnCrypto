@@ -138,16 +138,13 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
 
   const selectedOfficer = officers.find(o => o.id === selectedRecipientId) || (currentUser ? (currentUser as unknown as Officer) : undefined);
 
-  // Check if selected recipient is authorized in parsed envelope
+  // Check if the signed-in user is authorized in the parsed envelope. By username only: the
+  // envelope's recipient_id and navy_id come from the sender's machine.
   const isRecipientInEnvelope = () => {
     if (!parsedEnvelope) return true;
     const envList = parsedEnvelope.recipients || parsedEnvelope.envelopes;
     if (!envList || !Array.isArray(envList)) return true;
-    return envList.some((env: any) => 
-      env.recipient_id === selectedRecipientId || 
-      (currentUser && env.username === currentUser.username) ||
-      (currentUser && env.navy_id === currentUser.navy_id)
-    );
+    return envList.some((env: any) => currentUser && env.username === currentUser.username);
   };
 
   return (

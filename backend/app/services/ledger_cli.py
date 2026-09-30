@@ -120,7 +120,3 @@ async def query_record(bundle_dir: str, identity: str, watermark_id: str) -> Opt
     """The forensic chaincode's decryption record for a watermark ID, or None."""
     return await _run(bundle_dir, identity, "query", watermark_id)
 
-
-async def all_records(bundle_dir: str, identity: str) -> List[dict]:
-    """Every decryption record on the ledger."""
-    return await _run(bundle_dir, identity, "all") or []

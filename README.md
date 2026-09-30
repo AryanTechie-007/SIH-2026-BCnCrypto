@@ -64,10 +64,10 @@ releases no decrypted copy without a ledger record.
 matching decryption record is read from the ledger, the recipient's signature
 on it is verified against the public key the key registry holds for them, and
 an evidence bundle is exported. Everything comes from the ledger, so a copy
-decrypted on any machine can be traced. Because the mark survives re-encoding,
-the recovered copy does not have to be pristine: if no record matches exactly,
-the record whose mark matches at least 75% of the recovered bits, clearly ahead
-of the next-best one, is used instead.
+decrypted on any machine can be traced. Only an exact match of the
+recovered watermark ID attributes a copy; if the mark is too damaged to decode
+exactly, the copy is reported as unattributed rather than matched to the
+nearest record.
 
 ### Why a ledger rather than a database
 
@@ -159,8 +159,7 @@ every page:
                              Forensic Leak Lab
                              1. Render the page at 150 DPI
                              2. Hadamard correlation decoding → watermark ID
-                             3. Exact match on the ledger, else a ≥75%
-                                closest match
+                             3. Exact watermark ID match on the ledger
                              4. Read its record from the ledger and verify
                                 the recipient's ML-DSA-65 signature
                              5. Export the evidence bundle
