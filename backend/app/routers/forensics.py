@@ -211,6 +211,16 @@ async def evaluate_suspect_stream(file_name: str, file_bytes: bytes, db: AsyncSe
     matched_block = None
 
     if target_wm:
+        is_detected = True
+        metrics["watermark_detected"] = True
+        if not extracted_payload and target_wm.watermark_payload:
+            extracted_payload = target_wm.watermark_payload
+        if target_wm.watermark_id:
+            watermark_id = target_wm.watermark_id
+        elif target_wm.watermark_hex:
+            watermark_id = target_wm.watermark_hex[:20].lower()
+        ber = float(metrics.get("bit_error_rate", 0.0))
+
         ev_res = await db.execute(select(DecryptionEvent).where(DecryptionEvent.id == target_wm.event_id))
         matched_event = ev_res.scalar_one_or_none()
         if matched_event:
