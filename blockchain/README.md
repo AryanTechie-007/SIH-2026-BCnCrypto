@@ -1,4 +1,4 @@
-# Forensic Audit — DLT / Ledger Layer
+# CIPHERTRACE — DLT / Ledger Layer
 
 Immutable, tamper-evident audit ledger for the forensic watermarking system.
 Two chaincodes run on one Hyperledger Fabric channel:

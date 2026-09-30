@@ -12,31 +12,76 @@ Built for Smart India Hackathon 2026.
 
 ## How it works
 
-1. **Sign-up (on the ledger).** An administrator issues a Fabric identity with
-   `blockchain/scripts/new-recipient.sh` and packs it into a login bundle
-   (`<name>.zip`) with `bundle-identity.sh`. There is no sign-up in the app.
-2. **Sign-in.** The user enters their username and bundle. The app runs
-   `cli.js whoami` with the bundle; the peer only answers requests signed by a
-   certificate its org CA issued, so this proves the identity. The user then
-   enters their keystore passphrase. On the first sign-in on a device they choose
-   one instead, and the app generates their ML-KEM-768 and ML-DSA-65 key pairs
-   into an encrypted keystore and publishes the public keys to the
-   `keyregistry` chaincode.
-3. **Encrypt.** The sender uploads a PDF and picks recipients. The document is
-   encrypted once with AES-256-GCM; its key is wrapped for each recipient with
-   their ML-KEM-768 public key. The result is a portable `.enc` package.
-4. **Decrypt.** The recipient opens the `.enc` file. The app unwraps the key with
-   their private key, embeds an invisible watermark (see [Watermark](#watermark))
-   that is unique to this decryption, and builds a ledger record (watermark ID,
-   document and copy hashes, key fingerprint). The recipient's ML-DSA-65 key
-   signs the record, and it is submitted to the `forensic` chaincode as the
-   recipient's own Fabric identity. The copy is released only if the ledger
-   accepts the record.
-5. **Trace.** Upload a leaked PDF. The watermark is extracted, the decryption
-   event is found, the recipient's signature is verified, and an evidence bundle
-   can be exported. If no watermark decodes exactly, the stored watermark ID that
-   matches at least 75% of the extracted bits, and clearly ahead of the runner-up,
-   is used instead.
+The watermark is created at the moment of decryption rather than before
+distribution. Three properties have to hold at once:
+
+- **Distinct** — each decryption embeds a different invisible mark, tied to
+  that recipient and that session, while every copy looks identical.
+- **Attributable** — the recipient signs the record of their own decryption
+  with a post-quantum key only they hold, so they cannot later deny it.
+- **Durable** — that record is replicated across two independent organizations,
+  so erasing or altering it is detectable rather than silent.
+
+### Walkthrough
+
+**1. Enrolment.** An administrator issues the user a credential bundle. There
+is no self-service sign-up: the system only accepts records from identities it
+issued itself.
+
+**2. First sign-in.** The user signs in with their bundle, which the ledger
+verifies, and chooses a passphrase.
+The app then generates their encryption and signing key pairs **on their own
+device**, stores them in a passphrase-protected keystore, and registers only
+the public halves on the ledger. The private keys never leave that machine,
+which is what makes the signature later mean something.
+
+**3. Encryption.** The sender picks a PDF and a set of recipients. The document
+is encrypted **once**, and that single document key is then wrapped separately
+for each recipient using their registered public key. One copy of the
+ciphertext, one small wrapped key per recipient. The result is a portable
+`.enc` file that is safe to send by email, USB or file share, because only a
+holder of the right private key can unwrap it.
+
+**4. Decryption — where the forensics happen.** The recipient's app unwraps the
+document key and then, before releasing the file:
+
+- derives a mark unique to this recipient and this decryption, and embeds it
+  invisibly across every page;
+- builds a record of the event — the mark, a hash of the original document, a
+  hash of the marked copy, the recipient's key fingerprint, a timestamp;
+- signs that record with the recipient's own private signing key;
+- submits it to the ledger **as the recipient**, not as an administrator.
+
+Two independent checks run here. The ledger rejects any record whose stated
+recipient does not match the credential that submitted it, and **both
+organizations** must reach that same conclusion separately before anything is
+written. Neither can do it alone.
+
+The marked copy is released only once the record has been accepted. The app
+releases no decrypted copy without a ledger record.
+
+**5. Tracing a leak.** Upload the leaked PDF. The mark is extracted, the
+matching decryption record is retrieved, the recipient's signature is verified
+against their registered public key, and an evidence bundle is exported.
+Because the mark survives re-encoding, the recovered copy does not have to be
+pristine: if no frame decodes exactly, a stored mark matching at least 75% of
+the recovered bits, and clearly ahead of the next-best candidate, is used
+instead.
+
+### Why a ledger rather than a database
+
+A signature proves *who* produced a record. What it cannot prove is that the
+record ever existed. An administrator with an ordinary database simply deletes
+the row, and the proof disappears without anything having been forged.
+
+The ledger closes that gap three ways. Records are hash-linked, so altering a
+committed one invalidates everything written after it. Two organizations hold
+independent copies, so a divergence is one hash comparison away from being
+caught. And the write policy requires both organizations to agree, so no single
+administrator can insert or suppress a record on their own.
+
+The whole system runs offline — no cloud key management, no public blockchain,
+no external certificate authority.
 
 ## Watermark
 
@@ -50,39 +95,77 @@ every page:
 └──────────────────────┴───────────────────────┴─────────────┘
 ```
 
-- The page is rendered at 150 DPI and converted to YCrCb; only the luminance (Y)
-  channel is modified, in 8×8 DCT blocks.
-- Each bit modulates low-to-mid AC coefficients with a row of an order-64
-  Sylvester-Hadamard matrix (direct-sequence spread spectrum). Only zero-mean
-  rows are used, so block brightness is unchanged (PSNR above 41 dB at embed
-  strength 20).
-- Extraction projects the DCT coefficients back onto the same basis and averages
-  across thousands of blocks, which recovers the frame from re-encoded documents.
+- The page is rendered at 150 DPI and converted to YCrCb; only the luminance
+  (Y) channel is modified, in 8×8 DCT blocks.
+- Each bit modulates 16 low-to-mid AC coefficients with a row of an order-16
+  Sylvester-Hadamard matrix (direct-sequence spread spectrum). The DC
+  coefficient is never touched, so block brightness is unchanged. At embed
+  strength 20 this gives a PSNR of about 42 dB on text pages and about 40 dB on
+  photographic ones.
+- Extraction projects the DCT coefficients back onto the same basis and
+  averages across thousands of blocks, which recovers the frame from re-encoded
+  documents.
 - The watermark ID is the ledger key: it is what connects a leaked copy to its
   decryption record.
 
 ## Architecture
 
 ```
-            ┌───────────────────────────────┐
-            │  React UI (frontend/)         │
-            └───────────────┬───────────────┘
-                            │ HTTP (localhost)
-            ┌───────────────▼───────────────┐      ┌───────────────────────────────┐
-            │  FastAPI app (backend/)       │      │  Local data                   │
-            │  crypto, watermark, forensics ├─────►│  SQLite · keystores · bundles │
-            └───────────────┬───────────────┘      └───────────────────────────────┘
-                            │ node blockchain/client/cli.js  (as the signed-in user)
-            ┌───────────────▼───────────────┐
-            │  Hyperledger Fabric 2.5       │
-            │  Org1 + Org2 peers, 1 orderer │
-            │  chaincodes: forensic,        │
-            │              keyregistry      │
-            └───────────────────────────────┘
+                 AIR-GAPPED NETWORK
+           Every user signs in with their
+             ledger bundle + passphrase
+                          │
+      ┌───────────────────┴───────────────────┐
+      │                                       │
+   Sender's app                            Recipient's app
+      │ 1. Pick a PDF and recipients          │ 5. ML-KEM-768 unwraps the
+      │ 2. AES-256-GCM encrypt it once        │    document key
+      │ 3. ML-KEM-768 wrap its key for        │ 6. Embed a watermark unique
+      │    each recipient (key registry)      │    to this session
+      │ 4. Send the .enc file ───────────────►│ 7. ML-DSA-65 sign the record
+      │    (email · USB · file share)         │ 8. Submit it as themselves
+      │                                       │ 9. Release copy on commit
+      │                                       │
+      ▼                                       ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│              CIPHERTRACE app (runs on each user's machine)               │
+│          React UI  ·  FastAPI  ·  node blockchain/client/cli.js          │
+└───────────────┬──────────────────────────────────────────┬───────────────┘
+                │                                          │
+                ▼                                          ▼
+   Local data (private keys never leave)    Hadamard watermark engine
+   - Keystore: ML-KEM + ML-DSA private      - 16-byte authenticated frame
+     keys (Argon2id + AES-256-GCM)          - Order-16 Sylvester basis
+   - SQLite: public keys, documents,        - DC untouched (≈42 dB PSNR
+     decryption events                        on text pages)
+                │                                          │
+                └────────────────────┬─────────────────────┘
+                                     │ every ledger call is signed with
+                                     │ the user's own Fabric identity
+                                     ▼
+          ┌─────────────────────────────────────────────────────┐
+          │ Hyperledger Fabric 2.5 permissioned ledger          │
+          │ - Org1 peer + Org2 peer: both must endorse          │
+          │   every write                                       │
+          │ - Raft ordering service                             │
+          │ - keyregistry: each user's public keys              │
+          │ - forensic: decryption records, keyed by watermark  │
+          └──────────────────────────┬──────────────────────────┘
+                                     │
+                            LEAKED PDF APPEARS
+                                     │
+                                     ▼
+                             Forensic Leak Lab
+                             1. Render the page at 150 DPI
+                             2. Hadamard correlation decoding → watermark ID
+                             3. Exact match, else a ≥75% closest match
+                             4. Find the decryption event and verify
+                                the recipient's ML-DSA-65 signature
+                             5. Export the evidence bundle
 ```
 
-The frontend and backend run on the user's own machine and will be merged into a
-single application; the ledger is the only shared component.
+The frontend and backend run on the user's own machine and will be merged into
+a single application; the ledger is the only shared component.
 
 | Component | Technology |
 |---|---|
@@ -91,9 +174,29 @@ single application; the ledger is the only shared component.
 | Document encryption | AES-256-GCM |
 | Keystore | Argon2id + AES-256-GCM, unlocked with the user's passphrase |
 | Hashing | SHA3-256, HMAC-SHA3-256 |
-| Watermark | 2D DCT + Walsh-Hadamard spread spectrum (order-64 Sylvester basis) |
+| Watermark | 2D DCT + Walsh-Hadamard spread spectrum (order-16 Sylvester basis) |
 | Ledger | Hyperledger Fabric 2.5.16, Node.js chaincode, Fabric Gateway client |
 | App | FastAPI + SQLite, React + TypeScript + Vite |
+
+### Cryptography
+
+| Algorithm | Used for | Parameters |
+|---|---|---|
+| ML-KEM-768 (NIST FIPS 203) | Wrapping each document's key for each recipient | Public key 1184 B, private key 2400 B, ciphertext 1088 B, shared secret 32 B |
+| ML-DSA-65 (NIST FIPS 204) | Signing every decryption record | Public key 1952 B, private key 4032 B, signature 3309 B |
+| AES-256-GCM (NIST SP 800-38D) | Encrypting documents and keystores | 256-bit key, random 96-bit nonce, 128-bit tag |
+| Argon2id | Deriving the keystore key from the passphrase | 64 MB memory, 3 passes |
+| SHA3-256 / HMAC-SHA3-256 (NIST FIPS 202) | Document fingerprints, the local hash chain, watermark IDs and tags | — |
+| SHA-256 | Key fingerprints and the watermarked copy's hash in ledger records | — |
+
+- ML-KEM and ML-DSA run on the native `liboqs` library when it is installed,
+  and otherwise on the pure-Python `mlkem` and `dilithium-py` implementations.
+- At startup the app runs a full encapsulate/decapsulate and sign/verify round
+  trip, checking exact key and signature sizes, and refuses to start if either
+  fails.
+- Private keys are decrypted from the keystore only for the moment they are
+  used. They are never stored in the database, sent to the ledger, or returned
+  by the API.
 
 ## Repository layout
 
@@ -166,10 +269,6 @@ Open http://localhost:5173 and sign in as `alice`: enter the username, choose
 `blockchain/bundles/alice.zip`, click **Continue**, then choose a keystore
 passphrase (at least 12 characters). Later sign-ins ask for that passphrase.
 
-On Windows, `setup\install_dependencies.bat` installs everything and
-`start_demo.bat` starts the backend and frontend; the ledger still needs step 1
-and 2 under WSL.
-
 ## Configuration
 
 Backend environment variables (all optional):
@@ -205,23 +304,7 @@ From the repository root:
 backend/.venv/bin/python scripts/security_audit.py
 ```
 
-## Known limitations
-
-- The keystore passphrase cannot be recovered, and there is no key rotation: a
-  user who forgets it cannot register new keys.
-- Private keys live on the device where the user first signed in; signing in on
-  another device is refused.
-- The Fabric private key in each login bundle is stored unencrypted on disk.
-- There is no certificate revocation; bundles stay valid until the network is
-  rebuilt with `setup.sh`, which invalidates all of them.
-- Forensics reads the local database, so it only sees decryptions made on the
-  same installation.
-- The watermark frame's HMAC tag is not verified during tracing.
-- Both organizations and a single ordering node run on one machine; see
-  [blockchain/README.md](blockchain/README.md#known-limitations).
-
 ## More documentation
 
-- [blockchain/README.md](blockchain/README.md): ledger setup, chaincode schemas, sign-up and login, troubleshooting, offline deployment
+- [blockchain/README.md](blockchain/README.md): ledger setup, chaincode schemas, sign-up and login, troubleshooting, scope and offline deployment
 - [blockchain/client/README.md](blockchain/client/README.md): `cli.js` commands
-- [setup/README.md](setup/README.md): Windows installer
