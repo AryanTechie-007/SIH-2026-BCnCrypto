@@ -1,14 +1,13 @@
-import os
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request, Response, UploadFile, File
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.database import init_db
 from app.services.crypto_engine import CryptoEngine
-from app.routers import system, identity, documents, decryption, forensics, ledger, attacks, auth
+from app.routers import system, identity, documents, decryption, forensics, ledger, auth
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("ciphertrace")
@@ -78,7 +77,6 @@ async def add_security_headers(request: Request, call_next):
 # ── Global Exception Handler ──────────────────────────────────────────────
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    import traceback
     logger.error(f"Internal processing error on {request.method} {request.url.path}: {exc}")
     error_msg = str(exc) or type(exc).__name__
     return JSONResponse(
@@ -95,88 +93,6 @@ app.include_router(documents.router)
 app.include_router(decryption.router)
 app.include_router(forensics.router)
 app.include_router(ledger.router)
-app.include_router(attacks.router)
-
-
-@app.get("/")
-async def root():
-    backend_info = CryptoEngine.get_backend_info()
-    return {
-        "platform": "CIPHERTRACE (QuantumGuard)",
-        "status": "OPERATIONAL",
-        "mode": settings.get_mode_label(),
-        "cryptography": {
-            "kem": backend_info["kem_algorithm"],
-            "signature": backend_info["signature_algorithm"],
-            "backend": backend_info["backend"],
-            "standards": [backend_info["fips_203_standard"], backend_info["fips_204_standard"]]
-        },
-        "documentation": "/docs"
-    }
-
-
-@app.post("/analyze")
-@app.post("/api/analyze")
-async def analyze_document(file: UploadFile = File(...)):
-    """
-    Dynamic AI Content Classifier & Sensitivity Analyzer for Desktop & Mobile clients.
-    Extracts text from uploaded documents (PDF, TXT, MD, etc.) and determines defense classification policy.
-    """
-    from app.services.ai_engine import DocumentIntelligence
-    classifier = DocumentIntelligence()
-
-    content = await file.read()
-    text = ""
-    # Extract text if PDF
-    if (file.filename and file.filename.lower().endswith(".pdf")) or content.startswith(b"%PDF"):
-        try:
-            import fitz
-            doc = fitz.open(stream=content, filetype="pdf")
-            for page in doc:
-                text += page.get_text() + " "
-        except Exception:
-            text = content.decode("utf-8", errors="ignore")
-    else:
-        text = content.decode("utf-8", errors="ignore")
-
-    result = classifier.classify_and_configure(text)
-    return {
-        "status": "ANALYZED",
-        "file_name": file.filename or "uploaded_document",
-        "size_bytes": len(content),
-        "label": result["label"],
-        "policy": result["policy"],
-        "text_sample": text[:200]
-    }
-
-
-def get_sensitivity(text: str) -> str:
-    # Dynamic AI Logic
-    keywords = {"SECRET": 3, "CONFIDENTIAL": 2, "INTERNAL": 1, "NUCLEAR": 5, "WARHEAD": 5, "DEPLOYMENT": 4}
-    score = sum(text.upper().count(k) * v for k, v in keywords.items())
-    return "HIGH" if score > 5 else "MEDIUM" if score > 0 else "LOW"
-
-
-@app.post("/secure-upload")
-async def secure_upload(file: UploadFile = File(...)):
-    """
-    QuantumGuard Secure Upload Endpoint:
-    Combines Dynamic AI Sensitivity Analysis with NIST ML-KEM-768 + AES-256-GCM encryption.
-    """
-    from app.services.crypto_engine import QuantumCrypto
-    crypto = QuantumCrypto()
-
-    content = await file.read()
-    
-    # AI Classification
-    sensitivity = get_sensitivity(content.decode(errors='ignore'))
-    
-    # Encrypt based on AI result
-    result = crypto.encrypt_file(content)
-    result["sensitivity"] = sensitivity
-    result["file_name"] = file.filename or "secured_document"
-    
-    return {"status": "SUCCESS", "data": result}
 
 
 if __name__ == "__main__":

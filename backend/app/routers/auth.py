@@ -3,7 +3,7 @@ import base64
 import hashlib
 import logging
 import uuid
-from typing import List, Optional
+from typing import Optional
 from datetime import datetime, timedelta, timezone
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, Header, Response, Cookie, Form, UploadFile, File
@@ -57,7 +57,7 @@ def _decode_token(token: Optional[str]) -> dict:
         raise HTTPException(status_code=401, detail="Invalid authentication token")
 
 
-def user_to_schema(u: User, include_secret: bool = True) -> UserSchema:
+def user_to_schema(u: User) -> UserSchema:
     kem_preview = f"0x{u.kem_public_key[:16].hex()}... ({len(u.kem_public_key)} B)" if u.kem_public_key else "0x0000... (0 B)"
     dsa_preview = f"0x{u.dsa_public_key[:16].hex()}... ({len(u.dsa_public_key)} B)" if u.dsa_public_key else "0x0000... (0 B)"
     return UserSchema(
@@ -79,7 +79,7 @@ def user_to_schema(u: User, include_secret: bool = True) -> UserSchema:
         fabric_msp_id=u.fabric_msp_id,
         kem_key_fingerprint=hashlib.sha256(u.kem_public_key).hexdigest() if u.kem_public_key else "",
         dsa_key_fingerprint=hashlib.sha256(u.dsa_public_key).hexdigest() if u.dsa_public_key else "",
-        keystore_file=os.path.basename(u.keystore_path) if include_secret and u.keystore_path else None
+        keystore_file=os.path.basename(u.keystore_path) if u.keystore_path else None
     )
 
 
@@ -121,18 +121,6 @@ async def get_session_passphrase(
     if passphrase is None:
         raise HTTPException(status_code=401, detail="Your keystore is locked. Sign in again to unlock it.")
     return passphrase
-
-
-def require_role(allowed_roles: List[str]):
-    """Enforces role-based authorization check."""
-    async def role_checker(current_user: User = Depends(get_current_user_from_token)) -> User:
-        if current_user.role not in allowed_roles:
-            raise HTTPException(
-                status_code=403,
-                detail=f"Forbidden: Action requires one of roles {allowed_roles}, your role is {current_user.role}"
-            )
-        return current_user
-    return role_checker
 
 
 # ── Ledger identity sign-in ──────────────────────────────────────────────
@@ -180,7 +168,6 @@ def _generate_keys(user: User, passphrase: str) -> None:
     user.key_version = 1
     user.key_status = "ACTIVE"
     user.keystore_path = keystore_path
-    user.keystore_password = None
 
 
 def _public_key_record(user: User) -> dict:
@@ -434,14 +421,6 @@ async def logout(
             pass  # expired or invalid token: nothing to forget
     response.delete_cookie(key="access_token")
     return {"message": "Session terminated successfully"}
-
-
-@router.get("/users", response_model=List[UserSchema])
-async def list_users(db: AsyncSession = Depends(get_db)):
-    """Lists registered users (public cryptographic metadata only; NO private keys)."""
-    res = await db.execute(select(User).order_by(User.id.asc()))
-    users = res.scalars().all()
-    return [user_to_schema(u, include_secret=False) for u in users]
 
 
 @router.get("/me", response_model=UserSchema)

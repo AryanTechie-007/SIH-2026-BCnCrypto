@@ -13,8 +13,7 @@ Security Architecture:
 import os
 import json
 import base64
-import hashlib
-from typing import Tuple, Dict, Any, Optional
+from typing import Tuple, Optional
 from argon2.low_level import hash_secret_raw, Type
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.exceptions import InvalidTag
@@ -70,16 +69,6 @@ class KeystoreManager:
         else:
             filename = f"user_{user_id}.keystore"
         return os.path.join(kdir, filename)
-
-    @classmethod
-    def keystore_exists(cls, user_id: int, username: Optional[str] = None) -> bool:
-        """Checks if a keystore exists for the given user ID."""
-        path = cls.get_keystore_path(user_id, username)
-        if os.path.exists(path):
-            return True
-        # Check without username suffix
-        alt_path = cls.get_keystore_path(user_id)
-        return os.path.exists(alt_path)
 
     @classmethod
     def _derive_kek(cls, password: str, salt: bytes) -> bytes:
@@ -258,14 +247,3 @@ class KeystoreManager:
             return signature
         finally:
             cls._zero_buffer(priv_arr)
-
-    @classmethod
-    def get_public_metadata(cls, filepath: str) -> dict:
-        """Reads unencrypted metadata header without requiring a password."""
-        if not os.path.exists(filepath):
-            raise KeystoreNotFoundError(f"Keystore not found at {filepath}")
-
-        with open(filepath, "r", encoding="utf-8") as f:
-            envelope = json.load(f)
-
-        return envelope.get("metadata", {})

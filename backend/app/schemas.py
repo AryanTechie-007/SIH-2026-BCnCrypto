@@ -62,7 +62,6 @@ class OfficerSchema(BaseModel):
     key_status: str
     ml_kem_pub_preview: str
     ml_dsa_pub_preview: str
-    keystore_password: Optional[str] = None
 
 
 class DocumentSchema(BaseModel):
@@ -184,18 +183,3 @@ class ForensicAnalysisResponse(BaseModel):
     analysis_narrative: str
     candidate_matches: Optional[List[CandidateMatch]] = None
     evidence_bundle: Optional[EvidenceBundle] = None
-
-
-class BatchForensicResponse(BaseModel):
-    total_files: int
-    identified_count: int
-    unattributed_count: int
-    results: List[ForensicAnalysisResponse]
-
-
-class VaultExportRequest(BaseModel):
-    passphrase: str
-
-
-class VaultImportRequest(BaseModel):
-    passphrase: str

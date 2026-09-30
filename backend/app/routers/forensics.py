@@ -1,9 +1,6 @@
 import os
 import uuid
 import json
-import hashlib
-from datetime import datetime
-from typing import Dict, Any, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,7 +18,6 @@ from app.schemas import (
     OfficerSchema,
     VerificationGates,
     CandidateMatch,
-    BatchForensicResponse,
     EvidenceBundle
 )
 
@@ -382,23 +378,6 @@ async def analyze_leaked_document(file: UploadFile = File(...), db: AsyncSession
     """Automated Single-File Forensic Attribution Pipeline."""
     file_bytes = await file.read()
     return await evaluate_suspect_stream(file.filename or "suspect_document", file_bytes, db)
-
-
-@router.post("/analyze-batch", response_model=BatchForensicResponse)
-async def analyze_batch_documents(files: List[UploadFile] = File(...), db: AsyncSession = Depends(get_db)):
-    """Automated Multi-File Batch Forensic Attribution Pipeline."""
-    results: List[ForensicAnalysisResponse] = []
-    for f in files:
-        f_bytes = await f.read()
-        res = await evaluate_suspect_stream(f.filename or "suspect_document", f_bytes, db)
-        results.append(res)
-    identified = sum(1 for r in results if r.status in ("IDENTIFIED", "ATTRIBUTED_WITH_WARNINGS"))
-    return BatchForensicResponse(
-        total_files=len(results),
-        identified_count=identified,
-        unattributed_count=len(results) - identified,
-        results=results
-    )
 
 
 @router.get("/evidence/{event_id}")

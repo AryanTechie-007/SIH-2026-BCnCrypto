@@ -1,8 +1,7 @@
-import os
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import event
-from .models.database import Base, User, Document
+from .models.database import Base
 from app.config import settings
 
 DATABASE_URL = f"sqlite+aiosqlite:///{settings.DB_PATH}"

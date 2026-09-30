@@ -10,11 +10,11 @@ from sqlalchemy.future import select
 
 from app.config import settings
 from app.database import get_db
-from app.models.database import Document, User, Distribution, DecryptionEvent, WatermarkRecord, LedgerBlock
+from app.models.database import Document, User, Distribution, DecryptionEvent, WatermarkRecord
 from app.services.crypto_engine import CryptoEngine
 from app.services.watermark_engine import WatermarkEngine
 from app.services.ledger_engine import LedgerEngine, LedgerCommitError
-from app.services.keystore import KeystoreManager, KeystoreAuthenticationError, KeystoreNotFoundError
+from app.services.keystore import KeystoreManager, KeystoreAuthenticationError
 from app.schemas import DecryptionRequest, DecryptionResponse
 from app.routers.auth import get_current_user_from_token, get_session_passphrase
 

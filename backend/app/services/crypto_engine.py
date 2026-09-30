@@ -15,23 +15,14 @@ No classical fallback (X25519 / Ed25519) and no SHAKE padding emulation are perm
 import os
 import hmac
 import hashlib
-from typing import Tuple, Optional, Dict, Any
+from typing import Tuple
 
-from cryptography.hazmat.primitives.asymmetric import x25519
-from cryptography.hazmat.primitives import hashes, padding
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-from cryptography.exceptions import InvalidTag
 
 # Native pure Python / wheels backends for offline air-gapped environments
 try:
     from mlkem.ml_kem import ML_KEM as _ML_KEM
-    from mlkem.parameter_set import (
-        ML_KEM_512 as _PARAM_ML_KEM_512,
-        ML_KEM_768 as _PARAM_ML_KEM_768,
-        ML_KEM_1024 as _PARAM_ML_KEM_1024,
-    )
+    from mlkem.parameter_set import ML_KEM_768 as _PARAM_ML_KEM_768
     _MLKEM_PKG_AVAILABLE = True
 except ImportError:
     _MLKEM_PKG_AVAILABLE = False
@@ -45,7 +36,6 @@ except ImportError:
 # Primary backend: liboqs (if native C library is compiled)
 # Secondary backend: mlkem (FIPS 203) + dilithium-py (FIPS 204 ML-DSA-65)
 _OQS_AVAILABLE = False
-KeyEncapsulation = None
 try:
     import oqs
     # Test if liboqs native library is loaded and supports our algorithms
@@ -53,180 +43,9 @@ try:
         pass
     with oqs.Signature("ML-DSA-65") as _test_sig:
         pass
-    KeyEncapsulation = oqs.KeyEncapsulation
     _OQS_AVAILABLE = True
 except (ImportError, Exception):
     _OQS_AVAILABLE = False
-
-# Fallback KeyEncapsulation context manager for NIST FIPS 203 ML-KEM
-if KeyEncapsulation is None:
-    class KeyEncapsulation:
-        """
-        Genuine NIST FIPS 203 KeyEncapsulation implementation compatible with liboqs API.
-        Supports ML-KEM-512, ML-KEM-768, and ML-KEM-1024.
-        """
-        def __init__(self, kem_name: str = "ML-KEM-768", secret_key: Optional[bytes] = None):
-            self.kem_name = kem_name
-            self.secret_key = secret_key
-            if not _MLKEM_PKG_AVAILABLE:
-                raise RuntimeError("No genuine ML-KEM implementation available")
-            if "512" in kem_name:
-                self._param = _PARAM_ML_KEM_512
-            elif "1024" in kem_name:
-                self._param = _PARAM_ML_KEM_1024
-            else:
-                self._param = _PARAM_ML_KEM_768
-            try:
-                self._kem = _ML_KEM(self._param)
-            except Exception:
-                self._kem = _ML_KEM(self._param, fast=False)
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, exc_type, exc_val, exc_tb):
-            pass
-
-        def generate_keypair(self) -> bytes:
-            ek, dk = self._kem.key_gen()
-            self.secret_key = dk
-            return ek
-
-        def export_secret_key(self) -> bytes:
-            if self.secret_key is None:
-                raise ValueError("No secret key available to export")
-            return self.secret_key
-
-        def encap_secret(self, public_key: bytes) -> Tuple[bytes, bytes]:
-            ss, ct = self._kem.encaps(public_key)
-            return ct, ss
-
-        def decap_secret(self, ciphertext: bytes) -> bytes:
-            if self.secret_key is None:
-                raise ValueError("Secret key required for decapsulation")
-            return self._kem.decaps(self.secret_key, ciphertext)
-
-
-class HybridPQCEngine:
-    """
-    Hybrid Post-Quantum Cryptographic Engine.
-    Combines NIST FIPS 203 (ML-KEM) with Classical Diffie-Hellman (X25519)
-    and AES-256-GCM authenticated encryption via HKDF-SHA256.
-    """
-    def __init__(self, kem_name="ML-KEM-768"):
-        self.kem_name = kem_name
-
-    def generate_hybrid_keys(self):
-        # Quantum Keys
-        with KeyEncapsulation(self.kem_name) as kem:
-            public_key_pqc = kem.generate_keypair()
-            private_key_pqc = kem.export_secret_key()
-        
-        # Classical Keys
-        private_key_classical = x25519.X25519PrivateKey.generate()
-        public_key_classical = private_key_classical.public_key()
-        
-        return {
-            "pqc": (public_key_pqc, private_key_pqc),
-            "classical": (public_key_classical, private_key_classical)
-        }
-
-    def encrypt_hybrid(self, data: bytes, public_key_pqc: bytes, public_key_classical):
-        # 1. Quantum Encapsulation
-        with KeyEncapsulation(self.kem_name) as client_kem:
-            ciphertext_pqc, shared_secret_pqc = client_kem.encap_secret(public_key_pqc)
-
-        # 2. Classical Diffie-Hellman
-        ephemeral_key = x25519.X25519PrivateKey.generate()
-        shared_secret_classical = ephemeral_key.exchange(public_key_classical)
-        ciphertext_classical = ephemeral_key.public_key().public_bytes_raw()
-
-        # 3. Hybrid KDF (Key Derivation)
-        # Combines both secrets so both must be broken to decrypt
-        derived_key = HKDF(
-            algorithm=hashes.SHA256(),
-            length=32,
-            salt=None,
-            info=b"hybrid-pqc-sih-2026",
-        ).derive(shared_secret_pqc + shared_secret_classical)
-
-        # 4. Symmetric Encryption (AES-GCM)
-        iv = os.urandom(12)
-        encryptor = Cipher(algorithms.AES(derived_key), modes.GCM(iv)).encryptor()
-        ciphertext = encryptor.update(data) + encryptor.finalize()
-
-        return {
-            "pqc_blob": ciphertext_pqc,
-            "classical_blob": ciphertext_classical,
-            "iv": iv,
-            "tag": encryptor.tag,
-            "payload": ciphertext
-        }
-
-    def decrypt_hybrid(self, encrypted_data: Dict[str, bytes], private_key_pqc: bytes, private_key_classical) -> bytes:
-        """
-        Performs hybrid decapsulation and AES-GCM decryption.
-        Requires both quantum and classical private keys.
-        """
-        # 1. Quantum Decapsulation
-        with KeyEncapsulation(self.kem_name, secret_key=private_key_pqc) as server_kem:
-            shared_secret_pqc = server_kem.decap_secret(encrypted_data["pqc_blob"])
-
-        # 2. Classical Diffie-Hellman
-        ephemeral_public = x25519.X25519PublicKey.from_public_bytes(encrypted_data["classical_blob"])
-        shared_secret_classical = private_key_classical.exchange(ephemeral_public)
-
-        # 3. Hybrid KDF
-        derived_key = HKDF(
-            algorithm=hashes.SHA256(),
-            length=32,
-            salt=None,
-            info=b"hybrid-pqc-sih-2026",
-        ).derive(shared_secret_pqc + shared_secret_classical)
-
-        # 4. Symmetric Decryption (AES-GCM)
-        decryptor = Cipher(
-            algorithms.AES(derived_key),
-            modes.GCM(encrypted_data["iv"], encrypted_data["tag"])
-        ).decryptor()
-        return decryptor.update(encrypted_data["payload"]) + decryptor.finalize()
-
-
-class QuantumCrypto:
-    """
-    QuantumCrypto Engine implementing NIST ML-KEM-768 with HKDF-SHA256 and AES-256-GCM.
-    Returns hex-encoded bundles suitable for mobile client consumption and web APIs.
-    """
-    def __init__(self, kem_name: str = "ML-KEM-768"):
-        self.kemalg = kem_name
-
-    def encrypt_file(self, data: bytes) -> Dict[str, str]:
-        with KeyEncapsulation(self.kemalg) as server_kem:
-            # 1. Generate Quantum Keypair
-            public_key = server_kem.generate_keypair()
-            
-            # 2. Encapsulate to get Shared Secret
-            ciphertext_pqc, shared_secret = server_kem.encap_secret(public_key)
-            
-            # 3. Derive Symmetric Key (KDF)
-            key = HKDF(
-                algorithm=hashes.SHA256(),
-                length=32, salt=None, info=b"sih-pqc"
-            ).derive(shared_secret)
-
-            # 4. AES-GCM Encryption
-            aesgcm = AESGCM(key)
-            iv = os.urandom(12)
-            encrypted_payload = aesgcm.encrypt(iv, data, None)
-            
-            return {
-                "pqc_public_key": public_key.hex(),
-                "pqc_ciphertext": ciphertext_pqc.hex(),
-                "iv": iv.hex(),
-                "blob": encrypted_payload.hex(),
-                "key_hex": key.hex()
-            }
-
 
 class CryptoEngine:
     """
@@ -329,18 +148,6 @@ class CryptoEngine:
         h = hashlib.sha3_256()
         h.update(data)
         return h.hexdigest()
-
-    @staticmethod
-    def sha3_256_bytes(data: bytes) -> bytes:
-        """Computes NIST FIPS 202 SHA3-256 digest returning 32 raw bytes."""
-        h = hashlib.sha3_256()
-        h.update(data)
-        return h.digest()
-
-    @staticmethod
-    def sha3_hasher():
-        """Returns a streaming SHA3-256 hasher."""
-        return hashlib.sha3_256()
 
     # -------------------------------------------------------------
     # NIST FIPS 203: ML-KEM-768 Key Encapsulation Mechanism

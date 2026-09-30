@@ -16,8 +16,6 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True, nullable=False)
-    password_hash = Column(String, nullable=True) # Unused: sign-in is by ledger identity bundle
-    keystore_password = Column(String, nullable=True) # Unused: the passphrase is never stored
     navy_id = Column(String, unique=True, index=True, nullable=False) # User Identifier Code (USR-XXXX)
     name = Column(String, nullable=False)
     rank = Column(String, nullable=False, default="User")
