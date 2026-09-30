@@ -12,9 +12,8 @@ This system is designed for high-security defense environments where traditional
 
 ### 🛠 Key Features
 - **Hybrid PQC:** Implements NIST FIPS 203 (ML-KEM-512 / 768 / 1024) combined with classical Curve25519 (X25519) to ensure security even if one algorithm is compromised.
-- **Dynamic AI Policy:** The system reads the document and automatically scales encryption strength based on content sensitivity (`TOP_SECRET` forces ML-KEM-1024 + MFA, `CONFIDENTIAL` enforces ML-KEM-768 + Biometrics).
-- **Forensic Watermarking:** Uses 2D DCT-domain spread-spectrum steganography with Reed-Solomon RS(255,127) Forward Error Correction to track leaks back to specific devices.
-- **Signal-to-Noise Confidence Scoring:** Real-time BER and SNR confidence scoring providing court-admissible forensic evidence packages.
+- **Forensic Watermarking:** Uses Walsh-Hadamard Transform (WHT/DSSS) orthogonal basis steganography with zero DC shift (PSNR > 45 dB) to track leaks back to specific devices.
+- **Signal-to-Noise Confidence Scoring:** Real-time BER and coherent correlation scoring providing court-admissible forensic evidence packages.
 - **Immutable Ledger:** All access logs and decryption events are committed to Hyperledger Fabric permissioned DLT.
 
 ---
@@ -27,7 +26,7 @@ This system is designed for high-security defense environments where traditional
 ├── /backend            # Python FastAPI + NIST PQC Engine
 │   ├── main.py         # Entrypoint server launcher
 │   ├── /app
-│   │   ├── /services   # PQC crypto_engine, ai_engine, forensics, ledger_client
+│   │   ├── /services   # PQC crypto_engine, watermark_engine, forensics, ledger_client
 │   │   └── /routers    # REST API endpoints (documents, decryption, forensics, ledger)
 │   └── requirements.txt
 │
@@ -84,7 +83,7 @@ CIPHERTRACE guarantees that **no recipient can access a confidential document wi
         │                                               │
         │ Upload PDF & Select Recipients                │ Local Encrypted Keystore
         │ Hybrid PQC (ML-KEM-768 + X25519)              │ (Argon2id + AES-256-GCM)
-        │ AI Dynamic Sensitivity Classification         │ [Private Keys NEVER sent to Server]
+        │ Document SHA3-256 Hash                        │ [Private Keys NEVER sent to Server]
         │                                               │
         ▼                                               ▼
 ┌───────────────────────────────────────────────────────────────┐
@@ -93,10 +92,10 @@ CIPHERTRACE guarantees that **no recipient can access a confidential document wi
 └───────────────┬───────────────────────────────┬───────────────┘
                 │                               │
                 ▼                               ▼
-    SQLite Operational Store        2D DCT Watermark Engine
-    - Public Keys & Key IDs         - 127-byte Authenticated Frame
-    - User Profiles & Roles         - Reed-Solomon RS(255,127) FEC
-    - NO Plaintext Private Keys     - Mid-frequency Modulation
+    SQLite Operational Store        Hadamard Watermark Engine
+    - Public Keys & Key IDs         - 16-byte Authenticated Frame
+    - User Profiles & Roles         - Sylvester-Hadamard H_64 Basis
+    - NO Plaintext Private Keys     - Zero DC Shift (PSNR > 45 dB)
                 │                               │
                 └───────────────┬───────────────┘
                                 │
@@ -114,8 +113,8 @@ CIPHERTRACE guarantees that **no recipient can access a confidential document wi
                                 │
                                 ▼
                     Forensic Attribution Lab
-                    1. Render & 2D DCT Extraction
-                    2. RS(255,127) Syndrome Decoding
+                    1. Screen Capture Normalization & Page Segmentation
+                    2. Walsh-Hadamard Coherent Correlation Decoding
                     3. Fabric / Ledger LookupByWatermark
                     4. ML-DSA-65 Cryptographic Verification
                     5. Document SHA3-256 Hash Verification
@@ -134,11 +133,10 @@ CIPHERTRACE guarantees that **no recipient can access a confidential document wi
 * **AES-256-GCM (NIST SP 800-38D)**: Authenticated symmetric encryption for confidential document payloads.
 * **SHA3-256 (NIST FIPS 202)**: Permutation-based hashing for canonical serialization, Merkle roots, block hash chains, and HMAC-SHA3-256 watermark payload authentication.
 
-### 2. 🧠 Dynamic AI Policy Classifier (`DocumentIntelligence`)
-* Automatically scans document text content and classifies sensitivity into defense tiers:
-  * **TOP_SECRET**: Forces `ML-KEM-1024`, `MFA_REQUIRED` authentication, and heavy watermark embedding strength (`0.15`).
-  * **CONFIDENTIAL**: Enforces `ML-KEM-768`, `BIOMETRIC` verification, and watermark strength (`0.10`).
-  * **RESTRICTED / UNCLASSIFIED**: Applies `ML-KEM-512`, `PASSWORD` auth, and watermark strength (`0.05`).
+### 2. 🛡️ Walsh-Hadamard Transform (WHT/DSSS) Steganography
+* Modulates 8×8 blocks using zero-mean AC basis rows of the order-64 Sylvester-Hadamard matrix $H_{64}$.
+* **Zero DC Shift**: Ensures that the average block luminance is unchanged, eliminating visible ripple or checkerboard artifacts while maintaining high image fidelity (**PSNR > 45 dB**).
+* **Multi-Scale Screen Capture Normalization**: Automatic page contour segmentation and canonical normalization (`1275x1650` Letter and `1240x1754` A4) enables robust watermark recovery from screen captures and photos.
 
 ### 3. 🔬 Forensic Integrity Auditor (`ForensicAuditor`)
 * Real-time Signal-to-Noise Ratio (SNR) and Bit Error Rate (BER) evaluation.
