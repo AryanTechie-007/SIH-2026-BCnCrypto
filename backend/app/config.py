@@ -65,6 +65,27 @@ class CipherTraceSettings:
         default_factory=lambda: os.environ.get("CC_NAME", "forensic")
     )
 
+    # ── Ledger Identity (blockchain/client/cli.js) ────────────────────
+    # Every ledger call runs `node cli.js ...` with FABRIC_SAMPLES pointed at
+    # the signed-in user's identity bundle.
+    NODE_BIN: str = field(default_factory=lambda: os.environ.get("NODE_BIN", "node"))
+    LEDGER_CLI_PATH: str = field(
+        default_factory=lambda: os.environ.get(
+            "LEDGER_CLI_PATH",
+            os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "blockchain", "client", "cli.js"))
+        )
+    )
+    LEDGER_CLI_TIMEOUT_SECONDS: int = field(
+        default_factory=lambda: int(os.environ.get("LEDGER_CLI_TIMEOUT_SECONDS", "120"))
+    )
+    # Unpacked identity bundles (certificate + Fabric private key), one folder per user.
+    BUNDLES_DIR: str = field(
+        default_factory=lambda: os.environ.get(
+            "BUNDLES_DIR",
+            os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "bundles"))
+        )
+    )
+
     # ── Authentication ────────────────────────────────────────────────
     JWT_SECRET_KEY: str = field(
         default_factory=lambda: os.environ.get(

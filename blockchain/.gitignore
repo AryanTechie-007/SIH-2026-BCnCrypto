@@ -1,0 +1,38 @@
+# Fabric — installed separately, never vendored
+fabric-samples/
+organizations/
+wallet/
+*.block
+*.tx
+
+# Chaincode sequence trackers, written by setup.sh / redeploy.sh
+.cc-sequence
+.cc-sequence-*
+
+# Identity bundles contain private keys — never commit them
+bundles/
+
+# Node
+node_modules/
+npm-debug.log*
+coverage/
+.nyc_output/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Offline packaging artefacts — large, regenerate rather than commit
+images/*.tar
+wheels/
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
+
+# Logs
+*.log

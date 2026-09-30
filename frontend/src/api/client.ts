@@ -20,7 +20,8 @@ const API_ROOT = (typeof window !== 'undefined' && window.location.port === '517
 
 async function safeFetch(url: string, options?: RequestInit): Promise<Response> {
   const isAuth = url.includes('/auth/');
-  const isHeavyCompute = url.includes('/decryption/') || url.includes('/forensics/');
+  // Ledger sign-in waits for Fabric commits and may generate post-quantum keys.
+  const isHeavyCompute = url.includes('/decryption/') || url.includes('/forensics/') || url.includes('/auth/ledger-login');
   const timeoutMs = options?.signal ? 0 : (isAuth ? 8000 : (isHeavyCompute ? 180000 : 30000));
 
   const executeFetch = async (targetUrl: string, timeout: number): Promise<Response> => {
@@ -128,31 +129,15 @@ export const ApiClient = {
     return handleResponse<DistributionResult>(res, 'DISTRIBUTE_DOCUMENT');
   },
 
-  async register(data: { username: string; password: string; display_name: string; rank?: string; device_id?: string }): Promise<AuthResult> {
-    const res = await safeFetch(`${API_ROOT}/auth/register`, {
+  async ledgerLogin(username: string, bundle: File): Promise<AuthResult> {
+    const formData = new FormData();
+    formData.append('username', username);
+    formData.append('bundle', bundle);
+    const res = await safeFetch(`${API_ROOT}/auth/ledger-login`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
+      body: formData
     });
-    return handleResponse<AuthResult>(res, 'AUTH_REGISTER');
-  },
-
-  async login(data: { username: string; password: string }): Promise<AuthResult> {
-    const res = await safeFetch(`${API_ROOT}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-    return handleResponse<AuthResult>(res, 'AUTH_LOGIN');
-  },
-
-  async quickLogin(officer: string): Promise<AuthResult> {
-    const res = await safeFetch(`${API_ROOT}/auth/quick-login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ officer })
-    });
-    return handleResponse<AuthResult>(res, 'AUTH_QUICK_LOGIN');
+    return handleResponse<AuthResult>(res, 'LEDGER_LOGIN');
   },
 
   async getUsers(): Promise<UserAccount[]> {

@@ -259,6 +259,11 @@ export const AccountManagementConsole: React.FC<AccountManagementConsoleProps> =
                 <span style={{ color: '#e2e8f0', fontFamily: 'var(--font-mono)', fontSize: '11px' }}>{profile.role || 'USER'}</span>
               </div>
 
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px dashed var(--border-subtle)', paddingBottom: '8px' }}>
+                <span style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600 }}>LEDGER IDENTITY</span>
+                <span style={{ color: '#38bdf8', fontFamily: 'var(--font-mono)', fontSize: '11px' }}>{profile.fabric_msp_id || 'UNKNOWN'}</span>
+              </div>
+
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600 }}>CRYPTO REGISTRY</span>
                 <span style={{ color: '#10b981', fontFamily: 'var(--font-mono)', fontSize: '11px' }}>ACTIVE (v1)</span>
@@ -322,7 +327,7 @@ export const AccountManagementConsole: React.FC<AccountManagementConsoleProps> =
                 <Lock size={15} style={{ flexShrink: 0, marginTop: '2px', color: '#60a5fa' }} />
                 <div>
                   Your post-quantum private keys are secured inside your local encrypted keystore.
-                  The <strong>16-bit keystore passcode</strong> below is decoupled from your login password.
+                  The <strong>16-bit keystore passcode</strong> below is separate from your ledger identity bundle.
                   Use this passcode in the <strong>Decryption Lab</strong> to unlock incoming encrypted documents.
                 </div>
               </div>

@@ -11,6 +11,10 @@
  *   node cli.js query <watermarkId> [identity]
  *   node cli.js all                 [identity]
  *
+ *   node cli.js keys-register <file.json> [identity]
+ *   node cli.js keys-get <username>       [identity]
+ *   node cli.js keys-all                  [identity]
+ *
  * Identity defaults to DEFAULT_IDENTITY (user-042).
  */
 
@@ -96,6 +100,31 @@ async function main() {
             out(await ledger.getAllRecords(rest[0]));
             break;
 
+        case 'keys-register': {
+            const [file, identity] = rest;
+            if (!file) throw new Error('usage: cli.js keys-register <file.json> [identity]');
+            const keys = JSON.parse(await fs.readFile(file, 'utf8'));
+            out(await ledger.registerKeys(keys, identity));
+            break;
+        }
+
+        case 'keys-get': {
+            const [username, identity] = rest;
+            if (!username) throw new Error('usage: cli.js keys-get <username> [identity]');
+            const keys = await ledger.getKeys(username, identity);
+            if (keys === null) {
+                console.log(`no keys registered for ${username}`);
+                process.exitCode = 2;
+            } else {
+                out(keys);
+            }
+            break;
+        }
+
+        case 'keys-all':
+            out(await ledger.getAllKeys(rest[0]));
+            break;
+
         default:
             console.error(`Usage: node cli.js <command> [args]
 
@@ -105,6 +134,10 @@ async function main() {
   demo                [identity] generate, submit and read back a record
   query <watermarkId> [identity] look up one record
   all                 [identity] every record on the ledger
+
+  keys-register <file.json> [identity] publish your public keys (once)
+  keys-get <username>       [identity] one user's public keys
+  keys-all                  [identity] every registered user's public keys
 `);
             process.exitCode = 1;
     }

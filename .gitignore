@@ -33,6 +33,7 @@ backend/storage/*
 backend/.cache/*
 backend/keystores/*.keystore
 !backend/keystores/.gitkeep
+backend/bundles/
 
 # IDE and OS files
 .vscode/

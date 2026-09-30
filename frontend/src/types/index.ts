@@ -27,6 +27,7 @@ export interface UserAccount {
   ml_kem_pub_preview: string;
   ml_dsa_pub_preview: string;
   keystore_password?: string;
+  fabric_msp_id?: string;
 }
 
 export interface AuthResult {

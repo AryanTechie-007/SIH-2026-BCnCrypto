@@ -1,58 +1,27 @@
 import os
-import uuid
+import base64
+import logging
 import secrets
+import uuid
 from typing import List, Optional
 from datetime import datetime, timedelta, timezone
 import jwt
-from fastapi import APIRouter, Depends, HTTPException, Header, Response, Cookie
+from fastapi import APIRouter, Depends, HTTPException, Header, Response, Cookie, Form, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from argon2 import PasswordHasher
-from argon2.exceptions import VerifyMismatchError, InvalidHash
 
 from app.config import settings
 from app.database import get_db
 from app.models.database import User
+from app.services import bundle_store, ledger_cli
+from app.services.bundle_store import BundleError
 from app.services.crypto_engine import CryptoEngine
 from app.services.keystore import KeystoreManager
-from app.schemas import RegisterRequest, LoginRequest, QuickLoginRequest, UserSchema, AuthResponse
+from app.services.ledger_cli import LedgerCliError
+from app.schemas import UserSchema, AuthResponse
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
-
-# Argon2id password hasher (RFC 9106)
-_hasher = PasswordHasher(
-    time_cost=3,
-    memory_cost=65536,  # 64 MB
-    parallelism=4,
-    hash_len=32
-)
-
-
-def hash_password(password: str) -> str:
-    """Hashes password using Argon2id."""
-    return _hasher.hash(password)
-
-
-def verify_password(stored_hash: str, password: str) -> bool:
-    """Verifies password against Argon2id hash with fallback check for legacy demo hashes."""
-    try:
-        return _hasher.verify(stored_hash, password)
-    except (VerifyMismatchError, InvalidHash):
-        pass
-
-    # In DEMO_MODE only, permit fallback check for legacy SHA-256 demo hashes
-    if settings.DEMO_MODE:
-        import hashlib
-        salt = "CIPHERTRACE_SECURE_AUTH_SALT_2026"
-        legacy_salt = "CIPHERTRACE_MILITARY_AIRGAP_SALT_2026"
-        sha_current = hashlib.sha256((salt + password).encode("utf-8")).hexdigest()
-        sha_legacy = hashlib.sha256((legacy_salt + password).encode("utf-8")).hexdigest()
-        if stored_hash in (sha_current, sha_legacy, "test_hash"):
-            return True
-        if password == "password123":
-            return True
-
-    return False
+logger = logging.getLogger("ciphertrace.auth")
 
 
 def create_access_token(user_id: int, username: str, role: str) -> str:
@@ -86,7 +55,8 @@ def user_to_schema(u: User, include_secret: bool = True) -> UserSchema:
         key_status=u.key_status or "ACTIVE",
         ml_kem_pub_preview=kem_preview,
         ml_dsa_pub_preview=dsa_preview,
-        keystore_password=(u.keystore_password or "") if include_secret else ""
+        keystore_password=(u.keystore_password or "") if include_secret else "",
+        fabric_msp_id=u.fabric_msp_id
     )
 
 
@@ -104,17 +74,6 @@ async def get_current_user_from_token(
 
     if not token:
         raise HTTPException(status_code=401, detail="Authentication token required")
-
-    # In DEMO_MODE, support legacy TOKEN-<id>-<uuid> tokens
-    if settings.DEMO_MODE and token.startswith("TOKEN-"):
-        try:
-            uid = int(token.split("-")[1])
-            res = await db.execute(select(User).where(User.id == uid))
-            u = res.scalar_one_or_none()
-            if u:
-                return u
-        except Exception:
-            pass
 
     try:
         payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
@@ -148,50 +107,39 @@ def require_role(allowed_roles: List[str]):
     return role_checker
 
 
-async def ensure_default_officers(db: AsyncSession):
-    """No-op: All user creation is explicit upon registration."""
-    pass
+# ── Ledger identity sign-in ──────────────────────────────────────────────
+
+def _ledger_http_error(err: LedgerCliError, action: str) -> HTTPException:
+    if err.kind == "network":
+        return HTTPException(status_code=503, detail=f"Ledger unreachable: {err}. Is the Fabric network running?")
+    if err.kind == "config":
+        return HTTPException(status_code=500, detail=f"Ledger client is not set up: {err}")
+    return HTTPException(status_code=502, detail=f"{action}: {err}")
 
 
-@router.post("/register", response_model=AuthResponse)
-async def register(req: RegisterRequest, response: Response, db: AsyncSession = Depends(get_db)):
-    """Registers a new user account with genuine NIST PQC keypairs and encrypted keystore."""
-    if isinstance(response, AsyncSession):
-        db = response
-        response = None
-    cleaned_username = req.username.strip().lower()
-    if not cleaned_username:
-        raise HTTPException(status_code=400, detail="Username cannot be empty")
-    if not req.password or len(req.password) < 8:
-        raise HTTPException(status_code=400, detail="Password must be at least 8 characters long")
+def _keys_match(ledger_keys: dict, user: User) -> bool:
+    try:
+        return (base64.b64decode(ledger_keys["kem_public_key"]) == user.kem_public_key
+                and base64.b64decode(ledger_keys["dsa_public_key"]) == user.dsa_public_key)
+    except (KeyError, ValueError):
+        return False
 
-    # Check for existing username
-    res = await db.execute(select(User).where(User.username == cleaned_username))
-    if res.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail=f"Username '{cleaned_username}' is already registered")
 
-    navy_id = req.navy_id or f"USR-{cleaned_username.upper()}"
-    res_navy = await db.execute(select(User).where(User.navy_id == navy_id))
-    if res_navy.scalar_one_or_none():
-        navy_id = f"USR-{cleaned_username.upper()}-{uuid.uuid4().hex[:4].upper()}"
-
-    device_id = req.device_id or f"DEV-{uuid.uuid4().hex[:6].upper()}"
-
-    # Generate genuine NIST PQC keypairs (ML-KEM-768 and ML-DSA-65)
+def _generate_keys(user: User) -> None:
+    """
+    Generates the user's ML-KEM-768 and ML-DSA-65 keypairs, exactly as registration
+    used to: private keys go only into the encrypted local keystore, public keys
+    into the users table. user.id must already be assigned.
+    """
     kem_pub, kem_priv = CryptoEngine.generate_kem_keypair()
     dsa_pub, dsa_priv = CryptoEngine.generate_signing_keypair()
 
-    # Pre-allocate user ID
-    user_id_seed = int(uuid.uuid4().int % 900000 + 100000)
+    # 16-bit pseudorandom keystore passcode (0x0000 to 0xFFFF)
+    keystore_secret = f"0x{secrets.randbelow(65536):04X}"
 
-    # Generate 16-bit pseudorandom keystore passcode (0x0000 to 0xFFFF)
-    keystore_secret_val = secrets.randbelow(65536)
-    keystore_secret = f"0x{keystore_secret_val:04X}"
-
-    # Store private keys exclusively in encrypted keystore (NEVER in SQLite)
     keystore_path, kem_key_id, dsa_key_id = KeystoreManager.create_keystore(
-        user_id=user_id_seed,
-        username=cleaned_username,
+        user_id=user.id,
+        username=user.username,
         password=keystore_secret,
         kem_private_key=kem_priv,
         dsa_private_key=dsa_priv,
@@ -200,141 +148,211 @@ async def register(req: RegisterRequest, response: Response, db: AsyncSession = 
         key_version=1
     )
 
-    new_user = User(
-        username=cleaned_username,
-        password_hash=hash_password(req.password),
-        keystore_password=keystore_secret,
-        name=req.display_name.strip() or cleaned_username.capitalize(),
-        navy_id=navy_id,
-        rank=req.rank or "User",
-        command_unit=req.command_unit or "General Workspace",
-        clearance_level=req.clearance_level or "Confidential",
+    user.kem_public_key = kem_pub
+    user.kem_key_id = kem_key_id
+    user.dsa_public_key = dsa_pub
+    user.dsa_key_id = dsa_key_id
+    user.key_version = 1
+    user.key_status = "ACTIVE"
+    user.keystore_path = keystore_path
+    user.keystore_password = keystore_secret
+
+
+def _public_key_record(user: User) -> dict:
+    """The keyregistry chaincode's input for this user."""
+    return {
+        "username": user.username,
+        "kem_algorithm": CryptoEngine.KEM_ALGORITHM,
+        "kem_public_key": base64.b64encode(user.kem_public_key).decode("ascii"),
+        "dsa_algorithm": CryptoEngine.SIGNATURE_ALGORITHM,
+        "dsa_public_key": base64.b64encode(user.dsa_public_key).decode("ascii"),
+    }
+
+
+async def _unique_navy_id(db: AsyncSession, username: str) -> str:
+    navy_id = f"USR-{username.upper()}"
+    res = await db.execute(select(User).where(User.navy_id == navy_id))
+    if res.scalar_one_or_none():
+        navy_id = f"USR-{username.upper()}-{uuid.uuid4().hex[:4].upper()}"
+    return navy_id
+
+
+async def _new_user(db: AsyncSession, username: str, kem_pub: bytes, dsa_pub: bytes, device_id: str) -> User:
+    user = User(
+        username=username,
+        name=username,
+        navy_id=await _unique_navy_id(db, username),
+        rank="User",
+        command_unit="General Workspace",
+        clearance_level="Confidential",
         device_id=device_id,
-        role=req.role or "USER",
+        role="USER",
         kem_public_key=kem_pub,
-        kem_key_id=kem_key_id,
+        kem_key_id=CryptoEngine.sha3_256(kem_pub)[:32] if kem_pub else "",
         dsa_public_key=dsa_pub,
-        dsa_key_id=dsa_key_id,
+        dsa_key_id=CryptoEngine.sha3_256(dsa_pub)[:32] if dsa_pub else "",
         key_version=1,
         key_status="ACTIVE",
-        keystore_path=keystore_path,
         status="ACTIVE"
     )
-    db.add(new_user)
-    await db.commit()
-    await db.refresh(new_user)
-
-    token = create_access_token(new_user.id, new_user.username, new_user.role)
-    if response is not None:
-        response.set_cookie(
-            key="access_token",
-            value=token,
-            httponly=True,
-            samesite="lax",
-            secure=not settings.DEMO_MODE,
-            max_age=settings.JWT_EXPIRY_MINUTES * 60
-        )
-
-    user_schema = user_to_schema(new_user)
-    return AuthResponse(
-        user=user_schema,
-        token=token,
-        message=f"User '{new_user.name}' registered. Private keys secured in local encrypted keystore."
-    )
+    db.add(user)
+    await db.flush()  # assigns user.id
+    return user
 
 
-@router.post("/quick-login", response_model=AuthResponse)
-async def quick_login(req: QuickLoginRequest, response: Response, db: AsyncSession = Depends(get_db)):
-    """Instant 1-click authentication for designated demonstration officers (DEMO_MODE only)."""
-    if isinstance(response, AsyncSession):
-        db = response
-        response = None
-    if not settings.DEMO_MODE:
-        raise HTTPException(
-            status_code=403,
-            detail="Quick login is strictly disabled in SECURE_MODE. Use credentials."
-        )
-
-    officer_key = req.officer.strip().lower().lstrip('@')
-
-    res = await db.execute(
-        select(User).where(
-            (User.username == officer_key) |
-            (User.navy_id == officer_key.upper())
-        )
-    )
-    user = res.scalar_one_or_none()
-
-    if not user:
-        raise HTTPException(status_code=404, detail=f"Operator '{officer_key}' not found in registry.")
-
-    token = create_access_token(user.id, user.username, user.role)
-    if response is not None:
-        response.set_cookie(
-            key="access_token",
-            value=token,
-            httponly=True,
-            samesite="lax",
-            secure=False,
-            max_age=settings.JWT_EXPIRY_MINUTES * 60
-        )
-
-    return AuthResponse(
-        user=user_to_schema(user),
-        token=token,
-        message=f"Session initiated for {user.name}."
-    )
-
-
-@router.post("/login", response_model=AuthResponse)
-async def login(req: LoginRequest, response: Response, db: AsyncSession = Depends(get_db)):
-    """Authenticates credentials against Argon2id hashed record."""
-    if isinstance(response, AsyncSession):
-        db = response
-        response = None
-    raw_user = req.username.strip().lstrip('@')
-    cleaned_username = raw_user.lower()
-
-    res = await db.execute(
-        select(User).where(
-            (User.username == cleaned_username) |
-            (User.navy_id == raw_user.upper()) |
-            (User.navy_id == cleaned_username.upper())
-        )
-    )
-    user = res.scalar_one_or_none()
-
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid username or password")
-
-    is_valid = verify_password(user.password_hash, req.password)
-    if not is_valid:
-        raise HTTPException(status_code=401, detail="Invalid username or password")
-
-    # If login succeeded and password hash is legacy format, automatically rehash to Argon2id
+async def _sync_directory(db: AsyncSession, bundle_path: str, username: str) -> None:
+    """
+    Mirrors the key registry into the users table so every registered user can be
+    chosen as a recipient. Users whose keystore is on this device are left alone.
+    Best effort: a failure here does not block sign-in.
+    """
     try:
-        if _hasher.check_needs_rehash(user.password_hash):
-            user.password_hash = hash_password(req.password)
-            await db.commit()
-    except Exception:
-        user.password_hash = hash_password(req.password)
-        await db.commit()
+        entries = await ledger_cli.get_all_keys(bundle_path, username)
+    except LedgerCliError as e:
+        logger.warning(f"Recipient directory sync skipped: {e}")
+        return
+
+    for entry in entries or []:
+        name = entry.get("username")
+        if not name or not bundle_store.is_valid_username(name):
+            continue
+        try:
+            kem_pub = base64.b64decode(entry["kem_public_key"], validate=True)
+            dsa_pub = base64.b64decode(entry["dsa_public_key"], validate=True)
+        except (KeyError, ValueError):
+            continue
+        if len(kem_pub) != CryptoEngine.ML_KEM_768_PUBKEY_SIZE or len(dsa_pub) != CryptoEngine.ML_DSA_65_PUBKEY_SIZE:
+            continue
+
+        res = await db.execute(select(User).where(User.username == name))
+        user = res.scalar_one_or_none()
+        if user is None:
+            user = await _new_user(db, name, kem_pub, dsa_pub, device_id="REMOTE")
+        elif user.keystore_path and os.path.exists(user.keystore_path):
+            if user.kem_public_key != kem_pub or user.dsa_public_key != dsa_pub:
+                logger.warning(f"Key registry entry for '{name}' differs from this device's keystore; keeping local keys")
+            continue
+        else:
+            user.kem_public_key = kem_pub
+            user.kem_key_id = CryptoEngine.sha3_256(kem_pub)[:32]
+            user.dsa_public_key = dsa_pub
+            user.dsa_key_id = CryptoEngine.sha3_256(dsa_pub)[:32]
+        user.fabric_msp_id = entry.get("msp_id")
+
+    await db.commit()
+
+
+@router.post("/ledger-login", response_model=AuthResponse)
+async def ledger_login(
+    response: Response,
+    username: str = Form(...),
+    bundle: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Signs in with a ledger identity: the username plus the bundle zip produced by
+    blockchain/scripts/bundle-identity.sh. There is no password and no sign-up here;
+    identities are issued on the ledger side with new-recipient.sh.
+
+    1. The bundle must hold exactly one identity, and it must be `username`.
+    2. `cli.js whoami` must succeed with it. The peer only answers requests signed
+       by a key whose certificate its org CA issued, so this proves the caller holds
+       that identity's private key; the username the peer reports must match.
+    3. On first sign-in the user's ML-KEM / ML-DSA keys are generated into a local
+       keystore and their public halves published to the keyregistry chaincode.
+    4. The recipient directory is refreshed from the key registry.
+    """
+    username = username.strip()
+    if not bundle_store.is_valid_username(username):
+        raise HTTPException(status_code=400, detail="Username may only contain letters, digits, dots, underscores and hyphens")
+
+    try:
+        staged = bundle_store.stage_bundle(await bundle.read())
+    except BundleError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid identity bundle: {e}")
+
+    try:
+        if staged.username != username:
+            raise HTTPException(
+                status_code=401,
+                detail=f"This bundle is the identity of '{staged.username}', not '{username}'"
+            )
+        try:
+            who = await ledger_cli.whoami(staged.root, username)
+        except LedgerCliError as e:
+            if e.kind in ("network", "config"):
+                raise _ledger_http_error(e, "Ledger sign-in failed")
+            raise HTTPException(
+                status_code=401,
+                detail=f"The ledger rejected this identity: {e}. "
+                       "Bundles stop working when the network is rebuilt with setup.sh; request a new one."
+            )
+        if who.get("username") != username:
+            raise HTTPException(
+                status_code=401,
+                detail=f"The ledger sees this identity as '{who.get('username')}', not '{username}'"
+            )
+        bundle_path = bundle_store.install_bundle(staged)
+    finally:
+        bundle_store.discard(staged)
+
+    try:
+        ledger_keys = await ledger_cli.get_keys(bundle_path, username, username)
+    except LedgerCliError as e:
+        raise _ledger_http_error(e, "Could not read your public keys from the ledger")
+
+    res = await db.execute(select(User).where(User.username == username))
+    user = res.scalar_one_or_none()
+    has_keystore = bool(user and user.keystore_path and os.path.exists(user.keystore_path))
+
+    if ledger_keys is not None and not has_keystore:
+        raise HTTPException(
+            status_code=409,
+            detail=f"'{username}' already published keys to the ledger from another installation, "
+                   "and the matching private keys are not on this device."
+        )
+    if ledger_keys is not None and not _keys_match(ledger_keys, user):
+        raise HTTPException(
+            status_code=409,
+            detail=f"The public keys registered on the ledger for '{username}' do not match this device's keystore."
+        )
+
+    if user is None:
+        user = await _new_user(db, username, b"", b"", device_id=f"DEV-{uuid.uuid4().hex[:6].upper()}")
+        _generate_keys(user)
+    elif not has_keystore:
+        _generate_keys(user)
+
+    user.fabric_msp_id = who.get("msp_id")
+    user.bundle_path = bundle_path
+    user.role = "ADMIN" if who.get("is_admin") else "USER"
+    await db.commit()
+    await db.refresh(user)
+
+    if ledger_keys is None:
+        # If this fails the keystore stays; the next sign-in retries the publish.
+        try:
+            await ledger_cli.register_keys(bundle_path, username, _public_key_record(user))
+        except LedgerCliError as e:
+            raise _ledger_http_error(e, "Could not publish your public keys to the ledger")
+
+    await _sync_directory(db, bundle_path, username)
+    await db.refresh(user)
 
     token = create_access_token(user.id, user.username, user.role)
-    if response is not None:
-        response.set_cookie(
-            key="access_token",
-            value=token,
-            httponly=True,
-            samesite="lax",
-            secure=not settings.DEMO_MODE,
-            max_age=settings.JWT_EXPIRY_MINUTES * 60
-        )
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        httponly=True,
+        samesite="lax",
+        secure=not settings.DEMO_MODE,
+        max_age=settings.JWT_EXPIRY_MINUTES * 60
+    )
 
     return AuthResponse(
         user=user_to_schema(user),
         token=token,
-        message="Authentication successful"
+        message=f"Signed in as {username} ({user.fabric_msp_id})."
     )
 
 

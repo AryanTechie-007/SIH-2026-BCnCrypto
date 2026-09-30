@@ -16,7 +16,7 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True, nullable=False)
-    password_hash = Column(String, nullable=False) # Argon2id hash
+    password_hash = Column(String, nullable=True) # Unused: sign-in is by ledger identity bundle
     keystore_password = Column(String, nullable=True) # Stored for Account Management
     navy_id = Column(String, unique=True, index=True, nullable=False) # User Identifier Code (USR-XXXX)
     name = Column(String, nullable=False)
@@ -36,6 +36,10 @@ class User(Base):
 
     # Local encrypted keystore location (client/device side)
     keystore_path = Column(String, nullable=True)
+
+    # Ledger identity. Users mirrored from the key registry have no bundle here.
+    fabric_msp_id = Column(String, nullable=True)
+    bundle_path = Column(String, nullable=True)
 
     status = Column(String, default="ACTIVE")
     created_at = Column(DateTime, default=datetime.utcnow)

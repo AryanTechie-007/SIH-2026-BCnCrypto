@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ApiClient } from '../api/client';
 import { UserAccount } from '../types';
-import { ShieldCheck, Lock, X, AlertOctagon, UserPlus, LogIn, Cpu } from 'lucide-react';
+import { Lock, X, AlertOctagon, LogIn, FileArchive } from 'lucide-react';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -16,60 +16,28 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   currentUser,
   onLoginSuccess
 }) => {
-  const [tab, setTab] = useState<'login' | 'register'>('login');
   const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [displayName, setDisplayName] = useState('');
-  const [rank, setRank] = useState('User');
-  const [deviceId, setDeviceId] = useState('');
+  const [bundle, setBundle] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!username.trim() || !password) {
-      setErrorMessage('Please enter both username and password.');
+    if (!username.trim() || !bundle) {
+      setErrorMessage('Please provide your username and identity bundle (.zip).');
       return;
     }
 
     try {
       setIsLoading(true);
       setErrorMessage(null);
-      const res = await ApiClient.login({ username: username.trim(), password });
+      const res = await ApiClient.ledgerLogin(username.trim(), bundle);
       onLoginSuccess(res.user, res.token);
       onClose();
     } catch (err: any) {
-      setErrorMessage(err.message || 'Authentication failed. Please verify credentials.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!username.trim() || !password) {
-      setErrorMessage('Username and password are required.');
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      setErrorMessage(null);
-      const res = await ApiClient.register({
-        username: username.trim(),
-        password,
-        display_name: displayName.trim() || username.trim(),
-        rank,
-        device_id: deviceId.trim() || undefined
-      });
-      setSuccessMessage(res.message);
-      onLoginSuccess(res.user, res.token);
-      onClose();
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Registration failed.');
+      setErrorMessage(err.message || 'Ledger authentication failed.');
     } finally {
       setIsLoading(false);
     }
@@ -126,7 +94,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 SECURE OPERATOR AUTHENTICATION
               </div>
               <div style={{ fontSize: '10px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
-                NIST FIPS 203 / 204 POST-QUANTUM IDENTITY & VAULT ACCESS
+                HYPERLEDGER FABRIC IDENTITY SIGN-IN
               </div>
             </div>
           </div>
@@ -146,46 +114,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           )}
         </div>
 
-        {/* Tab Toggle */}
-        <div style={{ display: 'flex', borderBottom: '1px solid var(--border-hard)', backgroundColor: 'var(--bg-panel)' }}>
-          <button
-            onClick={() => { setTab('login'); setErrorMessage(null); }}
-            style={{
-              flex: 1,
-              padding: '12px',
-              fontSize: '11px',
-              fontWeight: 700,
-              letterSpacing: '0.05em',
-              background: tab === 'login' ? 'rgba(56, 189, 248, 0.1)' : 'transparent',
-              color: tab === 'login' ? '#38bdf8' : 'var(--text-muted)',
-              border: 'none',
-              borderBottom: tab === 'login' ? '2px solid #38bdf8' : '2px solid transparent',
-              cursor: 'pointer'
-            }}
-          >
-            <LogIn size={13} style={{ display: 'inline', marginRight: '6px' }} />
-            SIGN IN
-          </button>
-          <button
-            onClick={() => { setTab('register'); setErrorMessage(null); }}
-            style={{
-              flex: 1,
-              padding: '12px',
-              fontSize: '11px',
-              fontWeight: 700,
-              letterSpacing: '0.05em',
-              background: tab === 'register' ? 'rgba(56, 189, 248, 0.1)' : 'transparent',
-              color: tab === 'register' ? '#38bdf8' : 'var(--text-muted)',
-              border: 'none',
-              borderBottom: tab === 'register' ? '2px solid #38bdf8' : '2px solid transparent',
-              cursor: 'pointer'
-            }}
-          >
-            <UserPlus size={13} style={{ display: 'inline', marginRight: '6px' }} />
-            CREATE ACCOUNT
-          </button>
-        </div>
-
         {/* Body */}
         <div style={{ padding: '20px' }}>
           {errorMessage && (
@@ -195,154 +123,50 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </div>
           )}
 
-          {successMessage && (
-            <div className="tactical-alert tactical-alert-success" style={{ marginBottom: '16px' }}>
-              <ShieldCheck size={16} style={{ flexShrink: 0, marginTop: '1px' }} />
-              <div>{successMessage}</div>
+          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '6px' }}>
+                USERNAME
+              </label>
+              <input
+                type="text"
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+                className="tactical-input"
+                style={{ width: '100%', padding: '10px 12px', fontSize: '12px' }}
+                autoComplete="username"
+                required
+              />
             </div>
-          )}
 
-          {tab === 'login' ? (
-            <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '6px' }}>
-                  USERNAME
-                </label>
+            <div>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '6px' }}>
+                IDENTITY BUNDLE (.ZIP)
+              </label>
+              <label className="tactical-input" style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '10px 12px', fontSize: '12px', cursor: 'pointer' }}>
+                <FileArchive size={14} style={{ flexShrink: 0, color: '#38bdf8' }} />
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: bundle ? '#ffffff' : 'var(--text-dim)' }}>
+                  {bundle ? bundle.name : 'Choose bundle file…'}
+                </span>
                 <input
-                  type="text"
-                  value={username}
-                  onChange={e => setUsername(e.target.value)}
-                  className="tactical-input"
-                  style={{ width: '100%', padding: '10px 12px', fontSize: '12px' }}
-                  required
+                  type="file"
+                  accept=".zip,application/zip"
+                  onChange={e => setBundle(e.target.files?.[0] ?? null)}
+                  style={{ display: 'none' }}
                 />
-              </div>
+              </label>
+            </div>
 
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '6px' }}>
-                  PASSWORD
-                </label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  className="tactical-input"
-                  style={{ width: '100%', padding: '10px 12px', fontSize: '12px' }}
-                  required
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="tactical-btn tactical-btn-primary"
-                style={{ width: '100%', padding: '12px', marginTop: '6px', justifyContent: 'center' }}
-              >
-                <LogIn size={15} />
-                <span>{isLoading ? 'SIGNING IN...' : 'SIGN IN TO VAULT'}</span>
-              </button>
-            </form>
-          ) : (
-            <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '4px' }}>
-                    USERNAME
-                  </label>
-                  <input
-                    type="text"
-                    value={username}
-                    onChange={e => setUsername(e.target.value)}
-                    className="tactical-input"
-                    style={{ width: '100%', padding: '8px 10px', fontSize: '12px' }}
-                    required
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '4px' }}>
-                    FULL NAME
-                  </label>
-                  <input
-                    type="text"
-                    value={displayName}
-                    onChange={e => setDisplayName(e.target.value)}
-                    className="tactical-input"
-                    style={{ width: '100%', padding: '8px 10px', fontSize: '12px' }}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '4px' }}>
-                    PASSWORD
-                  </label>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    className="tactical-input"
-                    style={{ width: '100%', padding: '8px 10px', fontSize: '12px' }}
-                    required
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '4px' }}>
-                    ROLE / DEPARTMENT
-                  </label>
-                  <select
-                    value={rank}
-                    onChange={e => setRank(e.target.value)}
-                    className="tactical-input"
-                    style={{ width: '100%', padding: '8px 10px', fontSize: '12px', backgroundColor: 'var(--bg-input)', color: '#ffffff' }}
-                  >
-                    <option value="Executive">Executive</option>
-                    <option value="Legal Counsel">Legal Counsel</option>
-                    <option value="Finance">Finance</option>
-                    <option value="Engineering">Engineering</option>
-                    <option value="Compliance">Compliance</option>
-                    <option value="User">General User</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '4px' }}>
-                  DEVICE NAME (OPTIONAL)
-                </label>
-                <input
-                  type="text"
-                  value={deviceId}
-                  onChange={e => setDeviceId(e.target.value)}
-                  className="tactical-input"
-                  style={{ width: '100%', padding: '8px 10px', fontSize: '12px' }}
-                />
-              </div>
-
-              <div style={{
-                padding: '8px 12px',
-                backgroundColor: 'var(--bg-input)',
-                border: '1px solid var(--border-hard)',
-                fontSize: '10px',
-                color: 'var(--text-dim)',
-                fontFamily: 'var(--font-mono)',
-                borderRadius: '3px'
-              }}>
-                ℹ️ Automatically provisions NIST FIPS 203 ML-KEM-768 & FIPS 204 ML-DSA-65 post-quantum keypairs for confidential document exchange.
-              </div>
-
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="tactical-btn tactical-btn-primary"
-                style={{ width: '100%', padding: '10px', marginTop: '4px', justifyContent: 'center' }}
-              >
-                <Cpu size={14} />
-                <span>{isLoading ? 'GENERATING POST-QUANTUM KEYS...' : 'CREATE ACCOUNT & GENERATE KEYS'}</span>
-              </button>
-            </form>
-          )}
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="tactical-btn tactical-btn-primary"
+              style={{ width: '100%', padding: '12px', marginTop: '6px', justifyContent: 'center' }}
+            >
+              <LogIn size={15} />
+              <span>{isLoading ? 'VERIFYING WITH LEDGER...' : 'SIGN IN TO VAULT'}</span>
+            </button>
+          </form>
         </div>
       </div>
     </div>

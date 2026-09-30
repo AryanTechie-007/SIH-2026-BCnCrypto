@@ -14,12 +14,16 @@
 #       users/<name>@<domain>/msp/signcerts/   the recipient's certificate
 #       users/<name>@<domain>/msp/keystore/    the recipient's PRIVATE KEY
 #
+# It also writes <out>.zip with the same contents. That zip is what the user
+# uploads, together with their username, to log in to the application.
+#
 # The bundle contains a private key. Treat it like one: transfer it over a
 # channel you trust, and give each recipient only their own bundle.
 #
 set -euo pipefail
 
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
+require_tools zip
 
 NAME="${1:-}"
 ORG="${2:-Org1}"
@@ -31,8 +35,8 @@ if [ -z "$NAME" ]; then
 fi
 
 case "$ORG" in
-    Org1|org1) DOMAIN=org1.example.com ;;
-    Org2|org2) DOMAIN=org2.example.com ;;
+    Org1|org1) ORG=Org1; DOMAIN=org1.example.com; PEER_VAR=ORG1_PEER; PEER_PORT=7051 ;;
+    Org2|org2) ORG=Org2; DOMAIN=org2.example.com; PEER_VAR=ORG2_PEER; PEER_PORT=9051 ;;
     *) echo "ERROR: organization must be Org1 or Org2"; exit 1 ;;
 esac
 
@@ -70,23 +74,30 @@ Identity bundle for $FULL ($ORG).
 
 CONTAINS A PRIVATE KEY. Do not share this bundle with anyone but $NAME.
 
-Run the ledger client against a remote peer:
+Log in to the application with username "$NAME" and the $NAME.zip file.
 
-  docker run --rm \\
-    -v "\$(pwd)":/fabric:ro \\
-    -e FABRIC_SAMPLES=/fabric \\
-    -e ${ORG^^}_PEER=<peer-host>:$([ "$ORG" = "Org2" ] && echo 9051 || echo 7051) \\
-    -e DEFAULT_IDENTITY=$NAME \\
-    forensic-ledger-client whoami $NAME
+Or use the ledger client directly from blockchain/client:
+
+  FABRIC_SAMPLES=<path to this folder> \\
+  $PEER_VAR=<peer-host>:$PEER_PORT \\
+  node cli.js whoami $NAME
 
 No /etc/hosts entry is needed: the client dials the address you give and
 validates the peer's TLS certificate against peer0.$DOMAIN via
 grpc.ssl_target_name_override.
 EOF
 
+OUT="$(cd "$OUT" && pwd)"
+ZIP="$OUT.zip"
+rm -f "$ZIP"
+( cd "$OUT" && zip -qrX "$ZIP" . )
+chmod 600 "$ZIP"
+
 echo "Bundle written to $OUT"
 find "$OUT" -type f | sed "s|$OUT|  .|" | sort
 echo
 echo "Size: $(du -sh "$OUT" | cut -f1)"
+echo
+echo "Login zip: $ZIP"
 echo
 echo "Contains $NAME's PRIVATE KEY -- transfer it accordingly."

@@ -9,6 +9,11 @@
  *   await ledger.queryRecord(watermarkId);           // -> record | null
  *   await ledger.getAllRecords();
  *   await ledger.whoAmI('user-042');
+ *
+ *   await ledger.registerKeys(keys, 'user-042');     // -> stored key record
+ *   await ledger.getKeys('user-042');                // -> key record | null
+ *   await ledger.getAllKeys();
+ *
  *   await ledger.close();                            // before process exit
  *
  * Talks gRPC directly to the gateway service embedded in the peer. The peer
@@ -21,6 +26,7 @@
  *   FABRIC_SAMPLES   path to fabric-samples                    (required)
  *   CHANNEL_NAME     default "mychannel"
  *   CC_NAME          default "forensic"
+ *   KEYS_CC_NAME     default "keyregistry"
  *   DEFAULT_IDENTITY default "user-042"
  *   ORG1_PEER        default "localhost:7051"
  *   ORG2_PEER        default "localhost:9051"
@@ -40,6 +46,7 @@ const path = require('node:path');
 
 const CHANNEL = process.env.CHANNEL_NAME || 'mychannel';
 const CHAINCODE = process.env.CC_NAME || 'forensic';
+const KEYS_CHAINCODE = process.env.KEYS_CC_NAME || 'keyregistry';
 const DEFAULT_IDENTITY = process.env.DEFAULT_IDENTITY || 'user-042';
 
 const FABRIC_SAMPLES = process.env.FABRIC_SAMPLES;
@@ -158,9 +165,10 @@ async function grpcClientFor(mspId) {
     return client;
 }
 
-async function contractFor(identityName) {
+/** One gateway per identity, shared by both chaincodes. */
+async function gatewayFor(identityName) {
     const name = identityName || DEFAULT_IDENTITY;
-    if (gateways.has(name)) return gateways.get(name).contract;
+    if (gateways.has(name)) return gateways.get(name).gateway;
 
     const identities = listIdentities();
     const info = identities[name];
@@ -185,9 +193,13 @@ async function contractFor(identityName) {
         commitStatusOptions: () => ({ deadline: Date.now() + 90_000 }),
     });
 
-    const contract = gateway.getNetwork(CHANNEL).getContract(CHAINCODE);
-    gateways.set(name, { gateway, contract, mspId: info.mspId });
-    return contract;
+    gateways.set(name, { gateway, mspId: info.mspId });
+    return gateway;
+}
+
+async function contractFor(identityName, chaincode = CHAINCODE) {
+    const gateway = await gatewayFor(identityName);
+    return gateway.getNetwork(CHANNEL).getContract(chaincode);
 }
 
 // ------------------------------------------------------ error mapping
@@ -302,6 +314,66 @@ async function whoAmI(identityName) {
     }
 }
 
+// ------------------------------------------------------- key registry
+
+/**
+ * Publish a user's public keys:
+ *   { username, kem_algorithm, kem_public_key, dsa_algorithm, dsa_public_key }
+ * with both keys base64-encoded. Write-once, and like records it must be
+ * submitted by the user it names.
+ */
+async function registerKeys(keys, identityName) {
+    if (!keys || typeof keys !== 'object' || Array.isArray(keys)) {
+        throw new LedgerError('keys must be an object', 'validation');
+    }
+    if (!keys.username) {
+        throw new LedgerError('keys is missing username', 'validation');
+    }
+
+    const name = identityName || DEFAULT_IDENTITY;
+    if (keys.username !== name) {
+        throw new LedgerError(
+            `keys name user "${keys.username}" but are being ` +
+            `submitted as "${name}" -- the chaincode will reject this`,
+            'identity');
+    }
+
+    try {
+        const contract = await contractFor(name, KEYS_CHAINCODE);
+        const result = await contract.submitTransaction('RegisterKeys', JSON.stringify(keys));
+        return JSON.parse(utf8.decode(result));
+    } catch (err) {
+        throw wrap(err);
+    }
+}
+
+/** A user's registered public keys. Returns null when they have none. */
+async function getKeys(username, identityName) {
+    if (!username) {
+        throw new LedgerError('username must not be empty', 'validation');
+    }
+    try {
+        const contract = await contractFor(identityName, KEYS_CHAINCODE);
+        const result = await contract.evaluateTransaction('GetKeys', username);
+        return JSON.parse(utf8.decode(result));
+    } catch (err) {
+        const wrapped = wrap(err);
+        if (wrapped.kind === 'notfound') return null;
+        throw wrapped;
+    }
+}
+
+/** Every registered user's public keys -- the recipient directory. */
+async function getAllKeys(identityName) {
+    try {
+        const contract = await contractFor(identityName, KEYS_CHAINCODE);
+        const result = await contract.evaluateTransaction('GetAllKeys');
+        return JSON.parse(utf8.decode(result));
+    } catch (err) {
+        throw wrap(err);
+    }
+}
+
 /** Close every open gateway and gRPC connection. Node will not exit without this. */
 async function close() {
     for (const { gateway } of gateways.values()) gateway.close();
@@ -315,9 +387,13 @@ module.exports = {
     queryRecord,
     getAllRecords,
     whoAmI,
+    registerKeys,
+    getKeys,
+    getAllKeys,
     listIdentities,
     close,
     LedgerError,
     CHANNEL,
     CHAINCODE,
+    KEYS_CHAINCODE,
 };

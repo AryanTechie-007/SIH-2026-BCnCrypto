@@ -15,6 +15,6 @@ cd "$NETWORK_DIR"
 echo "==> Pruning volumes"
 docker volume prune -f >/dev/null
 
-rm -f "$SEQ_FILE"
+rm -f "$SEQ_FILE" "$KEYS_SEQ_FILE"
 
 echo "Done. Ledger state is gone — next setup.sh starts from an empty ledger."

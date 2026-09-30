@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ApiClient } from '../api/client';
 import { UserAccount, Officer } from '../types';
-import { LogIn, UserPlus, Shield, AlertOctagon, ShieldCheck, Cpu } from 'lucide-react';
+import { LogIn, AlertOctagon, FileArchive } from 'lucide-react';
 import { InteractiveSpottedBackground } from './InteractiveSpottedBackground';
 
 interface LoginPageProps {
@@ -10,55 +10,26 @@ interface LoginPageProps {
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUsers: _enrolledUsers }) => {
-  const [tab, setTab] = useState<'login' | 'register'>('login');
   const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [displayName, setDisplayName] = useState('');
+  const [bundle, setBundle] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanUser = username.trim().replace(/^@+/, '');
-    if (!cleanUser || !password) {
-      setErrorMessage('Please provide both username and password.');
+    if (!cleanUser || !bundle) {
+      setErrorMessage('Please provide your username and identity bundle (.zip).');
       return;
     }
 
     try {
       setIsLoading(true);
       setErrorMessage(null);
-      const res = await ApiClient.login({ username: cleanUser, password });
+      const res = await ApiClient.ledgerLogin(cleanUser, bundle);
       onLoginSuccess(res.user, res.token);
     } catch (err: any) {
-      setErrorMessage(err.message || 'Authentication failed. Please verify credentials.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!username.trim() || !password) {
-      setErrorMessage('Username and password are required.');
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      setErrorMessage(null);
-      const res = await ApiClient.register({
-        username: username.trim(),
-        password,
-        display_name: displayName.trim() || username.trim(),
-        rank: 'User',
-        device_id: `DEV-${username.trim().toUpperCase()}`
-      });
-      setSuccessMessage(res.message);
-      onLoginSuccess(res.user, res.token);
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Identity registration failed.');
+      setErrorMessage(err.message || 'Ledger authentication failed.');
     } finally {
       setIsLoading(false);
     }
@@ -118,7 +89,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
           color: 'var(--text-muted)',
           lineHeight: '1.5'
         }}>
-          Access the NIST FIPS 203 & 204 quantum-resistant cryptographic platform.
+          Sign in with the ledger identity bundle issued to you.
         </p>
       </div>
 
@@ -135,61 +106,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
         boxShadow: '0 20px 40px rgba(0, 0, 0, 0.6)',
         overflow: 'hidden'
       }}>
-        {/* Card Tab Bar */}
-        <div style={{ display: 'flex', borderBottom: '1px solid var(--border-hard)', backgroundColor: 'var(--bg-panel-alt)' }}>
-          <button
-            type="button"
-            onClick={() => { setTab('login'); setErrorMessage(null); }}
-            style={{
-              flex: 1,
-              padding: '13px',
-              fontSize: '11px',
-              fontFamily: 'var(--font-mono)',
-              fontWeight: 700,
-              letterSpacing: '0.05em',
-              background: tab === 'login' ? 'var(--bg-panel)' : 'transparent',
-              color: tab === 'login' ? '#38bdf8' : 'var(--text-muted)',
-              border: 'none',
-              borderBottom: tab === 'login' ? '2px solid #38bdf8' : '2px solid transparent',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-              transition: 'all 0.15s ease'
-            }}
-          >
-            <LogIn size={14} />
-            <span>LOG IN</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => { setTab('register'); setErrorMessage(null); }}
-            style={{
-              flex: 1,
-              padding: '13px',
-              fontSize: '11px',
-              fontFamily: 'var(--font-mono)',
-              fontWeight: 700,
-              letterSpacing: '0.05em',
-              background: tab === 'register' ? 'var(--bg-panel)' : 'transparent',
-              color: tab === 'register' ? '#38bdf8' : 'var(--text-muted)',
-              border: 'none',
-              borderBottom: tab === 'register' ? '2px solid #38bdf8' : '2px solid transparent',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-              transition: 'all 0.15s ease'
-            }}
-          >
-            <UserPlus size={14} />
-            <span>ENROLL IDENTITY</span>
-          </button>
-        </div>
-
-        {/* Card Body */}
         <div style={{ padding: '24px' }}>
           {errorMessage && (
             <div className="tactical-alert tactical-alert-danger" style={{ marginBottom: '16px' }}>
@@ -198,111 +114,60 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
             </div>
           )}
 
-          {successMessage && (
-            <div className="tactical-alert tactical-alert-success" style={{ marginBottom: '16px' }}>
-              <ShieldCheck size={16} style={{ flexShrink: 0 }} />
-              <div>{successMessage}</div>
+          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px', fontFamily: 'var(--font-mono)' }}>
+                USERNAME
+              </label>
+              <input
+                type="text"
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+                className="tactical-input"
+                autoComplete="username"
+                required
+              />
             </div>
-          )}
 
-          {tab === 'login' ? (
-            <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px', fontFamily: 'var(--font-mono)' }}>
-                  USERNAME
-                </label>
+            <div>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px', fontFamily: 'var(--font-mono)' }}>
+                IDENTITY BUNDLE (.ZIP)
+              </label>
+              <label className="tactical-input" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                <FileArchive size={14} style={{ flexShrink: 0, color: '#38bdf8' }} />
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: bundle ? '#ffffff' : 'var(--text-dim)' }}>
+                  {bundle ? bundle.name : 'Choose bundle file…'}
+                </span>
                 <input
-                  type="text"
-                  value={username}
-                  onChange={e => setUsername(e.target.value)}
-                  className="tactical-input"
-                  required
+                  type="file"
+                  accept=".zip,application/zip"
+                  onChange={e => setBundle(e.target.files?.[0] ?? null)}
+                  style={{ display: 'none' }}
                 />
+              </label>
+              <div style={{ fontSize: '10px', color: 'var(--text-dim)', marginTop: '6px', fontFamily: 'var(--font-mono)' }}>
+                Issued by your ledger administrator. It contains your private key; do not share it.
               </div>
+            </div>
 
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px', fontFamily: 'var(--font-mono)' }}>
-                  PASSWORD
-                </label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  className="tactical-input"
-                  required
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="tactical-btn tactical-btn-primary"
-                style={{
-                  width: '100%',
-                  padding: '11px',
-                  fontSize: '12px',
-                  fontWeight: 700,
-                  letterSpacing: '0.03em',
-                  justifyContent: 'center',
-                  marginTop: '6px'
-                }}
-              >
-                <LogIn size={15} />
-                <span>{isLoading ? 'AUTHENTICATING...' : 'SIGN IN'}</span>
-              </button>
-            </form>
-          ) : (
-            <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '5px', fontFamily: 'var(--font-mono)' }}>
-                  DESIRED USERNAME
-                </label>
-                <input
-                  type="text"
-                  value={username}
-                  onChange={e => setUsername(e.target.value)}
-                  className="tactical-input"
-                  required
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '5px', fontFamily: 'var(--font-mono)' }}>
-                  FULL NAME
-                </label>
-                <input
-                  type="text"
-                  value={displayName}
-                  onChange={e => setDisplayName(e.target.value)}
-                  className="tactical-input"
-                  required
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '5px', fontFamily: 'var(--font-mono)' }}>
-                  SECURITY CREDENTIAL PASSWORD
-                </label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  className="tactical-input"
-                  required
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="tactical-btn tactical-btn-primary"
-                style={{ width: '100%', padding: '11px', justifyContent: 'center', marginTop: '6px' }}
-              >
-                <Cpu size={14} />
-                <span>{isLoading ? 'GENERATING NIST PQC LATTICE KEYSTORE...' : 'GENERATE KEYSTORE & ENROLL'}</span>
-              </button>
-            </form>
-          )}
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="tactical-btn tactical-btn-primary"
+              style={{
+                width: '100%',
+                padding: '11px',
+                fontSize: '12px',
+                fontWeight: 700,
+                letterSpacing: '0.03em',
+                justifyContent: 'center',
+                marginTop: '6px'
+              }}
+            >
+              <LogIn size={15} />
+              <span>{isLoading ? 'VERIFYING WITH LEDGER...' : 'SIGN IN'}</span>
+            </button>
+          </form>
         </div>
       </div>
     </div>

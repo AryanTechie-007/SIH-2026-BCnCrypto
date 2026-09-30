@@ -2,27 +2,6 @@ from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 
 
-class RegisterRequest(BaseModel):
-    username: str
-    password: str
-    display_name: str
-    navy_id: Optional[str] = None
-    rank: Optional[str] = "User"
-    command_unit: Optional[str] = "General Workspace"
-    clearance_level: Optional[str] = "Confidential"
-    device_id: Optional[str] = None
-    role: Optional[str] = "RECIPIENT"
-
-
-class LoginRequest(BaseModel):
-    username: str
-    password: str
-
-
-class QuickLoginRequest(BaseModel):
-    officer: str
-
-
 class UserSchema(BaseModel):
     id: int
     username: str
@@ -40,6 +19,7 @@ class UserSchema(BaseModel):
     ml_kem_pub_preview: str
     ml_dsa_pub_preview: str
     keystore_password: Optional[str] = None
+    fabric_msp_id: Optional[str] = None
 
 
 class AuthResponse(BaseModel):

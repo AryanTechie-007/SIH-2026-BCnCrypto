@@ -33,6 +33,7 @@ Requires Node 18+.
 | `DEFAULT_IDENTITY` | `user-042` | Identity used when a command is given no explicit one |
 | `CHANNEL_NAME` | `mychannel` | Fabric channel |
 | `CC_NAME` | `forensic` | Chaincode name |
+| `KEYS_CC_NAME` | `keyregistry` | Key registry chaincode name |
 | `ORG1_PEER` | `localhost:7051` | Address of Org1's peer |
 | `ORG2_PEER` | `localhost:9051` | Address of Org2's peer |
 
@@ -86,6 +87,9 @@ Every command takes an optional trailing identity name, which overrides
 | `demo [identity]` | Generate a record, submit it, read it back |
 | `query <watermarkId> [identity]` | Look up one record |
 | `all [identity]` | Every record on the ledger |
+| `keys-register <file.json> [identity]` | Publish your own public keys (once per user) |
+| `keys-get <username> [identity]` | One user's public keys (exit code 2 if none) |
+| `keys-all [identity]` | Every registered user's public keys |
 
 ### Examples
 
@@ -96,6 +100,11 @@ node cli.js demo user-042
 node cli.js submit ../testdata/record-valid.json user-042
 node cli.js query a1b2c3d4e5f60718293a
 node cli.js all
+
+# with a login bundle, only that user is available
+FABRIC_SAMPLES=../bundles/alice node cli.js whoami alice
+FABRIC_SAMPLES=../bundles/alice node cli.js keys-get bob alice
+FABRIC_SAMPLES=../bundles/alice node cli.js keys-all alice
 ```
 
 `whoami` is the fastest way to confirm the whole chain works — it proves the
@@ -110,7 +119,7 @@ run repeatedly against a live ledger.
 |---|---|
 | `0` | Success |
 | `1` | Error — the reason is printed as `[kind] message` |
-| `2` | `query` only: no record for that watermark |
+| `2` | `query` / `keys-get` only: no such record |
 
 ---
 

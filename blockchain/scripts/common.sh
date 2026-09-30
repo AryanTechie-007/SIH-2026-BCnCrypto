@@ -4,6 +4,7 @@
 
 CHANNEL_NAME="${CHANNEL_NAME:-mychannel}"
 CC_NAME="${CC_NAME:-forensic}"
+KEYS_CC_NAME="${KEYS_CC_NAME:-keyregistry}"
 CC_LANG="javascript"
 ORDERER_ADDR="localhost:7050"
 ORDERER_HOSTNAME="orderer.example.com"
@@ -11,7 +12,8 @@ ORDERER_HOSTNAME="orderer.example.com"
 # Resolve this script's directory even when sourced from elsewhere.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-CC_PATH="$REPO_ROOT/chaincode"
+CC_PATH="$REPO_ROOT/chaincode/forensic-audit"
+KEYS_CC_PATH="$REPO_ROOT/chaincode/key-registry"
 
 if [ -z "${FABRIC_SAMPLES:-}" ]; then
     echo "ERROR: FABRIC_SAMPLES is not set."
@@ -41,6 +43,7 @@ export FABRIC_CFG_PATH="$FABRIC_SAMPLES/config"
 
 # Sequence number for chaincode upgrades, tracked across redeploys.
 SEQ_FILE="$REPO_ROOT/.cc-sequence"
+KEYS_SEQ_FILE="$REPO_ROOT/.cc-sequence-$KEYS_CC_NAME"
 
 require_tools() {
     local missing=0
