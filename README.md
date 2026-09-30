@@ -114,12 +114,15 @@ setup/              Windows installer and the bundled mlkem wheel
 ## Requirements
 
 - Python 3.11–3.13
-- Node.js 18+
-- Docker, `jq`, and Hyperledger Fabric **2.5.16** (`fabric-samples`, binaries and
-  images); see [blockchain/README.md](blockchain/README.md#install)
+- Node.js 20.19+ or 22.12+ (required by the frontend's Vite)
+- Docker, `jq`, `zip`, `openssl`, and Hyperledger Fabric **2.5.16**
+  (`fabric-samples`, binaries and images); see
+  [blockchain/README.md](blockchain/README.md#install)
 - macOS or Linux for the ledger scripts (on Windows, run them under WSL)
 
 ## Quick start
+
+All commands start from the repository root.
 
 **1. Start the ledger** (first run takes a few minutes):
 
@@ -130,7 +133,7 @@ cd blockchain
 ./scripts/setup.sh                          # network + both chaincodes
 ```
 
-**2. Sign up users:**
+**2. Sign up users** (still in `blockchain/`):
 
 ```bash
 ./scripts/new-recipient.sh alice && ./scripts/bundle-identity.sh alice
@@ -138,24 +141,30 @@ cd blockchain
 # -> blockchain/bundles/alice.zip, bob.zip
 ```
 
-**3. Start the backend:**
+`setup.sh` starts from an empty ledger every time; after re-running it, repeat
+this step, because old bundles stop working.
+
+**3. Start the backend** (new terminal, from the repository root; it keeps running):
 
 ```bash
 cd backend
-uv venv --python 3.12 && source .venv/bin/activate      # or python -m venv .venv
+uv venv --python 3.12 && source .venv/bin/activate
 uv pip install --find-links ../setup/wheels -r requirements.txt
+# without uv: python3.12 -m venv .venv && source .venv/bin/activate   (any 3.11–3.13)
+#             pip install --find-links ../setup/wheels -r requirements.txt
 export CIPHERTRACE_SYSTEM_SECRET="choose-one-and-keep-it"
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-**4. Start the frontend:**
+**4. Start the frontend** (another terminal, from the repository root):
 
 ```bash
 cd frontend && npm install && npm run dev
 ```
 
-Open http://localhost:5173, sign in as `alice` with `alice.zip`, and choose a
-keystore passphrase.
+Open http://localhost:5173 and sign in as `alice`: enter the username, choose
+`blockchain/bundles/alice.zip`, click **Continue**, then choose a keystore
+passphrase (at least 12 characters). Later sign-ins ask for that passphrase.
 
 On Windows, `setup\install_dependencies.bat` installs everything and
 `start_demo.bat` starts the backend and frontend; the ledger still needs step 1
@@ -179,16 +188,18 @@ Backend environment variables (all optional):
 
 ## Testing
 
+From the repository root:
+
 ```bash
 # Chaincode unit tests
 (cd blockchain/chaincode/forensic-audit && npm install && npm test)
 (cd blockchain/chaincode/key-registry && npm install && npm test)
 
-# Ledger end-to-end (network running)
-cd blockchain && source scripts/env-recipient.sh user-042 && ./scripts/smoke-test.sh
+# Ledger end-to-end (network running, FABRIC_SAMPLES exported)
+(cd blockchain && source scripts/env-recipient.sh user-042 && ./scripts/smoke-test.sh)
 
 # Watermark engine
-cd backend && .venv/bin/python -m unittest tests.test_hadamard
+(cd backend && .venv/bin/python -m unittest tests.test_hadamard)
 
 # Security regression audit (12 rules)
 backend/.venv/bin/python scripts/security_audit.py

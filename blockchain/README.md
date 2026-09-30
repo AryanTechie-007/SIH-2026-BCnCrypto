@@ -20,7 +20,7 @@ application.
 |---|---|---|
 | Docker | 20.10+ | Docker Desktop users: allow at least 4 GB memory |
 | Docker Compose | v2 | bundled with modern Docker |
-| Node.js | 18 or 20 | chaincode runtime |
+| Node.js | 20+ | chaincode tests and the ledger client (the peer runs chaincode in its own Node image) |
 | Python | 3.10+ | `ledger_client.py` uses `dict \| None` annotations |
 | Go | 1.22+ | required by Fabric's tooling, not by our code |
 | `jq` | any | the scripts use it for JSON escaping |
