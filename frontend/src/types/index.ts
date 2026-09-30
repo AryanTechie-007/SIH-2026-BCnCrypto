@@ -26,8 +26,22 @@ export interface UserAccount {
   role?: string;
   ml_kem_pub_preview: string;
   ml_dsa_pub_preview: string;
-  keystore_password?: string;
   fabric_msp_id?: string;
+  kem_key_fingerprint?: string;
+  dsa_key_fingerprint?: string;
+  keystore_file?: string | null;
+}
+
+export interface LedgerIdentityStatus {
+  certificate?: {
+    common_name: string;
+    role: string;
+    issuer: string;
+    expires_at: string;
+  } | null;
+  key_registry_status: 'REGISTERED' | 'NOT_REGISTERED' | 'MISMATCH' | 'UNAVAILABLE';
+  registered_at?: string | null;
+  detail?: string | null;
 }
 
 export interface AuthResult {

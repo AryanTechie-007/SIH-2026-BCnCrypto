@@ -19,7 +19,6 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
   onOpenAuth: _onOpenAuth
 }) => {
   const [selectedRecipientId, setSelectedRecipientId] = useState<number | null>(null);
-  const [keystorePassword, setKeystorePassword] = useState('');
 
   // File upload state
   const [uploadedEncFile, setUploadedEncFile] = useState<File | null>(null);
@@ -85,11 +84,6 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
       return;
     }
 
-    if (!keystorePassword.trim()) {
-      setErrorMessage("Please enter your keystore passcode to unlock private keys and decrypt.");
-      return;
-    }
-
     try {
       setIsDecrypting(true);
       setErrorMessage(null);
@@ -109,7 +103,7 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
       setActiveStage(3);
       setProgressPercent(42.8);
 
-      const result = await ApiClient.decryptEnvelopeFile(uploadedEncFile, selectedRecipientId, undefined, keystorePassword.trim());
+      const result = await ApiClient.decryptEnvelopeFile(uploadedEncFile, selectedRecipientId);
 
       // Stage 4: 2D DCT Forensic Watermark (42.8% -> 57.1%)
       setActiveStage(4);
@@ -132,7 +126,6 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
       await new Promise(r => setTimeout(r, 260));
 
       setDecryptionResult(result);
-      setKeystorePassword('');
       if (onDecryptionSuccess) onDecryptionSuccess();
     } catch (err: any) {
       setErrorMessage(err.message || 'Decryption failed. Recipient may not be authorized for this document.');
@@ -440,45 +433,20 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
             )}
           </div>
 
-          {/* Keystore Passcode - unlocks the recipient's ML-KEM-768 / ML-DSA-65 private keys */}
-          <div>
-            <div style={{ fontSize: '10px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', marginBottom: '6px' }}>
-              KEYSTORE PASSCODE:
-            </div>
-            <input
-              type="password"
-              autoComplete="off"
-              value={keystorePassword}
-              onChange={e => setKeystorePassword(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && !isDecrypting) handleExecuteDecrypt(); }}
-              style={{
-                width: '100%',
-                boxSizing: 'border-box',
-                padding: '8px 10px',
-                backgroundColor: 'var(--bg-input)',
-                border: '1px solid var(--border-hard)',
-                color: '#ffffff',
-                fontSize: '11px',
-                fontFamily: 'var(--font-mono)',
-                borderRadius: '3px'
-              }}
-            />
-          </div>
-
           {/* Action Button */}
           <button
             onClick={handleExecuteDecrypt}
-            disabled={isDecrypting || !uploadedEncFile || !keystorePassword.trim()}
+            disabled={isDecrypting || !uploadedEncFile}
             style={{
               padding: '14px',
-              backgroundColor: isDecrypting || !uploadedEncFile || !keystorePassword.trim() ? '#1e293b' : '#0284c7',
-              color: isDecrypting || !uploadedEncFile || !keystorePassword.trim() ? '#64748b' : '#ffffff',
+              backgroundColor: isDecrypting || !uploadedEncFile ? '#1e293b' : '#0284c7',
+              color: isDecrypting || !uploadedEncFile ? '#64748b' : '#ffffff',
               border: 'none',
               fontSize: '12px',
               fontFamily: 'var(--font-mono)',
               fontWeight: 800,
               letterSpacing: '0.04em',
-              cursor: isDecrypting || !uploadedEncFile || !keystorePassword.trim() ? 'not-allowed' : 'pointer',
+              cursor: isDecrypting || !uploadedEncFile ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',

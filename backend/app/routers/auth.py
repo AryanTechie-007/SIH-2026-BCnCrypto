@@ -1,7 +1,7 @@
 import os
 import base64
+import hashlib
 import logging
-import secrets
 import uuid
 from typing import List, Optional
 from datetime import datetime, timedelta, timezone
@@ -13,27 +13,48 @@ from sqlalchemy.future import select
 from app.config import settings
 from app.database import get_db
 from app.models.database import User
-from app.services import bundle_store, ledger_cli
+from app.services import bundle_store, ledger_cli, session_store
 from app.services.bundle_store import BundleError
 from app.services.crypto_engine import CryptoEngine
 from app.services.keystore import KeystoreManager
 from app.services.ledger_cli import LedgerCliError
-from app.schemas import UserSchema, AuthResponse
+from app.schemas import UserSchema, AuthResponse, CertificateInfo, LedgerIdentityStatus
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 logger = logging.getLogger("ciphertrace.auth")
 
 
-def create_access_token(user_id: int, username: str, role: str) -> str:
-    """Issues signed JWT access token."""
+MIN_PASSPHRASE_LENGTH = 12
+
+
+def create_access_token(user_id: int, username: str, role: str, session_id: str) -> str:
+    """Issues signed JWT access token. `sid` links it to the session's unlocked keystore."""
     payload = {
         "sub": str(user_id),
         "username": username,
         "role": role,
+        "sid": session_id,
         "exp": datetime.now(timezone.utc) + timedelta(minutes=settings.JWT_EXPIRY_MINUTES),
         "iat": datetime.now(timezone.utc)
     }
     return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+
+
+def _token_from(authorization: Optional[str], access_token: Optional[str]) -> Optional[str]:
+    if authorization and authorization.startswith("Bearer "):
+        return authorization[7:].strip()
+    return access_token or None
+
+
+def _decode_token(token: Optional[str]) -> dict:
+    if not token:
+        raise HTTPException(status_code=401, detail="Authentication token required")
+    try:
+        return jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Authentication token has expired")
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid authentication token")
 
 
 def user_to_schema(u: User, include_secret: bool = True) -> UserSchema:
@@ -55,8 +76,10 @@ def user_to_schema(u: User, include_secret: bool = True) -> UserSchema:
         key_status=u.key_status or "ACTIVE",
         ml_kem_pub_preview=kem_preview,
         ml_dsa_pub_preview=dsa_preview,
-        keystore_password=(u.keystore_password or "") if include_secret else "",
-        fabric_msp_id=u.fabric_msp_id
+        fabric_msp_id=u.fabric_msp_id,
+        kem_key_fingerprint=hashlib.sha256(u.kem_public_key).hexdigest() if u.kem_public_key else "",
+        dsa_key_fingerprint=hashlib.sha256(u.dsa_public_key).hexdigest() if u.dsa_public_key else "",
+        keystore_file=os.path.basename(u.keystore_path) if include_secret and u.keystore_path else None
     )
 
 
@@ -66,21 +89,10 @@ async def get_current_user_from_token(
     db: AsyncSession = Depends(get_db)
 ) -> User:
     """Dependency: extracts and verifies JWT identity from Authorization header or Cookie."""
-    token = None
-    if authorization and authorization.startswith("Bearer "):
-        token = authorization[7:].strip()
-    elif access_token:
-        token = access_token
-
-    if not token:
-        raise HTTPException(status_code=401, detail="Authentication token required")
-
+    payload = _decode_token(_token_from(authorization, access_token))
     try:
-        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
         user_id = int(payload.get("sub"))
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Authentication token has expired")
-    except Exception:
+    except (TypeError, ValueError):
         raise HTTPException(status_code=401, detail="Invalid authentication token")
 
     res = await db.execute(select(User).where(User.id == user_id))
@@ -93,6 +105,22 @@ async def get_current_user_from_token(
         raise HTTPException(status_code=403, detail="User cryptographic key has been revoked")
 
     return user
+
+
+async def get_session_passphrase(
+    authorization: Optional[str] = Header(None),
+    access_token: Optional[str] = Cookie(None)
+) -> str:
+    """Dependency: the keystore passphrase this session was unlocked with at sign-in."""
+    payload = _decode_token(_token_from(authorization, access_token))
+    try:
+        user_id = int(payload.get("sub"))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=401, detail="Invalid authentication token")
+    passphrase = session_store.passphrase_for(payload.get("sid"), user_id)
+    if passphrase is None:
+        raise HTTPException(status_code=401, detail="Your keystore is locked. Sign in again to unlock it.")
+    return passphrase
 
 
 def require_role(allowed_roles: List[str]):
@@ -125,22 +153,19 @@ def _keys_match(ledger_keys: dict, user: User) -> bool:
         return False
 
 
-def _generate_keys(user: User) -> None:
+def _generate_keys(user: User, passphrase: str) -> None:
     """
-    Generates the user's ML-KEM-768 and ML-DSA-65 keypairs, exactly as registration
-    used to: private keys go only into the encrypted local keystore, public keys
-    into the users table. user.id must already be assigned.
+    Generates the user's ML-KEM-768 and ML-DSA-65 keypairs: private keys go only
+    into the local keystore, encrypted under the user's passphrase (which is not
+    stored), and public keys into the users table. user.id must already be assigned.
     """
     kem_pub, kem_priv = CryptoEngine.generate_kem_keypair()
     dsa_pub, dsa_priv = CryptoEngine.generate_signing_keypair()
 
-    # 16-bit pseudorandom keystore passcode (0x0000 to 0xFFFF)
-    keystore_secret = f"0x{secrets.randbelow(65536):04X}"
-
     keystore_path, kem_key_id, dsa_key_id = KeystoreManager.create_keystore(
         user_id=user.id,
         username=user.username,
-        password=keystore_secret,
+        password=passphrase,
         kem_private_key=kem_priv,
         dsa_private_key=dsa_priv,
         kem_public_key=kem_pub,
@@ -155,7 +180,7 @@ def _generate_keys(user: User) -> None:
     user.key_version = 1
     user.key_status = "ACTIVE"
     user.keystore_path = keystore_path
-    user.keystore_password = keystore_secret
+    user.keystore_password = None
 
 
 def _public_key_record(user: User) -> dict:
@@ -247,20 +272,31 @@ async def ledger_login(
     response: Response,
     username: str = Form(...),
     bundle: UploadFile = File(...),
+    passphrase: str = Form(""),
+    passphrase_confirm: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Signs in with a ledger identity: the username plus the bundle zip produced by
-    blockchain/scripts/bundle-identity.sh. There is no password and no sign-up here;
-    identities are issued on the ledger side with new-recipient.sh.
+    blockchain/scripts/bundle-identity.sh, and the keystore passphrase. There is no
+    sign-up here; identities are issued on the ledger side with new-recipient.sh.
 
     1. The bundle must hold exactly one identity, and it must be `username`.
     2. `cli.js whoami` must succeed with it. The peer only answers requests signed
        by a key whose certificate its org CA issued, so this proves the caller holds
        that identity's private key; the username the peer reports must match.
-    3. On first sign-in the user's ML-KEM / ML-DSA keys are generated into a local
-       keystore and their public halves published to the keyregistry chaincode.
+    3. The passphrase must unlock the user's keystore on this device. Sent without a
+       passphrase (the form's first step), the request stops here with 428 and
+       detail.code saying what to ask for next:
+         PASSPHRASE_REQUIRED        a keystore exists; ask for its passphrase
+         PASSPHRASE_SETUP_REQUIRED  no keystore yet; ask for a new passphrase and
+                                    `passphrase_confirm`, then the user's ML-KEM /
+                                    ML-DSA keys are generated into a new keystore
+                                    under it and their public halves published to
+                                    the keyregistry chaincode.
     4. The recipient directory is refreshed from the key registry.
+
+    The passphrase is never stored: it stays in memory for the session only.
     """
     username = username.strip()
     if not bundle_store.is_valid_username(username):
@@ -317,11 +353,37 @@ async def ledger_login(
             detail=f"The public keys registered on the ledger for '{username}' do not match this device's keystore."
         )
 
+    if has_keystore:
+        if not passphrase:
+            raise HTTPException(
+                status_code=428,
+                detail={"code": "PASSPHRASE_REQUIRED", "message": "Enter your keystore passphrase."}
+            )
+        if not KeystoreManager.verify_password(user.keystore_path, passphrase):
+            raise HTTPException(status_code=401, detail="Incorrect keystore passphrase")
+    else:
+        # First sign-in on this device: the user chooses the passphrase that will protect their keys.
+        if not passphrase or passphrase_confirm is None:
+            raise HTTPException(
+                status_code=428,
+                detail={
+                    "code": "PASSPHRASE_SETUP_REQUIRED",
+                    "message": "There is no keystore on this device yet. Choose a passphrase to create one."
+                }
+            )
+        if len(passphrase) < MIN_PASSPHRASE_LENGTH:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Passphrase must be at least {MIN_PASSPHRASE_LENGTH} characters"
+            )
+        if passphrase != passphrase_confirm:
+            raise HTTPException(status_code=400, detail="Passphrases do not match")
+
     if user is None:
         user = await _new_user(db, username, b"", b"", device_id=f"DEV-{uuid.uuid4().hex[:6].upper()}")
-        _generate_keys(user)
+        _generate_keys(user, passphrase)
     elif not has_keystore:
-        _generate_keys(user)
+        _generate_keys(user, passphrase)
 
     user.fabric_msp_id = who.get("msp_id")
     user.bundle_path = bundle_path
@@ -339,7 +401,8 @@ async def ledger_login(
     await _sync_directory(db, bundle_path, username)
     await db.refresh(user)
 
-    token = create_access_token(user.id, user.username, user.role)
+    session_id = session_store.create(user.id, passphrase, settings.JWT_EXPIRY_MINUTES * 60)
+    token = create_access_token(user.id, user.username, user.role, session_id)
     response.set_cookie(
         key="access_token",
         value=token,
@@ -357,8 +420,18 @@ async def ledger_login(
 
 
 @router.post("/logout")
-async def logout(response: Response):
-    """Clears authentication session cookies."""
+async def logout(
+    response: Response,
+    authorization: Optional[str] = Header(None),
+    access_token: Optional[str] = Cookie(None)
+):
+    """Ends the session: forgets its keystore passphrase and clears the session cookie."""
+    token = _token_from(authorization, access_token)
+    if token:
+        try:
+            session_store.end(_decode_token(token).get("sid"))
+        except HTTPException:
+            pass  # expired or invalid token: nothing to forget
     response.delete_cookie(key="access_token")
     return {"message": "Session terminated successfully"}
 
@@ -377,3 +450,49 @@ async def get_current_user(
 ):
     """Retrieves active user details for the authenticated session."""
     return user_to_schema(current_user)
+
+
+def _certificate_info(bundle_path: str) -> Optional[CertificateInfo]:
+    from cryptography import x509
+    from cryptography.x509.oid import NameOID
+
+    cert_path = bundle_store.certificate_path(bundle_path)
+    if not cert_path:
+        return None
+    with open(cert_path, "rb") as f:
+        cert = x509.load_pem_x509_certificate(f.read())
+
+    def first(name, oid):
+        values = name.get_attributes_for_oid(oid)
+        return values[0].value if values else ""
+
+    return CertificateInfo(
+        common_name=first(cert.subject, NameOID.COMMON_NAME),
+        role=first(cert.subject, NameOID.ORGANIZATIONAL_UNIT_NAME),
+        issuer=first(cert.issuer, NameOID.COMMON_NAME),
+        expires_at=cert.not_valid_after_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+    )
+
+
+@router.get("/me/ledger", response_model=LedgerIdentityStatus)
+async def get_ledger_identity(
+    current_user: User = Depends(get_current_user_from_token)
+):
+    """The signed-in user's ledger certificate and key-registry status, read live from the ledger."""
+    bundle_path = current_user.bundle_path
+    if not bundle_path or not os.path.isdir(bundle_path):
+        return LedgerIdentityStatus(key_registry_status="UNAVAILABLE", detail="No identity bundle on this device")
+
+    certificate = _certificate_info(bundle_path)
+    try:
+        ledger_keys = await ledger_cli.get_keys(bundle_path, current_user.username, current_user.username)
+    except LedgerCliError as e:
+        return LedgerIdentityStatus(certificate=certificate, key_registry_status="UNAVAILABLE", detail=str(e))
+
+    if ledger_keys is None:
+        return LedgerIdentityStatus(certificate=certificate, key_registry_status="NOT_REGISTERED")
+    return LedgerIdentityStatus(
+        certificate=certificate,
+        key_registry_status="REGISTERED" if _keys_match(ledger_keys, current_user) else "MISMATCH",
+        registered_at=ledger_keys.get("registered_at")
+    )

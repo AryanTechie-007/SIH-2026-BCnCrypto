@@ -78,7 +78,7 @@ export function App() {
       if (d.status === 'fulfilled') setDocuments(d.value);
       if (o.status === 'fulfilled') {
         setOfficers(o.value);
-        // Evict session if user does not exist in database, or sync keystore_password if missing
+        // Evict session if user does not exist in database
         try {
           const savedUser = sessionStorage.getItem(STORAGE_KEY_USER);
           if (savedUser) {
@@ -87,13 +87,6 @@ export function App() {
               sessionStorage.removeItem(STORAGE_KEY_USER);
               sessionStorage.removeItem(STORAGE_KEY_TOKEN);
               setCurrentUser(null);
-            } else if (!parsed.keystore_password) {
-              ApiClient.getCurrentUser().then(fresh => {
-                if (fresh && fresh.keystore_password) {
-                  setCurrentUser(fresh);
-                  sessionStorage.setItem(STORAGE_KEY_USER, JSON.stringify(fresh));
-                }
-              }).catch(() => {});
             }
           }
         } catch {
@@ -127,7 +120,13 @@ export function App() {
     refreshAllData();
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // Before dropping the token: the backend forgets this session's keystore passphrase.
+    try {
+      await ApiClient.logout();
+    } catch {
+      // Backend unreachable: its sessions end when it restarts anyway
+    }
     setCurrentUser(null);
     setDocuments([]);
     setBlocks([]);

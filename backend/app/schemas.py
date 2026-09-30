@@ -18,8 +18,26 @@ class UserSchema(BaseModel):
     key_status: str
     ml_kem_pub_preview: str
     ml_dsa_pub_preview: str
-    keystore_password: Optional[str] = None
     fabric_msp_id: Optional[str] = None
+    # SHA-256 of each public key; the same values the keyregistry chaincode stores.
+    kem_key_fingerprint: str = ""
+    dsa_key_fingerprint: str = ""
+    keystore_file: Optional[str] = None
+
+
+class CertificateInfo(BaseModel):
+    common_name: str
+    role: str
+    issuer: str
+    expires_at: str
+
+
+class LedgerIdentityStatus(BaseModel):
+    certificate: Optional[CertificateInfo] = None
+    # REGISTERED, NOT_REGISTERED, MISMATCH (ledger keys differ from this device's), UNAVAILABLE
+    key_registry_status: str
+    registered_at: Optional[str] = None
+    detail: Optional[str] = None
 
 
 class AuthResponse(BaseModel):
@@ -82,7 +100,6 @@ class DecryptionRequest(BaseModel):
     document_id: int
     recipient_id: int
     device_id: Optional[str] = None
-    keystore_password: Optional[str] = None
 
 
 class DecryptionResponse(BaseModel):

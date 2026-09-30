@@ -16,6 +16,7 @@ checked, and only moved to BUNDLES_DIR/<username> after the ledger has
 accepted the identity.
 """
 
+import glob
 import io
 import os
 import re
@@ -25,7 +26,7 @@ import uuid
 import zipfile
 from dataclasses import dataclass
 from pathlib import PurePosixPath
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from app.config import settings
 
@@ -187,3 +188,11 @@ def install_bundle(staged: StagedBundle) -> str:
 
 def discard(staged: StagedBundle) -> None:
     shutil.rmtree(staged.staging_dir, ignore_errors=True)
+
+
+def certificate_path(bundle_path: str) -> Optional[str]:
+    """The user's signing certificate inside an installed bundle."""
+    pattern = os.path.join(bundle_path, "test-network", "organizations", "peerOrganizations",
+                           "*", "users", "*", "msp", "signcerts", "*.pem")
+    matches = sorted(glob.glob(pattern))
+    return matches[0] if matches else None

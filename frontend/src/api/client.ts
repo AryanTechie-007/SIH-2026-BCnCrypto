@@ -9,7 +9,8 @@ import {
   AttackResult,
   SystemHealth,
   UserAccount,
-  AuthResult
+  AuthResult,
+  LedgerIdentityStatus
 } from '../types';
 
 const API_ROOT = (typeof window !== 'undefined' && window.location.port === '5173')
@@ -18,10 +19,21 @@ const API_ROOT = (typeof window !== 'undefined' && window.location.port === '517
     ? `http://${window.location.hostname}:8000/api`
     : 'http://127.0.0.1:8000/api';
 
+/**
+ * Thrown by ledgerLogin once the bundle is verified but a passphrase is still needed:
+ * 'unlock' when this device has the user's keystore, 'create' when it has none yet.
+ */
+export class PassphraseNeededError extends Error {
+  constructor(public mode: 'unlock' | 'create', message: string) {
+    super(message);
+  }
+}
+
 async function safeFetch(url: string, options?: RequestInit): Promise<Response> {
   const isAuth = url.includes('/auth/');
-  // Ledger sign-in waits for Fabric commits and may generate post-quantum keys.
-  const isHeavyCompute = url.includes('/decryption/') || url.includes('/forensics/') || url.includes('/auth/ledger-login');
+  // Ledger calls wait on Fabric; sign-in may also generate post-quantum keys.
+  const isHeavyCompute = url.includes('/decryption/') || url.includes('/forensics/')
+    || url.includes('/auth/ledger-login') || url.includes('/auth/me/ledger');
   const timeoutMs = options?.signal ? 0 : (isAuth ? 8000 : (isHeavyCompute ? 180000 : 30000));
 
   const executeFetch = async (targetUrl: string, timeout: number): Promise<Response> => {
@@ -129,15 +141,35 @@ export const ApiClient = {
     return handleResponse<DistributionResult>(res, 'DISTRIBUTE_DOCUMENT');
   },
 
-  async ledgerLogin(username: string, bundle: File): Promise<AuthResult> {
+  /**
+   * Signs in with a ledger identity bundle and keystore passphrase. Called without a
+   * passphrase it only verifies the bundle, then throws PassphraseNeededError saying
+   * whether to ask for the existing passphrase or a new one (sent with passphraseConfirm).
+   */
+  async ledgerLogin(username: string, bundle: File, passphrase?: string, passphraseConfirm?: string): Promise<AuthResult> {
     const formData = new FormData();
     formData.append('username', username);
     formData.append('bundle', bundle);
+    if (passphrase) formData.append('passphrase', passphrase);
+    if (passphraseConfirm !== undefined) formData.append('passphrase_confirm', passphraseConfirm);
     const res = await safeFetch(`${API_ROOT}/auth/ledger-login`, {
       method: 'POST',
       body: formData
     });
+    if (res.status === 428) {
+      const body = await res.json().catch(() => ({}));
+      const detail = body.detail || {};
+      throw new PassphraseNeededError(
+        detail.code === 'PASSPHRASE_REQUIRED' ? 'unlock' : 'create',
+        detail.message || 'Enter your keystore passphrase.'
+      );
+    }
     return handleResponse<AuthResult>(res, 'LEDGER_LOGIN');
+  },
+
+  /** Ends the session on the backend, which forgets its keystore passphrase. */
+  async logout(): Promise<void> {
+    await safeFetch(`${API_ROOT}/auth/logout`, { method: 'POST' });
   },
 
   async getUsers(): Promise<UserAccount[]> {
@@ -151,26 +183,30 @@ export const ApiClient = {
     return handleResponse<UserAccount>(res, 'FETCH_CURRENT_USER');
   },
 
-  async decryptDocument(documentId: number, recipientId: number, deviceId?: string, keystorePassword?: string): Promise<DecryptionResult> {
+  async getLedgerIdentity(): Promise<LedgerIdentityStatus> {
+    const res = await safeFetch(`${API_ROOT}/auth/me/ledger`);
+    return handleResponse<LedgerIdentityStatus>(res, 'FETCH_LEDGER_IDENTITY');
+  },
+
+  // Decryption unlocks the keystore with the passphrase given at sign-in (held by the backend session).
+  async decryptDocument(documentId: number, recipientId: number, deviceId?: string): Promise<DecryptionResult> {
     const res = await safeFetch(`${API_ROOT}/decryption/decrypt`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         document_id: documentId,
         recipient_id: recipientId,
-        device_id: deviceId,
-        keystore_password: keystorePassword || undefined
+        device_id: deviceId
       })
     });
     return handleResponse<DecryptionResult>(res, 'DECRYPT_DOCUMENT');
   },
 
-  async decryptEnvelopeFile(file: File, recipientId: number, deviceId?: string, keystorePassword?: string): Promise<DecryptionResult> {
+  async decryptEnvelopeFile(file: File, recipientId: number, deviceId?: string): Promise<DecryptionResult> {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('recipient_id', recipientId.toString());
     if (deviceId) formData.append('device_id', deviceId);
-    if (keystorePassword) formData.append('keystore_password', keystorePassword);
 
     const res = await safeFetch(`${API_ROOT}/decryption/decrypt-envelope`, {
       method: 'POST',

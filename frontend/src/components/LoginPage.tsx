@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
-import { ApiClient } from '../api/client';
+import React from 'react';
 import { UserAccount, Officer } from '../types';
-import { LogIn, AlertOctagon, FileArchive } from 'lucide-react';
 import { InteractiveSpottedBackground } from './InteractiveSpottedBackground';
+import { LedgerSignInForm } from './LedgerSignInForm';
 
 interface LoginPageProps {
   onLoginSuccess: (user: UserAccount, token: string) => void;
@@ -10,31 +9,6 @@ interface LoginPageProps {
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUsers: _enrolledUsers }) => {
-  const [username, setUsername] = useState('');
-  const [bundle, setBundle] = useState<File | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const cleanUser = username.trim().replace(/^@+/, '');
-    if (!cleanUser || !bundle) {
-      setErrorMessage('Please provide your username and identity bundle (.zip).');
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      setErrorMessage(null);
-      const res = await ApiClient.ledgerLogin(cleanUser, bundle);
-      onLoginSuccess(res.user, res.token);
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Ledger authentication failed.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
     <div style={{
       minHeight: '100vh',
@@ -89,7 +63,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
           color: 'var(--text-muted)',
           lineHeight: '1.5'
         }}>
-          Sign in with the ledger identity bundle issued to you.
+          Sign in with the ledger identity bundle issued to you and your keystore passphrase.
         </p>
       </div>
 
@@ -107,67 +81,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
         overflow: 'hidden'
       }}>
         <div style={{ padding: '24px' }}>
-          {errorMessage && (
-            <div className="tactical-alert tactical-alert-danger" style={{ marginBottom: '16px' }}>
-              <AlertOctagon size={16} style={{ flexShrink: 0 }} />
-              <div>{errorMessage}</div>
-            </div>
-          )}
-
-          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px', fontFamily: 'var(--font-mono)' }}>
-                USERNAME
-              </label>
-              <input
-                type="text"
-                value={username}
-                onChange={e => setUsername(e.target.value)}
-                className="tactical-input"
-                autoComplete="username"
-                required
-              />
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px', fontFamily: 'var(--font-mono)' }}>
-                IDENTITY BUNDLE (.ZIP)
-              </label>
-              <label className="tactical-input" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                <FileArchive size={14} style={{ flexShrink: 0, color: '#38bdf8' }} />
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: bundle ? '#ffffff' : 'var(--text-dim)' }}>
-                  {bundle ? bundle.name : 'Choose bundle file…'}
-                </span>
-                <input
-                  type="file"
-                  accept=".zip,application/zip"
-                  onChange={e => setBundle(e.target.files?.[0] ?? null)}
-                  style={{ display: 'none' }}
-                />
-              </label>
-              <div style={{ fontSize: '10px', color: 'var(--text-dim)', marginTop: '6px', fontFamily: 'var(--font-mono)' }}>
-                Issued by your ledger administrator. It contains your private key; do not share it.
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="tactical-btn tactical-btn-primary"
-              style={{
-                width: '100%',
-                padding: '11px',
-                fontSize: '12px',
-                fontWeight: 700,
-                letterSpacing: '0.03em',
-                justifyContent: 'center',
-                marginTop: '6px'
-              }}
-            >
-              <LogIn size={15} />
-              <span>{isLoading ? 'VERIFYING WITH LEDGER...' : 'SIGN IN'}</span>
-            </button>
-          </form>
+          <LedgerSignInForm onLoginSuccess={onLoginSuccess} />
         </div>
       </div>
     </div>

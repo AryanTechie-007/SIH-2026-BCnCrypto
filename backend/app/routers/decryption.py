@@ -16,7 +16,7 @@ from app.services.watermark_engine import WatermarkEngine
 from app.services.ledger_engine import LedgerEngine, LedgerCommitError
 from app.services.keystore import KeystoreManager, KeystoreAuthenticationError, KeystoreNotFoundError
 from app.schemas import DecryptionRequest, DecryptionResponse
-from app.routers.auth import get_current_user_from_token
+from app.routers.auth import get_current_user_from_token, get_session_passphrase
 
 router = APIRouter(prefix="/api/decryption", tags=["Decryption"])
 
@@ -45,49 +45,6 @@ def _keystore_path_for(user: User) -> str:
     return canonical
 
 
-def _resolve_keystore_password(req_password: Optional[str], user: User) -> str:
-    """
-    Validates and resolves the user's keystore passcode.
-    Strict enforcement: The user MUST provide their passcode, and it MUST verify against
-    their local keystore file. No silent database fallback or demo bypass permitted.
-    """
-    if not req_password or not req_password.strip():
-        raise HTTPException(
-            status_code=400,
-            detail=f"Keystore passcode is required to decrypt for recipient {user.name}."
-        )
-
-    keystore_path = _keystore_path_for(user)
-    if not os.path.exists(keystore_path):
-        raise HTTPException(
-            status_code=404,
-            detail=f"Local keystore file not found for recipient {user.name}."
-        )
-
-    p = req_password.strip()
-
-    # Exact match check
-    if KeystoreManager.verify_password(keystore_path, p):
-        return p
-
-    # Standard hex format variants (e.g. '0x6998', '6998', lowercase, uppercase)
-    candidates = [p, p.upper(), p.lower()]
-    if p.lower().startswith("0x"):
-        raw = p[2:]
-        candidates.extend([raw, raw.upper(), raw.lower()])
-    else:
-        candidates.extend([f"0x{p}", f"0x{p.upper()}", f"0x{p.lower()}"])
-
-    for cand in candidates:
-        if KeystoreManager.verify_password(keystore_path, cand):
-            return cand
-
-    raise HTTPException(
-        status_code=401,
-        detail="Invalid keystore passcode: could not unlock private keys"
-    )
-
-
 def _safe_remove(file_path: str):
     """Safely removes temporary files."""
     if file_path and os.path.exists(file_path):
@@ -101,12 +58,14 @@ def _safe_remove(file_path: str):
 async def decrypt_document(
     req: DecryptionRequest,
     current_user: User = Depends(get_current_user_from_token),
+    passphrase: str = Depends(get_session_passphrase),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Recipient-Side Post-Quantum Decryption & Forensic Watermarking Sequence:
     1. Recipient Authentication: Identity verified via authenticated session.
-    2. Recipient Keystore Unlocking: Local encrypted keystore unlocked on recipient boundary.
+    2. Recipient Keystore Unlocking: Local encrypted keystore unlocked on recipient boundary
+       with the passphrase the session was unlocked with at sign-in.
        Raw private keys NEVER touch database or network.
     3. ML-KEM-768 Decapsulation: Shared secret unwrapped inside keystore boundary.
     4. AES-256-GCM Decryption: DEK unwrapped, ciphertext decrypted, auth tag verified.
@@ -166,7 +125,7 @@ async def decrypt_document(
             detail=f"Local keystore file not found at {keystore_path}. Please re-register or run migration."
         )
 
-    password = _resolve_keystore_password(req.keystore_password, user)
+    password = passphrase
 
     # Extract Envelope
     envelope = dist.encrypted_dek
@@ -182,7 +141,7 @@ async def decrypt_document(
         shared_secret = KeystoreManager.decapsulate(keystore_path, password, ct_kem)
         dek = CryptoEngine.aes_gcm_decrypt(shared_secret, dek_nonce, wrapped_dek)
     except KeystoreAuthenticationError:
-        raise HTTPException(status_code=401, detail="Invalid keystore password: could not unlock private keys")
+        raise HTTPException(status_code=401, detail="Your session's passphrase no longer unlocks your keystore. Sign in again.")
     except Exception as e:
         raise HTTPException(status_code=403, detail=f"Post-Quantum decapsulation failed: {str(e)}")
 
@@ -357,21 +316,17 @@ async def decrypt_uploaded_envelope(
     file: UploadFile = File(...),
     recipient_id: int = Form(...),
     device_id: Optional[str] = Form(None),
-    keystore_password: Optional[str] = Form(None),
     current_user: User = Depends(get_current_user_from_token),
+    passphrase: str = Depends(get_session_passphrase),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Cross-Device Decryption Workflow:
     Accepts an uploaded portable .enc envelope file, verifies if the target recipient
-    has an authorized ML-KEM-768 key envelope, unlocks recipient keystore, decapsulates the DEK,
-    decrypts the payload, fuses an invisible 2D DCT watermark with RS(255, 127) ECC,
+    has an authorized ML-KEM-768 key envelope, unlocks recipient keystore with the session's
+    passphrase, decapsulates the DEK, decrypts the payload, fuses an invisible 2D DCT watermark,
     signs with ML-DSA-65, and commits transaction to the distributed ledger.
     """
-    if isinstance(keystore_password, AsyncSession):
-        db = keystore_password
-        keystore_password = None
-
     # Only the signed-in user may decrypt, and only as themselves (see decrypt_document).
     if current_user.id != recipient_id:
         raise HTTPException(
@@ -412,7 +367,7 @@ async def decrypt_uploaded_envelope(
     if not os.path.exists(keystore_path):
         raise HTTPException(status_code=500, detail="Recipient local keystore not found")
 
-    password = _resolve_keystore_password(keystore_password, user)
+    password = passphrase
 
     try:
         ct_kem = bytes.fromhex(matched["ct_kem_hex"])
@@ -431,7 +386,7 @@ async def decrypt_uploaded_envelope(
         dek = CryptoEngine.aes_gcm_decrypt(shared_secret, dek_nonce, wrapped_dek)
         plaintext = CryptoEngine.aes_gcm_decrypt(dek, aes_nonce, ciphertext, aad=sha3_hash.encode("utf-8"))
     except KeystoreAuthenticationError:
-        raise HTTPException(status_code=401, detail="Invalid keystore password")
+        raise HTTPException(status_code=401, detail="Your session's passphrase no longer unlocks your keystore. Sign in again.")
     except Exception as e:
         raise HTTPException(status_code=403, detail=f"Cryptographic authentication verification failed: {str(e)}")
 
