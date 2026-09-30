@@ -44,8 +44,8 @@ export const ForensicConsole: React.FC = () => {
       <div style={{ marginBottom: '20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
           <span className="tactical-badge badge-red">STAGE 3</span>
-          <span className="tactical-badge badge-slate">2D DCT FREQUENCY LATTICE EXTRACTION</span>
-          <span className="tactical-badge badge-slate">REED-SOLOMON (255, 127) ECC</span>
+          <span className="tactical-badge badge-slate">HADAMARD ORTHOGONAL BASIS COHERENT CORRELATION</span>
+          <span className="tactical-badge badge-slate">WALSH-HADAMARD (WHT/DSSS) ORTHOGONAL DECODING</span>
         </div>
         <h1 style={{ fontSize: '20px', fontWeight: 800, letterSpacing: '0.03em', color: '#ffffff' }}>
           BLIND FORENSIC EXTRACTION & LEAK ATTRIBUTION LAB
@@ -261,7 +261,7 @@ export const ForensicConsole: React.FC = () => {
                     <div className="font-mono" style={{ color: '#38bdf8' }}>{analysisResult.bit_error_rate.toFixed(2)}%</div>
                   </div>
                   <div style={{ backgroundColor: '#090d15', padding: '10px', border: '1px solid var(--border-hard)' }}>
-                    <div style={{ color: 'var(--text-dim)' }}>ECC RECOVERY:</div>
+                    <div style={{ color: 'var(--text-dim)' }}>ORTHOGONAL RECOVERY:</div>
                     <div className="font-mono" style={{ color: '#ffffff' }}>{analysisResult.payload_recovery_pct.toFixed(1)}%</div>
                   </div>
                 </div>

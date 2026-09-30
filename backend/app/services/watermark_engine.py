@@ -234,14 +234,16 @@ class WatermarkEngine:
         confidence = float(min(1.0, max(0.0, avg_energy / expected_signal)))
 
         parsed = self.parse_watermark_frame(decoded_payload)
-        is_detected = (parsed is not None and parsed["authenticity_tag_valid"]) or (confidence > 0.35)
+        tag_valid = bool(parsed and parsed.get("authenticity_tag_valid", False))
+        is_detected = tag_valid
 
         repetitions = total_blocks // self.TOTAL_BITS
+        ber = 0.0 if tag_valid else float(min(50.0, max(0.0, (1.0 - confidence) * 50.0)))
 
         return decoded_payload, {
             "watermark_detected": is_detected,
             "confidence": confidence,
-            "bit_error_rate": 0.0 if is_detected else 50.0,
+            "bit_error_rate": ber,
             "ecc_corrected": True,
             "payload_recovery_pct": 100.0 if is_detected else 0.0,
             "extracted_raw_hex": decoded_payload.hex(),
@@ -252,24 +254,34 @@ class WatermarkEngine:
         }
 
     def extract_watermark(self, document_path: Union[str, bytes]) -> Tuple[Union[bytes, None], Dict[str, Any]]:
+        """
+        Extracts and decodes the embedded Hadamard watermark from a PDF or image file.
+        Includes multi-scale canonical screen capture normalization and coherent correlation.
+        """
+        if isinstance(document_path, bytes):
+            is_image = document_path.startswith(b"\x89PNG") or document_path.startswith(b"\xff\xd8") or document_path.startswith(b"RIFF")
+        else:
+            lower_path = str(document_path).lower()
+            is_image = lower_path.endswith(('.png', '.jpg', '.jpeg', '.webp', '.bmp', '.tiff'))
+
         try:
-            if isinstance(document_path, bytes):
-                is_image = document_path.startswith(b"\x89PNG") or document_path.startswith(b"\xff\xd8") or document_path.startswith(b"RIFF")
-                if is_image:
+            if is_image:
+                if isinstance(document_path, bytes):
                     base_img = Image.open(io.BytesIO(document_path)).convert("RGB")
                 else:
-                    doc = fitz.open(stream=document_path, filetype="pdf")
-                    base_img = Image.frombytes("RGB", [doc[0].get_pixmap(dpi=self.render_dpi).width, doc[0].get_pixmap(dpi=self.render_dpi).height], doc[0].get_pixmap(dpi=self.render_dpi).samples)
-                    doc.close()
-            else:
-                lower = str(document_path).lower()
-                if lower.endswith(('.png', '.jpg', '.jpeg', '.webp', '.bmp', '.tiff')):
                     base_img = Image.open(document_path).convert("RGB")
+            else:
+                if isinstance(document_path, bytes):
+                    doc = fitz.open(stream=document_path, filetype="pdf")
                 else:
                     doc = fitz.open(document_path)
-                    pix = doc[0].get_pixmap(dpi=self.render_dpi)
-                    base_img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                if len(doc) == 0:
                     doc.close()
+                    return None, {"error": "Empty document", "watermark_detected": False}
+                page = doc[0]
+                pix = page.get_pixmap(dpi=self.render_dpi)
+                base_img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                doc.close()
         except Exception as e:
             return None, {
                 "error": f"Failed to parse document: {str(e)}",
@@ -280,7 +292,105 @@ class WatermarkEngine:
                 "analysis": "Unreadable file format"
             }
 
-        return self._extract_from_image(base_img)
+        # 1. Native Resolution Direct Extraction
+        payload, metrics = self._extract_from_image(base_img)
+        if metrics.get("watermark_detected"):
+            return payload, metrics
+
+        best_payload = payload
+        best_metrics = metrics
+        best_conf = metrics.get("confidence", 0.0)
+
+        if is_image:
+            base_np = np.array(base_img)
+            gray = cv2.cvtColor(base_np, cv2.COLOR_RGB2GRAY)
+            img_area = base_img.width * base_img.height
+
+            # 2. Multi-Strategy Page Segmentation (Detects white page inside PDF viewers / Chrome / Acrobat / dark & grey UI)
+            detected_boxes = []
+
+            # Strategy A: Otsu automatic thresholding
+            try:
+                _, th_otsu = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+                contours, _ = cv2.findContours(th_otsu, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                if contours:
+                    c = max(contours, key=cv2.contourArea)
+                    bx, by, bw, bh = cv2.boundingRect(c)
+                    if bw > 150 and bh > 150 and (bw * bh) > (img_area * 0.15) and (bw * bh) < (img_area * 0.98):
+                        detected_boxes.append((bx, by, bw, bh, "Otsu"))
+            except Exception:
+                pass
+
+            # Strategy B: Explicit threshold levels (handles viewer backgrounds: #525659, #323639, #e2e8f0)
+            for t_val in [180, 120, 70, 40, 230]:
+                try:
+                    _, thresh = cv2.threshold(gray, t_val, 255, cv2.THRESH_BINARY)
+                    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                    if contours:
+                        c = max(contours, key=cv2.contourArea)
+                        bx, by, bw, bh = cv2.boundingRect(c)
+                        if bw > 150 and bh > 150 and (bw * bh) > (img_area * 0.15) and (bw * bh) < (img_area * 0.98):
+                            if not any(abs(bx - obx) < 10 and abs(by - oby) < 10 and abs(bw - obw) < 10 for obx, oby, obw, obh, _ in detected_boxes):
+                                detected_boxes.append((bx, by, bw, bh, f"Thresh-{t_val}"))
+                except Exception:
+                    pass
+
+            # Test detected page crops resized to canonical page resolutions
+            for bx, by, bw, bh, label in detected_boxes:
+                cropped = base_img.crop((bx, by, bx + bw, by + bh))
+                for tw, th in [(1275, 1650), (1240, 1754)]:
+                    try:
+                        canon = cropped.resize((tw, th), Image.Resampling.LANCZOS)
+                        p, m = self._extract_from_image(canon)
+                        if m.get("watermark_detected"):
+                            m["analysis"] = f"Hadamard DSSS Extraction (Page Segmentation [{label}] -> {tw}x{th})"
+                            return p, m
+                        cur_conf = m.get("confidence", 0.0)
+                        if cur_conf > best_conf:
+                            best_conf = cur_conf
+                            best_payload = p
+                            best_metrics = m
+                    except Exception:
+                        pass
+
+            # 3. Canonical Scaling of full image (handles direct full-page screenshots at 72/96/120/144 DPI)
+            for tw, th in [(1275, 1650), (1240, 1754)]:
+                if base_img.size != (tw, th):
+                    try:
+                        canon_img = base_img.resize((tw, th), Image.Resampling.LANCZOS)
+                        c_payload, c_metrics = self._extract_from_image(canon_img)
+                        if c_metrics.get("watermark_detected"):
+                            c_metrics["analysis"] = f"Hadamard DSSS Extraction (Canonical Normalization {tw}x{th})"
+                            return c_payload, c_metrics
+                        cur_conf = c_metrics.get("confidence", 0.0)
+                        if cur_conf > best_conf:
+                            best_conf = cur_conf
+                            best_payload = c_payload
+                            best_metrics = c_metrics
+                    except Exception:
+                        pass
+
+            # 4. Inset Margin Checks (handles minor window borders, drop shadows, or 1-2% browser window frames)
+            w, h = base_img.size
+            for margin_pct in [0.015, 0.03]:
+                mx, my = int(w * margin_pct), int(h * margin_pct)
+                if mx > 0 and my > 0 and w - 2*mx > 100 and h - 2*my > 100:
+                    try:
+                        trimmed = base_img.crop((mx, my, w - mx, h - my))
+                        canon_trimmed = trimmed.resize((1275, 1650), Image.Resampling.LANCZOS)
+                        p_t, m_t = self._extract_from_image(canon_trimmed)
+                        if m_t.get("watermark_detected"):
+                            m_t["analysis"] = f"Hadamard DSSS Extraction (Margin Inset {int(margin_pct*100)}%)"
+                            return p_t, m_t
+                        cur_conf = m_t.get("confidence", 0.0)
+                        if cur_conf > best_conf:
+                            best_conf = cur_conf
+                            best_payload = p_t
+                            best_metrics = m_t
+                    except Exception:
+                        pass
+
+        return best_payload, best_metrics
 
     @staticmethod
     def calculate_psnr(original: np.ndarray, modified: np.ndarray) -> float:
