@@ -131,13 +131,16 @@ def main():
     rule("4. Configured database contains NO private keys or stored passphrases", r4_passed, detail, detail)
 
     # --------------------------------------------------------------------------
-    # Rule 5: Watermark engine applies Reed-Solomon error correction
+    # Rule 5: Watermark frame is authenticated, carries the ledger ID, and is redundant
     # --------------------------------------------------------------------------
     wm_code = read(APP_DIR, "services", "watermark_engine.py")
-    rule("5. Watermark engine applies Reed-Solomon error correction",
-         "RSCodec(" in wm_code and "RSCodec(0" not in wm_code,
-         "Reed-Solomon codec with parity symbols in use.",
-         "No Reed-Solomon codec found in watermark engine!")
+    authenticated = "hmac.new(" in wm_code and "sha3_256" in wm_code
+    carries_ledger_id = "bytes.fromhex(watermark_id)[:10]" in wm_code
+    redundant = "hadamard" in wm_code.lower() or ("RSCodec(" in wm_code and "RSCodec(0" not in wm_code)
+    rule("5. Watermark frame carries the ledger watermark ID with an HMAC-SHA3-256 tag and redundant coding",
+         authenticated and carries_ledger_id and redundant,
+         "10-byte watermark ID + HMAC-SHA3-256 tag, spread with Hadamard/Reed-Solomon redundancy.",
+         f"Watermark frame check failed (HMAC tag: {authenticated}, ledger ID: {carries_ledger_id}, redundancy: {redundant})")
 
     # --------------------------------------------------------------------------
     # Rule 6: Private keys and passphrases never appear in API schemas

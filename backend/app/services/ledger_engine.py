@@ -62,7 +62,8 @@ class LedgerEngine:
         data_str: str
     ) -> str:
         """Calculates canonical SHA3-256 block hash."""
-        raw = f"{block_index}|{prev_block_hash}|{merkle_root}|{timestamp_str}|{data_str}".encode("utf-8")
+        ts_norm = str(timestamp_str).replace(" ", "T")
+        raw = f"{block_index}|{prev_block_hash}|{merkle_root}|{ts_norm}|{data_str}".encode("utf-8")
         return CryptoEngine.sha3_256(raw)
 
     async def init_genesis_block_if_needed(self, db: AsyncSession):

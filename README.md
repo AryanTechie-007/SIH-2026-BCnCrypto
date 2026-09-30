@@ -26,15 +26,40 @@ Built for Smart India Hackathon 2026.
    encrypted once with AES-256-GCM; its key is wrapped for each recipient with
    their ML-KEM-768 public key. The result is a portable `.enc` package.
 4. **Decrypt.** The recipient opens the `.enc` file. The app unwraps the key with
-   their private key, embeds a 2D-DCT watermark with Reed-Solomon error correction
+   their private key, embeds an invisible watermark (see [Watermark](#watermark))
    that is unique to this decryption, and builds a ledger record (watermark ID,
    document and copy hashes, key fingerprint). The recipient's ML-DSA-65 key
    signs the record, and it is submitted to the `forensic` chaincode as the
    recipient's own Fabric identity. The copy is released only if the ledger
    accepts the record.
-5. **Trace.** Upload a leaked PDF or page image. The watermark is extracted, the
-   decryption event is found, the recipient's signature is verified, and an
-   evidence bundle can be exported.
+5. **Trace.** Upload a leaked PDF. The watermark is extracted, the decryption
+   event is found, the recipient's signature is verified, and an evidence bundle
+   can be exported. If no watermark decodes exactly, the stored watermark ID that
+   matches at least 75% of the extracted bits, and clearly ahead of the runner-up,
+   is used instead.
+
+## Watermark
+
+Each decrypted copy carries a 16-byte (128-bit) frame, spread invisibly across
+every page:
+
+```
+┌──────────────────────┬───────────────────────┬─────────────┐
+│ Watermark ID (10 B)  │ Authenticity tag (4 B)│ Magic (2 B) │
+│ 20 hex characters    │ HMAC-SHA3-256, cut    │  "CP"       │
+└──────────────────────┴───────────────────────┴─────────────┘
+```
+
+- The page is rendered at 150 DPI and converted to YCrCb; only the luminance (Y)
+  channel is modified, in 8×8 DCT blocks.
+- Each bit modulates low-to-mid AC coefficients with a row of an order-64
+  Sylvester-Hadamard matrix (direct-sequence spread spectrum). Only zero-mean
+  rows are used, so block brightness is unchanged (PSNR above 41 dB at embed
+  strength 20).
+- Extraction projects the DCT coefficients back onto the same basis and averages
+  across thousands of blocks, which recovers the frame from re-encoded documents.
+- The watermark ID is the ledger key: it is what connects a leaked copy to its
+  decryption record.
 
 ## Architecture
 
@@ -66,7 +91,7 @@ single application; the ledger is the only shared component.
 | Document encryption | AES-256-GCM |
 | Keystore | Argon2id + AES-256-GCM, unlocked with the user's passphrase |
 | Hashing | SHA3-256, HMAC-SHA3-256 |
-| Watermark | 2D DCT embedding with Reed-Solomon error correction (`reedsolo`) |
+| Watermark | 2D DCT + Walsh-Hadamard spread spectrum (order-64 Sylvester basis) |
 | Ledger | Hyperledger Fabric 2.5.16, Node.js chaincode, Fabric Gateway client |
 | App | FastAPI + SQLite, React + TypeScript + Vite |
 
@@ -83,7 +108,6 @@ blockchain/
   testdata/         chaincode fixtures
 scripts/            security_audit.py, offline Fabric image export/import
 setup/              Windows installer and the bundled mlkem wheel
-SIH_DEMO_SCRIPT.md  demo walkthrough and judge Q&A
 *.bat               Windows launchers for the app
 ```
 
@@ -164,7 +188,7 @@ Backend environment variables (all optional):
 cd blockchain && source scripts/env-recipient.sh user-042 && ./scripts/smoke-test.sh
 
 # Watermark engine
-cd backend && .venv/bin/python -m unittest tests.test_rs31_27
+cd backend && .venv/bin/python -m unittest tests.test_hadamard
 
 # Security regression audit (12 rules)
 backend/.venv/bin/python scripts/security_audit.py
@@ -190,4 +214,3 @@ backend/.venv/bin/python scripts/security_audit.py
 - [blockchain/README.md](blockchain/README.md): ledger setup, chaincode schemas, sign-up and login, troubleshooting, offline deployment
 - [blockchain/client/README.md](blockchain/client/README.md): `cli.js` commands
 - [setup/README.md](setup/README.md): Windows installer
-- [SIH_DEMO_SCRIPT.md](SIH_DEMO_SCRIPT.md): demo walkthrough

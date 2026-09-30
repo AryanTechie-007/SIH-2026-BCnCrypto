@@ -12,6 +12,5 @@ pymupdf
 Pillow
 numpy
 scipy
-reedsolo
 python-multipart
 opencv-python-headless
