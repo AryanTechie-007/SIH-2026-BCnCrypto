@@ -1,3 +1,0 @@
-# Only needed to build the desktop installer (freezes the Python worker).
--r requirements.txt
-pyinstaller

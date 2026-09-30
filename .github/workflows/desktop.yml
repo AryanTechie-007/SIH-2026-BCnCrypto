@@ -36,9 +36,7 @@ jobs:
 
       - name: Python environment for the worker
         working-directory: backend
-        run: |
-          uv venv --python 3.12
-          uv pip install --find-links ../setup/wheels -r requirements-build.txt
+        run: uv sync --locked
 
       - name: Node dependencies
         run: |
@@ -46,7 +44,7 @@ jobs:
           npm ci --prefix desktop
 
       - name: Post-quantum self-test and security audit
-        run: backend/.venv/${{ runner.os == 'Windows' && 'Scripts/python.exe' || 'bin/python' }} scripts/security_audit.py
+        run: uv run --project backend python scripts/security_audit.py
 
       - name: Build installer
         working-directory: desktop

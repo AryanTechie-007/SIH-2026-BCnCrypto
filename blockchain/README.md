@@ -404,7 +404,9 @@ online**, then transfer by USB:
 3. Commit `npm-shrinkwrap.json` so the dependency tree is reproducible.
 4. Pre-generate crypto material with `cryptogen` and commit the output. Do not
    regenerate on demo day.
-5. `pip download -r requirements.txt -d ./wheels` for any Python dependencies.
+5. Run `uv sync` in `backend/` on a connected machine of the same OS and copy
+   the uv cache (`UV_CACHE_DIR`) across, then `uv sync --offline` on the
+   target. The desktop installers need neither: they bundle Python.
 
 Test the result properly: disconnect the network, tear everything down, and
 bring it up cold. Half-air-gapped testing on a machine that still has internet

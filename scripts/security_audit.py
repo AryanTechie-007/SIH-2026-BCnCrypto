@@ -7,7 +7,7 @@ and false cryptographic claims from re-entering the repository.
 
 Run from the repository root with the backend's Python environment:
 
-    backend/.venv/bin/python scripts/security_audit.py
+    uv run --project backend python scripts/security_audit.py
 
 Exits with code 0 if all rules pass, or non-zero exit code if any rule fails.
 """

@@ -51,7 +51,7 @@ function workerCommand() {
     const exe = process.platform === 'win32' ? 'ciphertrace-worker.exe' : 'ciphertrace-worker';
     return { command: path.join(dir, exe), args: [], cwd: dir };
   }
-  // backend/.venv if there is one (see README), else the Python on PATH (setup/install_dependencies.bat).
+  // backend/.venv (created by `uv sync`) if there is one, else the Python on PATH.
   const venv = path.join(REPO, 'backend', '.venv');
   const venvPython = process.platform === 'win32' ? path.join(venv, 'Scripts', 'python.exe') : path.join(venv, 'bin', 'python');
   const python = process.env.CIPHERTRACE_PYTHON

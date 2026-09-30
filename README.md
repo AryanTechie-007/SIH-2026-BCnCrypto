@@ -208,9 +208,9 @@ runs `cli.js` for every ledger call, on the Node.js built into Electron.
 ```
 desktop/            Electron app: main.js (window, worker, save dialogs), preload.js,
                     installer config
-backend/            Python worker: worker.py + rpc.py (stdin/stdout protocol),
-                    handlers/, services/ (crypto, keystore, watermark, ledger),
-                    models, tests/
+backend/            Python worker (pyproject.toml, uv.lock): worker.py + rpc.py
+                    (stdin/stdout protocol), handlers/, services/ (crypto,
+                    keystore, watermark, ledger), models, tests/
 frontend/           React UI (loaded by the desktop app)
 blockchain/
   chaincode/        forensic-audit (decryption records), key-registry (public keys)
@@ -218,13 +218,12 @@ blockchain/
   scripts/          network setup, sign-up, bundles, smoke test
   testdata/         chaincode fixtures
 scripts/            security_audit.py, offline Fabric image export/import
-setup/              Windows dependency installer and the bundled mlkem wheel
 .github/workflows/  builds the macOS and Windows installers
 ```
 
 ## Requirements
 
-- Python 3.11–3.13
+- [uv](https://docs.astral.sh/uv/) (it installs Python 3.12 for the worker if you don't have it)
 - Node.js 20.19+ or 22.12+ (required by the frontend's Vite)
 - Docker, `jq`, `zip`, `openssl`, and Hyperledger Fabric **2.5.16**
   (`fabric-samples`, binaries and images); see
@@ -258,10 +257,7 @@ this step, because old bundles stop working.
 **3. Set up and start the app** (from the repository root):
 
 ```bash
-cd backend
-uv venv --python 3.12
-uv pip install --find-links ../setup/wheels -r requirements.txt
-# without uv: python3.12 -m venv .venv && .venv/bin/pip install --find-links ../setup/wheels -r requirements.txt
+cd backend && uv sync           # creates backend/.venv from uv.lock
 cd ../frontend && npm install
 cd ../desktop && npm install
 export CIPHERTRACE_SYSTEM_SECRET="choose-one-and-keep-it"
@@ -340,10 +336,10 @@ From the repository root:
 (cd blockchain && source scripts/env-recipient.sh user-042 && ./scripts/smoke-test.sh)
 
 # Watermark engine
-(cd backend && .venv/bin/python -m unittest tests.test_hadamard)
+(cd backend && uv run python -m unittest tests.test_hadamard)
 
 # Security regression audit (14 rules)
-backend/.venv/bin/python scripts/security_audit.py
+uv run --project backend python scripts/security_audit.py
 ```
 
 ## More documentation

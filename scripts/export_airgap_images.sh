@@ -49,6 +49,7 @@ Done: $BUNDLE_FILE ($(du -h "$BUNDLE_FILE" | cut -f1))
 Also transfer, if the target has no internet:
   - fabric-samples (bin/, config/, test-network/) at Fabric $FABRIC_VERSION
   - blockchain/chaincode/*/node_modules (the peer runs npm install when building chaincode)
-  - blockchain/client/node_modules, frontend/node_modules, and the Python packages
-    from backend/requirements.txt (pip download -r backend/requirements.txt -d wheels)
+  - blockchain/client/node_modules, frontend/node_modules, desktop/node_modules, and
+    the uv cache after running `uv sync` in backend/ (UV_CACHE_DIR), then run
+    `uv sync --offline` there. Or install the desktop app, which bundles Python.
 EOF
