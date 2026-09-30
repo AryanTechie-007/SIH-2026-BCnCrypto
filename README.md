@@ -289,7 +289,7 @@ for Org2).
 ```bash
 cd desktop
 npm run dist:mac      # on a Mac: desktop/dist/*.dmg and *.zip
-npm run dist:win      # on Windows: desktop/dist/*.exe (NSIS installer)
+npm run dist:win      # on Windows: desktop/dist/*.msi (Windows Installer)
 ```
 
 Each build freezes the Python worker with PyInstaller, bundles `cli.js` and its

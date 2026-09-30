@@ -61,13 +61,15 @@
     },
     "win": {
       "target": [
-        "nsis"
+        "msi"
       ]
     },
-    "nsis": {
+    "msi": {
       "oneClick": false,
       "perMachine": false,
-      "allowToChangeInstallationDirectory": true
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "upgradeCode": "{343CE752-C57B-4B24-B7DE-0C89107E49F0}"
     }
   }
 }

@@ -22,7 +22,7 @@ jobs:
               desktop/dist/*.zip
           - os: windows-latest
             target: dist:win
-            artifacts: desktop/dist/*.exe
+            artifacts: desktop/dist/*.msi
     runs-on: ${{ matrix.os }}
 
     steps:

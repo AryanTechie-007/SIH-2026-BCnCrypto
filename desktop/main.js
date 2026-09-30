@@ -14,7 +14,7 @@
  * data in backend/ as before. Packaged: a frozen worker ships in the app's
  * resources and data lives in the OS app-data folder.
  */
-const { app, BrowserWindow, dialog, ipcMain } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, Menu } = require('electron');
 const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -346,6 +346,12 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.whenReady().then(() => {
+    // No File/Edit/View/Window bar in the window. macOS keeps the app and Edit
+    // menus in the system menu bar: without them, Cmd+C/Cmd+V do nothing.
+    Menu.setApplicationMenu(process.platform === 'darwin'
+      ? Menu.buildFromTemplate([{ role: 'appMenu' }, { role: 'editMenu' }])
+      : null);
+
     fs.mkdirSync(app.getPath('logs'), { recursive: true });
     logStream = fs.createWriteStream(path.join(app.getPath('logs'), 'worker.log'), { flags: 'a' });
 
