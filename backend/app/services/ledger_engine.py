@@ -2,22 +2,30 @@
 CIPHERTRACE Local Cryptographic Hash-Chain & Merkle Ledger Cache
 ===============================================================
 Role in Target Architecture:
-- Authoritative Distributed Ledger: Hyperledger Fabric Network (via ledger_client).
+- Authoritative Distributed Ledger: Hyperledger Fabric forensic chaincode, written
+  through blockchain/client/cli.js as the decrypting recipient.
 - Local Cryptographic Audit Cache: SQLite-backed SHA3-256 Hash Chain with Merkle Root.
 - Provides tamper-detection, inclusion proofs, and secondary verification.
 """
 
 import os
 import json
+import base64
 import hashlib
+import uuid
 from datetime import datetime
-from typing import List, Dict, Any, Tuple
+from typing import Callable, List, Dict, Any, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app.models.database import LedgerBlock, DecryptionEvent, Distribution, Document, User, WatermarkRecord
 from app.services.crypto_engine import CryptoEngine
-from app.services import ledger_client
+from app.services import ledger_cli
+from app.services.ledger_cli import LedgerCliError
+
+
+class LedgerCommitError(Exception):
+    """The decryption record was not committed to the ledger, so the copy was withheld."""
 
 
 class LedgerEngine:
@@ -88,12 +96,42 @@ class LedgerEngine:
             db.add(genesis)
             await db.commit()
 
-    async def commit_decryption_event(self, db: AsyncSession, event_id: int) -> LedgerBlock:
+    @staticmethod
+    def record_signing_payload(record: Dict[str, Any]) -> bytes:
+        """
+        The bytes the recipient's ML-DSA-65 signature covers: the canonical JSON of
+        every record field except `signature` (sorted keys, no whitespace, UTF-8).
+        Verify a record by recomputing this and checking the signature against the
+        recipient's dsa_public_key from the keyregistry chaincode.
+        """
+        unsigned = {k: v for k, v in record.items() if k != "signature"}
+        return json.dumps(unsigned, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+
+    @staticmethod
+    async def _withhold_copy(db: AsyncSession, wm: WatermarkRecord) -> None:
+        """Deletes the watermarked copy so nothing is released without a ledger record."""
+        if wm.watermarked_path and os.path.exists(wm.watermarked_path):
+            try:
+                os.remove(wm.watermarked_path)
+            except OSError:
+                pass
+        await db.delete(wm)
+        await db.commit()
+
+    async def commit_decryption_event(
+        self,
+        db: AsyncSession,
+        event_id: int,
+        sign: Callable[[bytes], bytes]
+    ) -> LedgerBlock:
         """
         Commits a verified decryption event:
-        1. Submits on-chain to Hyperledger Fabric (via ledger_client.record_decryption).
-           In SECURE_MODE, fails closed if Fabric is unavailable.
-        2. Appends to local SHA3-256 secondary audit cache.
+        1. Builds the forensic ledger record and has the recipient sign it with their
+           ML-DSA-65 key (`sign`, which runs inside the keystore boundary).
+        2. Submits it to the forensic chaincode through cli.js, as the recipient's own
+           Fabric identity. If that fails, the watermarked copy is deleted and
+           LedgerCommitError is raised: nothing is released without a ledger record.
+        3. Appends to the local SHA3-256 secondary audit cache.
         """
         await self.init_genesis_block_if_needed(db)
 
@@ -110,59 +148,49 @@ class LedgerEngine:
         user_res = await db.execute(select(User).where(User.id == dist.recipient_id))
         user = user_res.scalar_one_or_none()
 
+        wm_res = await db.execute(select(WatermarkRecord).where(WatermarkRecord.event_id == event.id))
+        wm = wm_res.scalar_one_or_none()
+        if not wm or not wm.watermarked_path or not os.path.exists(wm.watermarked_path):
+            raise LedgerCommitError("Watermarked copy is missing; nothing to record")
+
+        if not user.bundle_path or not os.path.isdir(user.bundle_path):
+            await self._withhold_copy(db, wm)
+            raise LedgerCommitError(
+                f"No ledger identity bundle on this device for '{user.username}'; sign in again with your bundle"
+            )
+
+        with open(wm.watermarked_path, "rb") as wf:
+            wm_doc_hash = hashlib.sha256(wf.read()).hexdigest()
+
+        # Forensic chaincode record. document_hash is the SHA3-256 of the original.
+        fabric_record = {
+            "record_id": str(uuid.uuid4()),
+            "watermark_id": wm.watermark_id.lower(),
+            "recipient_id": user.username,
+            "document_hash": doc.sha3_hash.lower(),
+            "watermarked_doc_hash": wm_doc_hash,
+            "timestamp": event.timestamp.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "pqc_algorithm": "ML-DSA-65",
+            "recipient_pubkey_fingerprint": hashlib.sha256(user.dsa_public_key).hexdigest()
+        }
+        try:
+            signature = sign(self.record_signing_payload(fabric_record))
+        except Exception as e:
+            await self._withhold_copy(db, wm)
+            raise LedgerCommitError(f"Could not sign the ledger record: {e}")
+        fabric_record["signature"] = base64.b64encode(signature).decode("ascii")
+
+        try:
+            await ledger_cli.submit_record(user.bundle_path, user.username, fabric_record)
+        except LedgerCliError as e:
+            await self._withhold_copy(db, wm)
+            raise LedgerCommitError(f"Ledger did not accept the decryption record ({e.kind}): {e}")
+
         # Find latest block for hash chaining
         latest_res = await db.execute(select(LedgerBlock).order_by(LedgerBlock.id.desc()))
         latest_block = latest_res.scalars().first()
         new_block_index = (latest_block.id + 1) if latest_block else 0
         prev_hash = latest_block.block_hash if latest_block else self.GENESIS_PREV_HASH
-
-        # Retrieve watermark record
-        wm_res = await db.execute(select(WatermarkRecord).where(WatermarkRecord.event_id == event.id))
-        wm = wm_res.scalar_one_or_none()
-        watermark_id = (wm.watermark_id if wm and wm.watermark_id else (wm.watermark_hex[:20].lower() if wm else hashlib.sha256(event.session_nonce.encode()).hexdigest()[:20].lower())).lower()
-        if len(watermark_id) < 20:
-            watermark_id = watermark_id.ljust(20, '0')
-        else:
-            watermark_id = watermark_id[:20]
-
-        # Calculate exact 64-char SHA-256 digests
-        raw_doc_hash = hashlib.sha256(doc.sha3_hash.encode("utf-8")).hexdigest() if len(doc.sha3_hash) != 64 else doc.sha3_hash.lower()
-
-        # Watermarked document hash (64 hex characters)
-        if wm and wm.watermarked_path and os.path.exists(wm.watermarked_path):
-            with open(wm.watermarked_path, "rb") as wf:
-                wm_doc_hash = hashlib.sha256(wf.read()).hexdigest()
-        else:
-            wm_doc_hash = hashlib.sha256((raw_doc_hash + watermark_id).encode("utf-8")).hexdigest()
-
-        # Recipient ML-DSA public key fingerprint (64 lowercase hex chars)
-        recipient_dsa_pub = user.dsa_public_key if user and user.dsa_public_key else b"CIPHERTRACE_RECIPIENT_PUBKEY"
-        recipient_fp = hashlib.sha256(recipient_dsa_pub).hexdigest()
-
-        # Signature: Base64-encoded ML-DSA-65 signature
-        import base64
-        import uuid
-        sig_bytes = event.signature if isinstance(event.signature, bytes) else bytes.fromhex(event.signature)
-        sig_base64 = base64.b64encode(sig_bytes).decode("ascii")
-
-        # Format Hyperledger Fabric audit record exactly matching forensic-audit contract schema
-        fabric_record = {
-            "record_id": str(uuid.uuid4()),
-            "watermark_id": watermark_id,
-            "recipient_id": user.username or f"user-{user.id}",
-            "document_hash": raw_doc_hash,
-            "watermarked_doc_hash": wm_doc_hash,
-            "timestamp": event.timestamp.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "pqc_algorithm": "ML-DSA-65",
-            "signature": sig_base64,
-            "recipient_pubkey_fingerprint": recipient_fp
-        }
-
-        # Submit via Hyperledger Fabric client (enforces fail-closed policy in SECURE_MODE)
-        fabric_tx_id = ledger_client.submit_record(fabric_record)
-
-        # Store fabric transaction ID in the event
-        event.fabric_tx_id = fabric_tx_id
 
         # Local transaction serialization for audit cache
         tx_data = {
@@ -180,7 +208,6 @@ class LedgerEngine:
             "signature_algorithm": "ML-DSA-65",
             "kem_algorithm": "ML-KEM-768",
             "event_hash": event.event_hash,
-            "fabric_tx_id": fabric_tx_id,
             "fabric_record": fabric_record
         }
         data_str = json.dumps(tx_data, sort_keys=True)
@@ -201,7 +228,6 @@ class LedgerEngine:
             block_hash=block_hash,
             endorsers=self.CONSENSUS_ENDORSERS,
             signature_algorithm="ML-DSA-65",
-            fabric_tx_id=fabric_tx_id,
             is_tampered=False
         )
         db.add(new_block)

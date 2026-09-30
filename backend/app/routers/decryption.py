@@ -13,7 +13,7 @@ from app.database import get_db
 from app.models.database import Document, User, Distribution, DecryptionEvent, WatermarkRecord, LedgerBlock
 from app.services.crypto_engine import CryptoEngine
 from app.services.watermark_engine import WatermarkEngine
-from app.services.ledger_engine import LedgerEngine
+from app.services.ledger_engine import LedgerEngine, LedgerCommitError
 from app.services.keystore import KeystoreManager, KeystoreAuthenticationError, KeystoreNotFoundError
 from app.schemas import DecryptionRequest, DecryptionResponse
 from app.routers.auth import get_current_user_from_token
@@ -118,8 +118,9 @@ async def decrypt_document(
         db = current_user
         current_user = None
 
-    # Authorization: Ensure authenticated user matches recipient (or has ADMIN role)
-    if current_user and current_user.role != "ADMIN" and current_user.id != req.recipient_id:
+    # Authorization: only the signed-in user may decrypt, and only as themselves, since the
+    # ledger record is submitted with their own identity bundle.
+    if current_user is None or current_user.id != req.recipient_id:
         raise HTTPException(
             status_code=403,
             detail=f"ACCESS DENIED: Cannot decrypt document on behalf of recipient ID {req.recipient_id}."
@@ -297,18 +298,18 @@ async def decrypt_document(
     db.add(wm_record)
     await db.commit()
 
-    # Commit Decryption Event to Distributed Ledger (Hyperledger Fabric)
-    # Fail-closed in SECURE_MODE if Fabric is unavailable
+    # Commit Decryption Event to Distributed Ledger (Hyperledger Fabric), signed by the
+    # recipient. Fail-closed: without a ledger record the watermarked copy is withheld.
     try:
-        committed_block = await ledger_engine.commit_decryption_event(db, new_event.id)
-    except Exception as e:
-        # In SECURE_MODE, commit failure blocks the operation
-        if settings.SECURE_MODE:
-            raise HTTPException(
-                status_code=503,
-                detail=f"BLOCKCHAIN OFFLINE: Decryption commit failed to reach consensus. Operation blocked: {str(e)}"
-            )
-        raise
+        committed_block = await ledger_engine.commit_decryption_event(
+            db, new_event.id,
+            sign=lambda message: KeystoreManager.sign(keystore_path, password, message)
+        )
+    except LedgerCommitError as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"BLOCKCHAIN COMMIT FAILED: document withheld. {str(e)}"
+        )
 
     return DecryptionResponse(
         event_id=new_event.id,
@@ -357,6 +358,7 @@ async def decrypt_uploaded_envelope(
     recipient_id: int = Form(...),
     device_id: Optional[str] = Form(None),
     keystore_password: Optional[str] = Form(None),
+    current_user: User = Depends(get_current_user_from_token),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -369,6 +371,13 @@ async def decrypt_uploaded_envelope(
     if isinstance(keystore_password, AsyncSession):
         db = keystore_password
         keystore_password = None
+
+    # Only the signed-in user may decrypt, and only as themselves (see decrypt_document).
+    if current_user.id != recipient_id:
+        raise HTTPException(
+            status_code=403,
+            detail=f"ACCESS DENIED: Cannot decrypt document on behalf of recipient ID {recipient_id}."
+        )
 
     content = await file.read()
     text_content = content.decode("utf-8", errors="ignore").strip()
@@ -525,7 +534,16 @@ async def decrypt_uploaded_envelope(
     db.add(wm_record)
     await db.commit()
 
-    committed_block = await ledger_engine.commit_decryption_event(db, new_event.id)
+    try:
+        committed_block = await ledger_engine.commit_decryption_event(
+            db, new_event.id,
+            sign=lambda message: KeystoreManager.sign(keystore_path, password, message)
+        )
+    except LedgerCommitError as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"BLOCKCHAIN COMMIT FAILED: document withheld. {str(e)}"
+        )
 
     return DecryptionResponse(
         event_id=new_event.id,

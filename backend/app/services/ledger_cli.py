@@ -31,8 +31,11 @@ class LedgerCliError(Exception):
 _ERROR_RE = re.compile(r"^\[(\w+)\]\s*(.*)$", re.DOTALL)
 
 
-async def _run(bundle_dir: str, identity: str, *args: str) -> Optional[Any]:
-    """Runs `node cli.js <args> <identity>`. Returns parsed stdout, or None on exit code 2."""
+async def _run(bundle_dir: str, identity: str, *args: str, label: str = "") -> Optional[Any]:
+    """
+    Runs `node cli.js <args> <identity>`. Returns parsed stdout, or None on exit code 2.
+    `label` is a line cli.js prints before the JSON (e.g. "committed:" for submit).
+    """
     env = os.environ.copy()
     env["FABRIC_SAMPLES"] = bundle_dir
     env["DEFAULT_IDENTITY"] = identity
@@ -67,10 +70,22 @@ async def _run(bundle_dir: str, identity: str, *args: str) -> Optional[Any]:
             raise LedgerCliError(match.group(1), match.group(2).strip())
         raise LedgerCliError("unknown", text or f"cli.js exited with code {proc.returncode}")
 
+    text = stdout.decode("utf-8").strip()
+    if label and text.startswith(label):
+        text = text[len(label):]
     try:
-        return json.loads(stdout.decode("utf-8"))
+        return json.loads(text)
     except ValueError:
-        raise LedgerCliError("unknown", f"Unexpected output from cli.js: {stdout[:200]!r}")
+        raise LedgerCliError("unknown", f"Unexpected output from cli.js: {text[:200]!r}")
+
+
+async def _run_with_file(bundle_dir: str, identity: str, command: str, payload: dict, label: str = "") -> Any:
+    """For commands that take their JSON input as a file path."""
+    with tempfile.TemporaryDirectory() as tmp:
+        path = os.path.join(tmp, "payload.json")
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False)
+        return await _run(bundle_dir, identity, command, path, label=label)
 
 
 async def whoami(bundle_dir: str, identity: str) -> dict:
@@ -90,8 +105,12 @@ async def get_all_keys(bundle_dir: str, identity: str) -> List[dict]:
 
 async def register_keys(bundle_dir: str, identity: str, keys: dict) -> dict:
     """Publishes the identity's own public keys. Write-once on the ledger."""
-    with tempfile.TemporaryDirectory() as tmp:
-        path = os.path.join(tmp, "keys.json")
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(keys, f)
-        return await _run(bundle_dir, identity, "keys-register", path)
+    return await _run_with_file(bundle_dir, identity, "keys-register", keys)
+
+
+async def submit_record(bundle_dir: str, identity: str, record: dict) -> dict:
+    """
+    Writes a decryption record to the forensic chaincode. Returns only once the
+    transaction has committed; the identity must be the record's recipient_id.
+    """
+    return await _run_with_file(bundle_dir, identity, "submit", record, label="committed:")

@@ -224,7 +224,7 @@ Every field is required. The chaincode rejects anything missing or malformed.
   "record_id": "uuid-v4",
   "watermark_id": "exactly 20 lowercase hex characters — the ledger key",
   "recipient_id": "org-issued user ID",
-  "document_hash": "SHA-256 hex of the ORIGINAL decrypted document",
+  "document_hash": "SHA3-256 hex of the ORIGINAL decrypted document",
   "watermarked_doc_hash": "SHA-256 hex of the watermarked copy",
   "timestamp": "ISO-8601 UTC, e.g. 2026-09-25T10:15:30Z",
   "pqc_algorithm": "ML-DSA-65",
@@ -252,6 +252,13 @@ transaction, not the caller) and `kem_key_fingerprint` / `dsa_key_fingerprint`
 (SHA-256 hex of each key). `dsa_key_fingerprint` is the same value decryption
 records carry as `recipient_pubkey_fingerprint`. Records are write-once and
 only the user they name can write them.
+
+The application builds every other field, signs their canonical JSON with the
+recipient's ML-DSA-65 key, adds `signature`, and submits with `cli.js submit`
+as the recipient. To verify a record from the ledger alone: drop `signature`,
+serialize the rest as below, and check it against the recipient's
+`dsa_public_key` from the key registry
+(`LedgerEngine.record_signing_payload` in the backend does the first two steps).
 
 **Canonical serialization** — both sides must agree byte for byte or signature
 verification fails:
@@ -348,9 +355,10 @@ Stated deliberately; do not let a judge find these first.
   opaquely. ML-DSA verification happens in the forensic tool at trace time,
   because liboqs inside a chaincode container is impractical to package
   offline.
-- **Submission is voluntary.** Nothing currently prevents a recipient from
-  decrypting and never submitting a record. The real fix is gating key release
-  on a ledger acknowledgement.
+- **Submission is enforced by the application, not the ledger.** The app
+  withholds the watermarked copy unless `RecordDecryption` commits, but the
+  document is decrypted in memory first, so a modified client could skip the
+  submission. The real fix is gating key release on a ledger acknowledgement.
 
 ---
 

@@ -41,3 +41,4 @@ backend/bundles/
 .DS_Store
 Thumbs.db
 *.log
+*.db
