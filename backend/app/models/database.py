@@ -104,8 +104,8 @@ class WatermarkRecord(Base):
     watermark_id = Column(String, index=True, nullable=False) # 20 hex chars for authoritative lookup
     watermark_payload = Column(LargeBinary, nullable=False)
     watermark_hex = Column(String, nullable=False)
-    protocol_version = Column(Integer, default=2, nullable=False)
-    reed_solomon_profile = Column(String, default="RS(255,127)", nullable=False)
+    protocol_version = Column(Integer, nullable=False)
+    reed_solomon_profile = Column(String, nullable=False)
     watermarked_path = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 

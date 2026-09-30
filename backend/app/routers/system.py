@@ -4,6 +4,7 @@ from fastapi import APIRouter
 from app.config import settings
 from ..services import ledger_client
 from ..services.crypto_engine import CryptoEngine
+from ..services.watermark_engine import WatermarkEngine
 
 router = APIRouter(prefix="/api/system", tags=["System Administration"])
 
@@ -27,7 +28,7 @@ async def get_system_health():
             "backend": backend_info["backend"],
             "symmetric": "AES-256-GCM (NIST SP 800-38D)",
             "hashing": "SHA3-256 (NIST FIPS 202)",
-            "ecc": "Reed-Solomon RS(255, 127)"
+            "ecc": WatermarkEngine.ECC_STRATEGY
         },
         "ledger": ledger_status,
         "keystore_storage": "Encrypted Recipient Keystores (Argon2id + AES-256-GCM)",

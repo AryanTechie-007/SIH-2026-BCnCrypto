@@ -1,5 +1,5 @@
 import React from 'react';
-import { Lock, KeyRound, Database } from 'lucide-react';
+import { Lock, KeyRound } from 'lucide-react';
 import { DocumentRecord, Officer, LedgerBlock, UserAccount } from '../types';
 import { WorkstationModule } from '../components/WorkstationSidebar';
 

@@ -1,162 +1,193 @@
-# CIPHERTRACE: Post-Quantum Confidential Document Security & Forensics
+# CIPHERTRACE
 
-## 🌟 SIH 2026 Innovation
-This system is designed for high-security defense environments where traditional RSA/ECC encryption is vulnerable to future Quantum computing threats.
+Post-quantum confidential document sharing with leak attribution. Documents are
+encrypted for specific recipients; every time a recipient decrypts one, their
+copy gets an invisible watermark unique to that session, and a record signed by
+the recipient is written to a Hyperledger Fabric ledger. If a copy leaks, the
+watermark leads back to that record and to the person who decrypted it.
 
-### 🏛️ Key Architectural Components
-1. **The Backend (AI/PQC Engine):** FastAPI engine orchestrating NIST FIPS 203 ML-KEM-768 + X25519 Hybrid Encryption, real-time Dynamic AI Sensitivity Classification, and Forensic Bit-Error-Rate (BER) confidence scoring.
-2. **The Web Workstation Console:** React + TypeScript interactive web UI for envelope distribution, decapsulation, forensic leak analysis, and Hyperledger Fabric DLT auditing.
-3. **The Forensic Audit Ledger:** Multi-org permissioned Hyperledger Fabric blockchain storing immutable post-quantum digital signatures (NIST FIPS 204 ML-DSA-65) and document hashes.
-
----
-
-### 🛠 Key Features
-- **Hybrid PQC:** Implements NIST FIPS 203 (ML-KEM-512 / 768 / 1024) combined with classical Curve25519 (X25519) to ensure security even if one algorithm is compromised.
-- **Dynamic AI Policy:** The system reads the document and automatically scales encryption strength based on content sensitivity (`TOP_SECRET` forces ML-KEM-1024 + MFA, `CONFIDENTIAL` enforces ML-KEM-768 + Biometrics).
-- **Forensic Watermarking:** Uses 2D DCT-domain spread-spectrum steganography with Reed-Solomon RS(255,127) Forward Error Correction to track leaks back to specific devices.
-- **Signal-to-Noise Confidence Scoring:** Real-time BER and SNR confidence scoring providing court-admissible forensic evidence packages.
-- **Immutable Ledger:** All access logs and decryption events are committed to Hyperledger Fabric permissioned DLT.
+Built for Smart India Hackathon 2026.
 
 ---
 
-### 📂 Project Directory Structure
+## How it works
 
-```text
-/SIH-2026-BCnCrypto
-│
-├── /backend            # Python FastAPI + NIST PQC Engine
-│   ├── main.py         # Entrypoint server launcher
-│   ├── /app
-│   │   ├── /services   # PQC crypto_engine, ai_engine, forensics, ledger_client
-│   │   └── /routers    # REST API endpoints (documents, decryption, forensics, ledger)
-│   └── requirements.txt
-│
-├── /frontend           # React + TypeScript Web Workstation Console
-│   ├── src/            # Encryption, Decryption & Forensic Leak Labs
-│   └── package.json
-│
-├── /forensic-audit     # Hyperledger Fabric DLT Forensic Audit Chaincode & Client
-├── /contracts          # Blockchain Chain-of-Custody Smart Contracts
-│   └── DocumentLedger.sol
-│
-├── setup.sh            # One-click dependency installer (Linux / Mac)
-├── setup/              # Automated dependency installers (install_dependencies.bat / .sh)
-├── requirements.txt    # Unified dependencies
-└── README.md           # Defense Documentation
+1. **Sign-up (on the ledger).** An administrator issues a Fabric identity with
+   `blockchain/scripts/new-recipient.sh` and packs it into a login bundle
+   (`<name>.zip`) with `bundle-identity.sh`. There is no sign-up in the app.
+2. **Sign-in.** The user enters their username and bundle. The app runs
+   `cli.js whoami` with the bundle; the peer only answers requests signed by a
+   certificate its org CA issued, so this proves the identity. The user then
+   enters their keystore passphrase. On the first sign-in on a device they choose
+   one instead, and the app generates their ML-KEM-768 and ML-DSA-65 key pairs
+   into an encrypted keystore and publishes the public keys to the
+   `keyregistry` chaincode.
+3. **Encrypt.** The sender uploads a PDF and picks recipients. The document is
+   encrypted once with AES-256-GCM; its key is wrapped for each recipient with
+   their ML-KEM-768 public key. The result is a portable `.enc` package.
+4. **Decrypt.** The recipient opens the `.enc` file. The app unwraps the key with
+   their private key, embeds a 2D-DCT watermark with Reed-Solomon error correction
+   that is unique to this decryption, and builds a ledger record (watermark ID,
+   document and copy hashes, key fingerprint). The recipient's ML-DSA-65 key
+   signs the record, and it is submitted to the `forensic` chaincode as the
+   recipient's own Fabric identity. The copy is released only if the ledger
+   accepts the record.
+5. **Trace.** Upload a leaked PDF or page image. The watermark is extracted, the
+   decryption event is found, the recipient's signature is verified, and an
+   evidence bundle can be exported.
+
+## Architecture
+
+```
+            ┌───────────────────────────────┐
+            │  React UI (frontend/)         │
+            └───────────────┬───────────────┘
+                            │ HTTP (localhost)
+            ┌───────────────▼───────────────┐      ┌───────────────────────────────┐
+            │  FastAPI app (backend/)       │      │  Local data                   │
+            │  crypto, watermark, forensics ├─────►│  SQLite · keystores · bundles │
+            └───────────────┬───────────────┘      └───────────────────────────────┘
+                            │ node blockchain/client/cli.js  (as the signed-in user)
+            ┌───────────────▼───────────────┐
+            │  Hyperledger Fabric 2.5       │
+            │  Org1 + Org2 peers, 1 orderer │
+            │  chaincodes: forensic,        │
+            │              keyregistry      │
+            └───────────────────────────────┘
 ```
 
----
+The frontend and backend run on the user's own machine and will be merged into a
+single application; the ledger is the only shared component.
 
-### 🚀 One-Click Setup & Launch
+| Component | Technology |
+|---|---|
+| Key encapsulation | ML-KEM-768 (NIST FIPS 203), via `liboqs` or `mlkem` |
+| Signatures | ML-DSA-65 (NIST FIPS 204), via `liboqs` or `dilithium-py` |
+| Document encryption | AES-256-GCM |
+| Keystore | Argon2id + AES-256-GCM, unlocked with the user's passphrase |
+| Hashing | SHA3-256, HMAC-SHA3-256 |
+| Watermark | 2D DCT embedding with Reed-Solomon error correction (`reedsolo`) |
+| Ledger | Hyperledger Fabric 2.5.16, Node.js chaincode, Fabric Gateway client |
+| App | FastAPI + SQLite, React + TypeScript + Vite |
 
-#### Step 1: Install Dependencies
-* **Automated Installation:** Run `setup/install_dependencies.bat` (Windows) or `./setup/install_dependencies.sh` (Linux/Mac). Alternatively: `pip install -r requirements.txt`.
+## Repository layout
 
-#### Step 2: Start Backend Server
+```
+backend/            FastAPI app: routers/, services/ (crypto, keystore, watermark,
+                    ledger), models, tests/
+frontend/           React UI
+blockchain/
+  chaincode/        forensic-audit (decryption records), key-registry (public keys)
+  client/           cli.js + ledger.js: the only way the app talks to the ledger
+  scripts/          network setup, sign-up, bundles, smoke test
+  testdata/         chaincode fixtures
+scripts/            security_audit.py, offline Fabric image export/import
+setup/              Windows installer and the bundled mlkem wheel
+SIH_DEMO_SCRIPT.md  demo walkthrough and judge Q&A
+*.bat               Windows launchers for the app
+```
+
+## Requirements
+
+- Python 3.11–3.13
+- Node.js 18+
+- Docker, `jq`, and Hyperledger Fabric **2.5.16** (`fabric-samples`, binaries and
+  images); see [blockchain/README.md](blockchain/README.md#install)
+- macOS or Linux for the ledger scripts (on Windows, run them under WSL)
+
+## Quick start
+
+**1. Start the ledger** (first run takes a few minutes):
+
 ```bash
-python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
-# or directly:
-cd backend && python main.py
+export FABRIC_SAMPLES=~/fabric-samples      # wherever fabric-samples lives
+cd blockchain
+(cd client && npm install)
+./scripts/setup.sh                          # network + both chaincodes
 ```
 
-#### Step 3: Start Web Workstation Console
+**2. Sign up users:**
+
 ```bash
-cd frontend && npm run dev
+./scripts/new-recipient.sh alice && ./scripts/bundle-identity.sh alice
+./scripts/new-recipient.sh bob Org2 && ./scripts/bundle-identity.sh bob Org2
+# -> blockchain/bundles/alice.zip, bob.zip
 ```
 
----
+**3. Start the backend:**
 
-## 📌 Executive Summary & Architecture Overview
-
-**CIPHERTRACE** addresses the critical vulnerability in defense, intelligence, and confidential enterprise workflows: the **insider threat and post-decryption leak problem**.
-
-Traditional perimeter security, DRM, and transit encryption (TLS/VPN) protect documents in transit and at rest. However, once an authorized recipient decrypts a file on an endpoint, traditional safeguards end. If the recipient photographs the display, prints the document, or leaks the digital copy, attribution is near-impossible due to plausible deniability.
-
-CIPHERTRACE guarantees that **no recipient can access a confidential document without their identity being indelibly, invisibly bound into every page via 2D Discrete Cosine Transform (DCT) spread-spectrum steganography, authenticated with Post-Quantum Digital Signatures (ML-DSA-65), and committed to an immutable chain-of-custody ledger.**
-
-```
-                      AIR-GAPPED DEFENSE LAN
-                                │
-        ┌───────────────────────┴───────────────────────┐
-        │                                               │
-  Sender System                                 Recipient Device
-  (Officer / Authority)                         (Authorized User)
-        │                                               │
-        │ Upload PDF & Select Recipients                │ Local Encrypted Keystore
-        │ Hybrid PQC (ML-KEM-768 + X25519)              │ (Argon2id + AES-256-GCM)
-        │ AI Dynamic Sensitivity Classification         │ [Private Keys NEVER sent to Server]
-        │                                               │
-        ▼                                               ▼
-┌───────────────────────────────────────────────────────────────┐
-│                      FastAPI Backend                          │
-│        (Metadata Engine • Ephemeral File Distribution)        │
-└───────────────┬───────────────────────────────┬───────────────┘
-                │                               │
-                ▼                               ▼
-    SQLite Operational Store        2D DCT Watermark Engine
-    - Public Keys & Key IDs         - 127-byte Authenticated Frame
-    - User Profiles & Roles         - Reed-Solomon RS(255,127) FEC
-    - NO Plaintext Private Keys     - Mid-frequency Modulation
-                │                               │
-                └───────────────┬───────────────┘
-                                │
-                                ▼
-         ┌─────────────────────────────────────────────┐
-         │ Hyperledger Fabric 3-Org Permissioned DLT   │
-         │ - Org1 Peer: Defense Tactical Command       │
-         │ - Org2 Peer: Independent Audit Authority    │
-         │ - Org3 Peer: Forensic Investigation Bureau  │
-         │ - Raft Ordering Service                     │
-         │ - Endorsement Policy: 2-of-3 Consortium     │
-         └──────────────────────┬──────────────────────┘
-                                │
-                        DOCUMENT LEAK OCCURS
-                                │
-                                ▼
-                    Forensic Attribution Lab
-                    1. Render & 2D DCT Extraction
-                    2. RS(255,127) Syndrome Decoding
-                    3. Fabric / Ledger LookupByWatermark
-                    4. ML-DSA-65 Cryptographic Verification
-                    5. Document SHA3-256 Hash Verification
-                    6. Forensic Auditor Dynamic Confidence Score
-                    7. Court-Admissible Evidence Bundle Export
+```bash
+cd backend
+uv venv --python 3.12 && source .venv/bin/activate      # or python -m venv .venv
+uv pip install --find-links ../setup/wheels -r requirements.txt
+export CIPHERTRACE_SYSTEM_SECRET="choose-one-and-keep-it"
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
----
+**4. Start the frontend:**
 
-## 🚀 Core Architectural Pillars
+```bash
+cd frontend && npm install && npm run dev
+```
 
-### 1. ⚛️ Genuine NIST Post-Quantum & Hybrid Cryptography
-* **Hybrid PQC Engine (`HybridPQCEngine`)**: Combines NIST FIPS 203 (ML-KEM-512 / 768 / 1024) with classical Curve25519 (X25519) Diffie-Hellman using HKDF-SHA256. Guarantees confidentiality even if one cryptographic primitive is compromised.
-* **ML-KEM-768 (NIST FIPS 203)**: Module-Lattice-Based Key-Encapsulation Mechanism. Protects symmetric Document Encryption Keys (DEKs) against "harvest-now, decrypt-later" quantum adversary threats.
-* **ML-DSA-65 (NIST FIPS 204)**: Module-Lattice-Based Digital Signature Algorithm. Produces mathematically non-repudiable digital signatures during recipient decryption events.
-* **AES-256-GCM (NIST SP 800-38D)**: Authenticated symmetric encryption for confidential document payloads.
-* **SHA3-256 (NIST FIPS 202)**: Permutation-based hashing for canonical serialization, Merkle roots, block hash chains, and HMAC-SHA3-256 watermark payload authentication.
+Open http://localhost:5173, sign in as `alice` with `alice.zip`, and choose a
+keystore passphrase.
 
-### 2. 🧠 Dynamic AI Policy Classifier (`DocumentIntelligence`)
-* Automatically scans document text content and classifies sensitivity into defense tiers:
-  * **TOP_SECRET**: Forces `ML-KEM-1024`, `MFA_REQUIRED` authentication, and heavy watermark embedding strength (`0.15`).
-  * **CONFIDENTIAL**: Enforces `ML-KEM-768`, `BIOMETRIC` verification, and watermark strength (`0.10`).
-  * **RESTRICTED / UNCLASSIFIED**: Applies `ML-KEM-512`, `PASSWORD` auth, and watermark strength (`0.05`).
+On Windows, `setup\install_dependencies.bat` installs everything and
+`start_demo.bat` starts the backend and frontend; the ledger still needs step 1
+and 2 under WSL.
 
-### 3. 🔬 Forensic Integrity Auditor (`ForensicAuditor`)
-* Real-time Signal-to-Noise Ratio (SNR) and Bit Error Rate (BER) evaluation.
-* Calculates court-admissible confidence scoring ($\text{Confidence} = \max(0, 100 - (\text{BER} \times 500))$).
-* Determines evidentiary admissibility (`VALID` vs. `QUESTIONABLE`) and reconstruction success rate.
+## Configuration
 
----
+Backend environment variables (all optional):
 
-## 🛠️ Software Stack & Key Libraries
+| Variable | Default | Purpose |
+|---|---|---|
+| `CIPHERTRACE_SYSTEM_SECRET` | demo value | HMAC key for watermark IDs; keep it fixed |
+| `CIPHERTRACE_DB_PATH` | `backend/ciphertrace.db` | SQLite database |
+| `KEYSTORE_DIR` | `backend/keystores` | Encrypted keystores |
+| `BUNDLES_DIR` | `backend/bundles` | Unpacked login bundles |
+| `NODE_BIN`, `LEDGER_CLI_PATH` | `node`, `blockchain/client/cli.js` | Ledger client |
+| `ORG1_PEER`, `ORG2_PEER` | `localhost:7051`, `localhost:9051` | Peer addresses, passed to `cli.js` |
+| `JWT_SECRET_KEY`, `JWT_EXPIRY_MINUTES` | demo value, `60` | Session tokens |
+| `DEMO_MODE`, `SECURE_MODE` | `true`, `false` | `SECURE_MODE` requires real secrets |
+| `FABRIC_SAMPLES` | unset | Only for the forensics and health ledger lookups |
 
-| Component | Library / Tool | Standard / Specification |
-| :--- | :--- | :--- |
-| **Web Workstation** | React 18 / TypeScript / Vite | Modern Tactical Dark UI |
-| **Post-Quantum KEM** | `liboqs` / `mlkem` | NIST FIPS 203 (ML-KEM-512 / 768 / 1024) |
-| **Post-Quantum Signatures** | `liboqs` / `dilithium-py` | NIST FIPS 204 (ML-DSA-65) |
-| **Classical Asymmetric** | `cryptography` (X25519) | RFC 7748 |
-| **Hybrid Key Derivation** | HKDF-SHA256 | RFC 5869 |
-| **Authenticated Cipher** | AES-256-GCM | NIST SP 800-38D |
-| **Smart Contracts** | Solidity & Hyperledger Fabric Chaincode | Immutable Chain-of-Custody |
-| **Forward Error Correction**| `reedsolo` | Reed-Solomon RS(255, 127) over GF(2^8) |
-| **Web API Engine** | `fastapi`, `uvicorn` | ASGI High-Performance Async |
+## Testing
+
+```bash
+# Chaincode unit tests
+(cd blockchain/chaincode/forensic-audit && npm install && npm test)
+(cd blockchain/chaincode/key-registry && npm install && npm test)
+
+# Ledger end-to-end (network running)
+cd blockchain && source scripts/env-recipient.sh user-042 && ./scripts/smoke-test.sh
+
+# Watermark engine
+cd backend && .venv/bin/python -m unittest tests.test_rs31_27
+
+# Security regression audit (12 rules)
+backend/.venv/bin/python scripts/security_audit.py
+```
+
+## Known limitations
+
+- The keystore passphrase cannot be recovered, and there is no key rotation: a
+  user who forgets it cannot register new keys.
+- Private keys live on the device where the user first signed in; signing in on
+  another device is refused.
+- The Fabric private key in each login bundle is stored unencrypted on disk.
+- There is no certificate revocation; bundles stay valid until the network is
+  rebuilt with `setup.sh`, which invalidates all of them.
+- Forensics reads the local database, so it only sees decryptions made on the
+  same installation.
+- The watermark frame's HMAC tag is not verified during tracing.
+- Both organizations and a single ordering node run on one machine; see
+  [blockchain/README.md](blockchain/README.md#known-limitations).
+
+## More documentation
+
+- [blockchain/README.md](blockchain/README.md): ledger setup, chaincode schemas, sign-up and login, troubleshooting, offline deployment
+- [blockchain/client/README.md](blockchain/client/README.md): `cli.js` commands
+- [setup/README.md](setup/README.md): Windows installer
+- [SIH_DEMO_SCRIPT.md](SIH_DEMO_SCRIPT.md): demo walkthrough

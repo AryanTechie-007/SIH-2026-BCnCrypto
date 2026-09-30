@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ApiClient } from '../api/client';
 import { DocumentRecord, Officer, DistributionResult } from '../types';
-import { Upload, Lock, Download, CheckSquare, Square, Search, ShieldCheck, AlertOctagon, FileText } from 'lucide-react';
+import { Upload, Lock, Download, CheckSquare, Square, Search, ShieldCheck, AlertOctagon } from 'lucide-react';
 
 interface DocumentsConsoleProps {
   documents: DocumentRecord[];
@@ -23,7 +23,6 @@ export const DocumentsConsole: React.FC<DocumentsConsoleProps> = ({
   const [distributionResult, setDistributionResult] = useState<DistributionResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
-  const [showCustomRecipients, setShowCustomRecipients] = useState(true);
 
   // Sync recipient checkboxes when officers list is loaded
   React.useEffect(() => {

@@ -69,7 +69,7 @@ async def decrypt_document(
        Raw private keys NEVER touch database or network.
     3. ML-KEM-768 Decapsulation: Shared secret unwrapped inside keystore boundary.
     4. AES-256-GCM Decryption: DEK unwrapped, ciphertext decrypted, auth tag verified.
-    5. Session Watermark Synthesis: 127-byte authenticated frame + RS(255, 127) ECC embedded via 2D DCT.
+    5. Session Watermark Synthesis: authenticated watermark frame with Reed-Solomon ECC embedded via 2D DCT.
     6. Local ML-DSA-65 Signing: Recipient's local private key signs viewing event hash.
     7. Consortium Blockchain Commit: Event committed to Hyperledger Fabric with multi-org endorsement.
     """
@@ -249,8 +249,8 @@ async def decrypt_document(
         watermark_id=watermark_id,
         watermark_payload=payload,
         watermark_hex=watermark_hex,
-        protocol_version=2,
-        reed_solomon_profile="RS(255,127)",
+        protocol_version=WatermarkEngine.PROTOCOL_VERSION,
+        reed_solomon_profile=WatermarkEngine.ECC_STRATEGY,
         watermarked_path=watermarked_path,
         created_at=ts
     )
@@ -481,8 +481,8 @@ async def decrypt_uploaded_envelope(
         watermark_id=watermark_id,
         watermark_payload=payload,
         watermark_hex=watermark_hex,
-        protocol_version=2,
-        reed_solomon_profile="RS(255,127)",
+        protocol_version=WatermarkEngine.PROTOCOL_VERSION,
+        reed_solomon_profile=WatermarkEngine.ECC_STRATEGY,
         watermarked_path=watermarked_path,
         created_at=ts
     )

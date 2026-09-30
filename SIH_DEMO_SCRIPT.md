@@ -3,104 +3,91 @@
 
 ## Elevator Pitch (30 Seconds)
 > *"Judges, current document security solutions like Microsoft Purview or Digify rely on cloud KMS or simple metadata watermarks that can be easily stripped. When an air-gapped defense document leaks, tracing it back to an exact individual decryption session is nearly impossible.*
-> 
-> *We built **CIPHERTRACE**: a 100% offline, post-quantum cryptographic document attribution platform. Every decryption event generates an invisible frequency-domain watermark cryptographically bound to that exact session, signs it using the recipient's NIST standardized **ML-DSA-65** private key, and commits an immutable proof to an air-gapped distributed ledger. When a document leaks, our forensic engine reconstructs the watermark via Reed-Solomon ECC and verifies the post-quantum signature with mathematical certainty."*
+>
+> *We built **CIPHERTRACE**: a 100% offline, post-quantum cryptographic document attribution platform. Every decryption event generates an invisible frequency-domain watermark bound to that exact session, the recipient signs a record of it with their NIST standardized **ML-DSA-65** private key, and that record is committed to a permissioned Hyperledger Fabric ledger. When a document leaks, our forensic engine reconstructs the watermark via Reed-Solomon ECC and verifies the post-quantum signature with mathematical certainty."*
+
+---
+
+## Before the Demo
+
+- Ledger running (`blockchain/scripts/setup.sh`), with two users signed up:
+  `alice` (Org1) and `bob` (Org2), bundles in `blockchain/bundles/`.
+- Both have signed in once, so their keystores and public keys already exist.
+- Backend and frontend running; a sample PDF on the desktop.
+- A terminal open in `blockchain/client` for Scene 5.
 
 ---
 
 ## The 5-Minute Live Demo Flow
 
-### 🎬 Scene 1: Sender Studio (Envelope Encryption & Distribution) — 60s
-1. **Navigate to "Documents" tab**.
-2. **Show document payload**: Point to `CONFIDENTIAL_FINANCIAL_AUDIT.pdf`.
-3. **Point out the SHA3-256 Digest**: *"This is our tamper anchor. We never encrypt the entire file separately per recipient."*
-4. **Select Recipients**: Check *Recipient 1* and *Recipient 2*.
-5. **Click "SECURE ENVELOPE DISTRIBUTE"**:
-   - Explain: *"We use hybrid envelope encryption: one AES-256-GCM document ciphertext, but the 256-bit Document Encryption Key is encapsulated using NIST FIPS 203 **ML-KEM-768** lattice cryptography per recipient."*
-   - Show the generated key envelopes.
+### 🎬 Scene 1: Ledger Sign-In — 30s
+1. **Sign in as `alice`**: enter the username and choose `alice.zip`, then **Continue**.
+   - Explain: *"There is no password database. Identities are issued on the Fabric ledger. The app proves this bundle is genuine by asking the ledger peer, which only answers requests signed by a certificate its organization issued."*
+2. **Enter Alice's keystore passphrase** and sign in.
+   - Explain: *"Her post-quantum private keys live only in an encrypted keystore on this device. The passphrase is never stored anywhere."*
 
 ---
 
-### 🎬 Scene 2: Recipient Terminal (Atomic Decryption & PQC Signing) — 60s
-1. **Navigate to "Decrypt" tab**.
-2. **Select User**: Choose *Recipient 1 (`USR-0231`)*.
-3. **Show Credentials**: Point to authorized device ID and ML-DSA-65 signing key ID in the secure enclave.
-4. **Click "DECRYPT & AUTHORIZE DOCUMENT"**:
-   - Watch the animated **6-step atomic security checklist**:
-     1. ML-KEM-768 Decapsulation
-     2. AES-256-GCM Decryption & Tag Verification
-     3. Session Nonce Formulation
-     4. Cryptographic Watermark HMAC Derivation
-     5. ML-DSA-65 Recipient Signature Generation (FIPS 204)
-     6. Air-Gapped Permissioned Ledger Commit
-5. **Show Result**:
-   - Document is decrypted.
-   - Point to the **Watermark Identifier**: `WM-7A91...`.
-   - **Crucial Point**: *"If Recipient 1 decrypts the same file again 10 minutes later, an entirely new nonce, watermark ID, and ML-DSA signature are generated. Every viewing session has its own forensic timeline."*
+### 🎬 Scene 2: Encryption Lab (Envelope Encryption) — 45s
+1. **Navigate to "Encryption Lab"** and upload the PDF.
+2. **Point out the SHA3-256 Digest**: *"This is our tamper anchor."*
+3. **Select `bob` as recipient** and distribute.
+   - Explain: *"The document is encrypted once with AES-256-GCM, and its key is wrapped for each recipient with their NIST FIPS 203 **ML-KEM-768** public key, which comes from the ledger's key registry. Nobody can substitute their own key for Bob's."*
+4. **Download the `.enc` package**: this is what travels to Bob.
 
 ---
 
-### 🎬 Scene 3: Forensic Lab (Blind Leaked Document Attribution) — 90s (The WOW Scene)
-1. **Navigate to "Forensics" tab**.
-2. **Show the scenario**: *"An audit team has intercepted a leaked PDF or screenshot. They do NOT know who leaked it, when it was viewed, or which device rendered it."*
-3. **Click "START FORENSIC ATTRIBUTION"**:
-   - Watch the 6-stage pipeline animate:
-     - Rasterization $\rightarrow$ DCT frequency sampling $\rightarrow$ Reed-Solomon ECC decoding $\rightarrow$ Ledger search $\rightarrow$ ML-DSA verification $\rightarrow$ Merkle proof verification.
+### 🎬 Scene 3: Decryption Lab (Watermarking & Signed Ledger Record) — 60s
+1. **Sign out and sign in as `bob`** (`bob.zip` + Bob's passphrase).
+2. **Navigate to "Decryption Lab"** and upload the `.enc` package.
+3. **Click decrypt** and walk through the 7 stages:
+   Selection → Auth → Decryption → Fingerprint → Signature → Ledger Commit → Release.
+4. **Show Result**:
+   - Point to the **Watermark ID**.
+   - **Crucial Point**: *"The watermarked copy is only released after the Fabric ledger accepts a record of this decryption, signed by Bob's ML-DSA-65 key and submitted under Bob's own ledger identity. If the ledger refuses, Bob gets nothing."*
+   - *"If Bob decrypts the same file again, he gets a new watermark, a new signature and a new ledger record. Every session has its own forensic trail."*
+
+---
+
+### 🎬 Scene 4: Forensic Leak Lab (Blind Leaked Document Attribution) — 75s (The WOW Scene)
+1. **Navigate to "Forensic Leak Lab"**.
+2. **Show the scenario**: *"An audit team has intercepted a leaked copy. They do NOT know who leaked it."*
+3. **Upload Bob's watermarked copy.** (Only use a screenshot here if you have rehearsed it: the current watermark engine reads the image as-is, without detecting and rescaling the page.)
 4. **Show Hero Result**:
-   - **ATTRIBUTION VERIFIED**: Recipient 1 (`USR-0231`).
-   - Organization: *Operations Directorate*.
-   - Exact Timestamp and Device ID.
-   - 6-Link Cryptographic Verification: **All Passed**.
-5. **Click "Inspect & Export Cryptographic Evidence Package"**:
-   - Show `CIPHERTRACE_EVIDENCE.json`.
-   - Point out: *"An independent court or audit authority can verify this evidence bundle offline using public keys and ledger roots."*
+   - **Attribution**: `bob`, with the exact decryption time and session.
+   - Verification gates: watermark and Reed-Solomon parity, decryption session found, ML-DSA-65 signature, document SHA3-256 digest, local hash-chain integrity.
+5. **Export the evidence package** and point out: *"An independent authority can verify this offline using the public keys and the ledger record."*
 
 ---
 
-### 🎬 Scene 4: Adversarial Watermark Attack Simulator — 60s
-1. **Navigate to "Attack Simulator" tab**.
-2. **Click "Severe JPEG Recompression (Quality 35%)"**:
-   - Click **"Re-Run Degradation Test"**.
-   - Show: Raw Bit Error Rate is 6.4%, but Reed-Solomon ECC corrected all corrupted symbols. Payload recovery: **100%**.
-3. **Click "Complete PDF Metadata Stripping"**:
-   - Show: Watermark survived 100%.
-   - Explain: *"Attackers often wipe Exif/XMP metadata thinking they removed the watermark. Our watermark is embedded in the 2D DCT frequency lattice of the visual document, rendering metadata stripping useless."*
-
----
-
-### 🎬 Scene 5: Ledger & Tamper Demo — 30s
-1. **Navigate to "Ledger & Tamper Demo" tab**.
-2. **Show the Blocks**: Point out the hash-chained blocks and Merkle roots.
-3. **Click "Simulate Rogue Admin Attack (Tamper Block #1)"**:
-   - Immediately, the system alerts:
-     - ❌ **HASH CHAIN BROKEN**
-     - ❌ **MERKLE INCLUSION PROOF INVALID**
-     - ❌ **CONSENSUS NODES REJECT STATE**
-4. **Explain**: *"This answers the question: 'Why blockchain?' A malicious privileged administrator cannot secretly edit historical audit logs to frame someone else without consensus nodes detecting the mismatch immediately."*
-5. **Click "Restore Ledger Integrity"**.
-
----
-
-### 🎬 Scene 6: Continuity Graph — 20s
-1. **Navigate to "Continuity Graph" tab**.
-2. Show the visual end-to-end lineage from Document $\rightarrow$ Envelopes $\rightarrow$ Sessions $\rightarrow$ Watermarks $\rightarrow$ Ledger Blocks.
-3. Click any node to demonstrate offline inspectability.
+### 🎬 Scene 5: Ledger Proof (Terminal) — 30s
+1. **Show the record on Fabric** (use the watermark ID from Scene 3):
+   ```bash
+   FABRIC_SAMPLES=../bundles/bob node cli.js query <watermark_id> bob
+   ```
+   *"This is the record as both organizations' peers hold it: Bob's signature, the watermark, and the hashes of the original and of his copy."*
+2. **Show that nobody can write a record in someone else's name** (from `blockchain/`):
+   ```bash
+   source scripts/env-recipient.sh user-117
+   ./scripts/invoke.sh testdata/record-valid.json    # names user-042 -> identity mismatch
+   ```
+3. **Explain**: *"This answers 'Why blockchain?'. Records are write-once, every write needs both organizations to endorse it, and the chaincode rejects any record not submitted by the person it names."*
 
 ---
 
 ## Top 5 Judge Questions & Golden Answers
 
 ### Q1: *"Why do you need blockchain/DLT in an air-gapped system?"*
-> **Answer**: *"A centralized SQL database has a 'root admin' who can run `UPDATE logs SET recipient = 'User B' WHERE event_id = '123'`. In defense and military scenarios, insider threats are critical. Our permissioned DLT ensures that multiple authorities (Security, Audit, and Forensic command) maintain cryptographic replicas with SHA3-256 hash chaining and Merkle trees. No single admin can rewrite history."*
+> **Answer**: *"A centralized SQL database has a 'root admin' who can run `UPDATE logs SET recipient = 'User B' WHERE event_id = '123'` or simply delete a row. On our Hyperledger Fabric network, two independent organizations each keep a full copy of the ledger and must both endorse every record. Records are write-once, and the chaincode only accepts a record from the person it names, so no single administrator can rewrite or quietly remove history. In the demo both organizations run on one laptop; in deployment they would be separate authorities."*
 
 ### Q2: *"Why Post-Quantum Cryptography (ML-KEM and ML-DSA) right now?"*
 > **Answer**: *"NIST finalized FIPS 203 (ML-KEM) and FIPS 204 (ML-DSA) in August 2024. Defense documents distributed today have a 20-to-30-year operational classification. Under 'Store Now, Decrypt Later' threats, adversaries store encrypted intercepts until quantum computers can break RSA/ECC. Using ML-KEM-768 and ML-DSA-65 ensures post-quantum secrecy and non-repudiation."*
 
 ### Q3: *"How does your watermark survive if someone crops or screenshots the document?"*
-> **Answer**: *"We use a multi-region DCT-domain spread-spectrum embedding combined with Reed-Solomon (255, 127) error-correcting codes. Even if an attacker crops 12% of the margins or compresses the image, the redundant spatial interleaving and parity bytes math-reconstruct the original 128-bit payload."*
+> **Answer**: *"The watermark is embedded in the 2D DCT frequency domain of the rendered page, protected by a Reed-Solomon RS(31, 27) code over GF(2^5). The short 155-bit codeword is repeated hundreds of times across every page, so any intact region can carry it, and Reed-Solomon corrects residual symbol errors."*
 
 ### Q4: *"Does the signature prove that the human physically decrypted it?"*
-> **Answer**: *"No signature alone can prove physical human consciousness. It proves **cryptographic attribution**: that the authorized hardware device and private signing key held by that enrolled officer authorized the exact decryption event. We combine this with device attestation and session nonces."*
+> **Answer**: *"No signature alone can prove physical human presence. It proves **cryptographic attribution**: the recipient's ML-DSA-65 private key, which only unlocks with their passphrase on their device, signed a record of that exact decryption session, bound to a unique session nonce and to the watermark in their copy."*
 
 ### Q5: *"Does the watermark reveal the officer's name to anyone who inspects the file?"*
-> **Answer**: *"No. The watermark payload is a pseudonymous cryptographic hash derived via HMAC-SHA3-256. It contains no human-readable names. Only the authorized forensic authority with access to the offline ledger can resolve the watermark ID back to the decryption event and recipient identity."*
+> **Answer**: *"No. The watermark carries a pseudonymous 80-bit identifier derived with HMAC-SHA3-256. It contains no human-readable names. Only someone with access to the ledger and the decryption records can resolve it back to the recipient."*

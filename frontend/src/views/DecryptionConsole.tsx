@@ -12,7 +12,7 @@ interface DecryptionConsoleProps {
 }
 
 export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
-  documents,
+  documents: _documents,
   officers,
   currentUser,
   onDecryptionSuccess,

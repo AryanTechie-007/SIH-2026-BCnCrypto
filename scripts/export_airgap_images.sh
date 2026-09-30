@@ -1,44 +1,54 @@
 #!/usr/bin/env bash
-# CIPHERTRACE - Air-Gapped Image Exporter
-# Run on an internet-connected workstation before transfer to air-gapped environment
+# CIPHERTRACE - Air-Gapped Fabric Image Exporter
+#
+# Run on an internet-connected machine that has already run
+# blockchain/scripts/setup.sh once, so every image the network needs is present.
+# Transfer the bundle to the air-gapped host and load it with
+# import_airgap_images.sh.
+#
+#   ./scripts/export_airgap_images.sh [output.tar.gz]
 set -euo pipefail
 
-echo "========================================================"
-echo "CIPHERTRACE: Packaging Containers for Air-Gapped Deploy"
-echo "========================================================"
+FABRIC_VERSION="2.5.16"
+BUNDLE_FILE="${1:-./dist/airgap/fabric_images_${FABRIC_VERSION}.tar.gz}"
+mkdir -p "$(dirname "$BUNDLE_FILE")"
 
-OUTPUT_DIR="./dist/airgap"
-BUNDLE_FILE="${OUTPUT_DIR}/ciphertrace_airgap_images.tar.gz"
-mkdir -p "${OUTPUT_DIR}"
-
-echo "[1/4] Building CIPHERTRACE Backend with liboqs PQC..."
-docker build -t ciphertrace-backend:latest ./backend
-
-echo "[2/4] Building CIPHERTRACE Frontend..."
-docker build -t ciphertrace-frontend:latest ./frontend
-
-echo "[3/4] Pulling Hyperledger Fabric 2.5 Images..."
-FABRIC_IMAGES=(
-    "hyperledger/fabric-peer:2.5.9"
-    "hyperledger/fabric-orderer:2.5.9"
-    "hyperledger/fabric-ccenv:2.5.9"
-    "hyperledger/fabric-baseos:0.4.24"
+# The test network runs peer/orderer as :latest and Node chaincode on nodeenv:2.5,
+# so both tags are saved. ccenv and baseos are only needed for Go chaincode but
+# are small enough to include.
+IMAGES=(
+    "hyperledger/fabric-peer:${FABRIC_VERSION}"
+    "hyperledger/fabric-peer:latest"
+    "hyperledger/fabric-orderer:${FABRIC_VERSION}"
+    "hyperledger/fabric-orderer:latest"
+    "hyperledger/fabric-nodeenv:2.5"
+    "hyperledger/fabric-ccenv:2.5"
+    "hyperledger/fabric-baseos:2.5"
 )
 
-for img in "${FABRIC_IMAGES[@]}"; do
-    docker pull "$img"
+echo "==> Checking images"
+missing=0
+for img in "${IMAGES[@]}"; do
+    if ! docker image inspect "$img" >/dev/null 2>&1; then
+        echo "  missing: $img"
+        missing=1
+    fi
 done
+if [ "$missing" -ne 0 ]; then
+    echo "ERROR: pull or build the missing images first (running blockchain/scripts/setup.sh once does this)."
+    exit 1
+fi
 
-echo "[4/4] Exporting and compressing container images..."
-docker save \
-    ciphertrace-backend:latest \
-    ciphertrace-frontend:latest \
-    "${FABRIC_IMAGES[@]}" \
-    | gzip > "${BUNDLE_FILE}"
+echo "==> Saving ${#IMAGES[@]} images to $BUNDLE_FILE"
+docker save "${IMAGES[@]}" | gzip > "$BUNDLE_FILE"
 
-echo "========================================================"
-echo "SUCCESS: Air-gap image bundle created at:"
-echo "${BUNDLE_FILE}"
-echo "Transfer this archive via hardware-secured media to the"
-echo "air-gapped LAN host."
-echo "========================================================"
+cat <<EOF
+
+Done: $BUNDLE_FILE ($(du -h "$BUNDLE_FILE" | cut -f1))
+
+Also transfer, if the target has no internet:
+  - fabric-samples (bin/, config/, test-network/) at Fabric $FABRIC_VERSION
+  - blockchain/chaincode/*/node_modules (the peer runs npm install when building chaincode)
+  - blockchain/client/node_modules, frontend/node_modules, and the Python packages
+    from backend/requirements.txt (pip download -r backend/requirements.txt -d wheels)
+EOF

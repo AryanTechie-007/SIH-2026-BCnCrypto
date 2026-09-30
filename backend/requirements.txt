@@ -15,6 +15,3 @@ scipy
 reedsolo
 python-multipart
 opencv-python-headless
-customtkinter
-requests
-jinja2

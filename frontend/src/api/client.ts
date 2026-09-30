@@ -5,8 +5,6 @@ import {
   DecryptionResult,
   ForensicAnalysisResult,
   LedgerBlock,
-  AttackProfile,
-  AttackResult,
   SystemHealth,
   UserAccount,
   AuthResult,
@@ -172,11 +170,6 @@ export const ApiClient = {
     await safeFetch(`${API_ROOT}/auth/logout`, { method: 'POST' });
   },
 
-  async getUsers(): Promise<UserAccount[]> {
-    const res = await safeFetch(`${API_ROOT}/auth/users`);
-    return handleResponse<UserAccount[]>(res, 'FETCH_USERS');
-  },
-
   async getCurrentUser(userId?: number): Promise<UserAccount> {
     const url = userId ? `${API_ROOT}/auth/me?user_id=${userId}` : `${API_ROOT}/auth/me`;
     const res = await safeFetch(url);
@@ -189,19 +182,6 @@ export const ApiClient = {
   },
 
   // Decryption unlocks the keystore with the passphrase given at sign-in (held by the backend session).
-  async decryptDocument(documentId: number, recipientId: number, deviceId?: string): Promise<DecryptionResult> {
-    const res = await safeFetch(`${API_ROOT}/decryption/decrypt`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        document_id: documentId,
-        recipient_id: recipientId,
-        device_id: deviceId
-      })
-    });
-    return handleResponse<DecryptionResult>(res, 'DECRYPT_DOCUMENT');
-  },
-
   async decryptEnvelopeFile(file: File, recipientId: number, deviceId?: string): Promise<DecryptionResult> {
     const formData = new FormData();
     formData.append('file', file);
@@ -276,55 +256,6 @@ export const ApiClient = {
   async getLedgerBlocks(): Promise<LedgerBlock[]> {
     const res = await safeFetch(`${API_ROOT}/ledger/blocks`);
     return handleResponse<LedgerBlock[]>(res, 'FETCH_LEDGER_BLOCKS');
-  },
-
-  async verifyLedger(): Promise<{ chain_integrity_valid: boolean; total_blocks: number; detailed_block_report: any[] }> {
-    const res = await safeFetch(`${API_ROOT}/ledger/verify`);
-    return handleResponse<any>(res, 'VERIFY_LEDGER');
-  },
-
-  async tamperLedger(blockIndex: number = 1): Promise<any> {
-    const res = await safeFetch(`${API_ROOT}/ledger/tamper?block_index=${blockIndex}`, { method: 'POST' });
-    return handleResponse<any>(res, 'TAMPER_LEDGER');
-  },
-
-  async getClusterNodes(): Promise<any> {
-    const res = await safeFetch(`${API_ROOT}/ledger/nodes`);
-    return handleResponse<any>(res, 'FETCH_CLUSTER_NODES');
-  },
-
-  async restoreLedger(): Promise<any> {
-    const res = await safeFetch(`${API_ROOT}/ledger/restore`, { method: 'POST' });
-    return handleResponse<any>(res, 'RESTORE_LEDGER');
-  },
-
-  async getAttackProfiles(): Promise<AttackProfile[]> {
-    const res = await safeFetch(`${API_ROOT}/attacks/profiles`);
-    return handleResponse<AttackProfile[]>(res, 'FETCH_ATTACK_PROFILES');
-  },
-
-  async simulateAttack(attackType: string): Promise<AttackResult> {
-    const res = await safeFetch(`${API_ROOT}/attacks/simulate?attack_type=${encodeURIComponent(attackType)}`, {
-      method: 'POST'
-    });
-    return handleResponse<AttackResult>(res, 'SIMULATE_ATTACK');
-  },
-
-  // ── Hyperledger Fabric DLT (forensic-audit) API ────────────────────────────
-
-  async getFabricStatus(): Promise<any> {
-    const res = await safeFetch(`${API_ROOT}/ledger/fabric/status`);
-    return handleResponse<any>(res, 'FETCH_FABRIC_STATUS');
-  },
-
-  async getFabricRecords(): Promise<{ channel: string; chaincode: string; count: number; records: any[] }> {
-    const res = await safeFetch(`${API_ROOT}/ledger/fabric/records`);
-    return handleResponse<any>(res, 'FETCH_FABRIC_RECORDS');
-  },
-
-  async queryFabricByWatermark(watermarkId: string): Promise<any> {
-    const res = await safeFetch(`${API_ROOT}/ledger/fabric/watermark/${encodeURIComponent(watermarkId)}`);
-    return handleResponse<any>(res, 'QUERY_FABRIC_WATERMARK');
   }
 };
 

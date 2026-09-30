@@ -143,7 +143,7 @@ echo [*] Installing requirements from backend/requirements.txt...
 %PYTHON_EXE% -m pip install --find-links "%PROJECT_ROOT%\setup\wheels" -r "%PROJECT_ROOT%\backend\requirements.txt"
 if %errorlevel% neq 0 (
     echo [WARNING] Retrying install with wheel fallback...
-    %PYTHON_EXE% -m pip install --find-links "%PROJECT_ROOT%\setup\wheels" fastapi uvicorn cryptography pymupdf Pillow numpy scipy reedsolo python-multipart sqlalchemy greenlet aiosqlite opencv-python-headless dilithium-py argon2-cffi pyjwt customtkinter requests mlkem jinja2
+    %PYTHON_EXE% -m pip install --find-links "%PROJECT_ROOT%\setup\wheels" fastapi uvicorn cryptography pymupdf Pillow numpy scipy reedsolo python-multipart sqlalchemy greenlet aiosqlite opencv-python-headless dilithium-py argon2-cffi pyjwt mlkem
 )
 
 echo [*] Validating NIST Post-Quantum Cryptography Engine...
@@ -153,7 +153,7 @@ if %errorlevel% neq 0 (
 )
 
 REM ------------------------------------------------------------------
-REM 4. INSTALL FRONTEND DEPENDENCIES AND COMPILE
+REM 4. INSTALL FRONTEND AND LEDGER CLIENT DEPENDENCIES
 REM ------------------------------------------------------------------
 echo.
 echo [4/4] Installing Frontend React and Vite dependencies...
@@ -166,10 +166,14 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-echo [*] Building production bundle...
-call npm run build
+echo [*] Installing ledger client dependencies (blockchain\client, used for sign-in)...
+cd /d "%PROJECT_ROOT%\blockchain\client"
+call npm install
 if %errorlevel% neq 0 (
-    echo [WARNING] Vite build returned non-zero code. Dev server can still be run.
+    echo [ERROR] npm install encountered errors in blockchain\client.
+    cd /d "%PROJECT_ROOT%"
+    pause
+    exit /b 1
 )
 cd /d "%PROJECT_ROOT%"
 

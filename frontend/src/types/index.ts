@@ -10,7 +10,6 @@ export interface Officer {
   status: string;
   ml_kem_pub_preview: string;
   ml_dsa_pub_preview: string;
-  keystore_password?: string;
 }
 
 export interface UserAccount {
@@ -135,26 +134,6 @@ export interface LedgerBlock {
   data: string;
   endorsers: string[];
   is_tampered: boolean;
-}
-
-export interface AttackProfile {
-  id: string;
-  name: string;
-  category: string;
-  description: string;
-  survives: boolean;
-}
-
-export interface AttackResult {
-  attack_type: string;
-  profile_name: string;
-  description: string;
-  bit_error_rate_observed: number;
-  ecc_correction_status: string;
-  payload_recovery_pct: number;
-  watermark_survived: boolean;
-  attribution_confidence: number;
-  attribution_verdict: string;
 }
 
 export interface SystemHealth {

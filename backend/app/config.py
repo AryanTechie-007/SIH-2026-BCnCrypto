@@ -3,8 +3,8 @@ CIPHERTRACE Configuration Module.
 
 Centralizes all security-critical environment flags and operational modes.
 Controls the behavioral boundary between:
-  - DEMO_MODE:   Quick login, local ledger, demo passwords allowed
-  - SECURE_MODE: Real keystore, Fabric required, no bypasses
+  - DEMO_MODE:   demo secrets tolerated, CORS open, non-secure session cookie
+  - SECURE_MODE: real secrets required, no demo fallbacks
 
 Usage:
     from app.config import settings
@@ -36,16 +36,11 @@ class CipherTraceSettings:
     BOOT_ID: str = field(default_factory=lambda: uuid.uuid4().hex)
 
     # ── Operational Mode ──────────────────────────────────────────────
-    # DEMO_MODE=true  → allows quick login, local ledger, demo passwords
-    # SECURE_MODE=true → requires real keystore, Fabric, no bypasses
+    # DEMO_MODE=true   → demo secrets tolerated, CORS open, non-secure session cookie
+    # SECURE_MODE=true → CIPHERTRACE_SYSTEM_SECRET and JWT_SECRET_KEY must be set
     # Both can be false (development mode).  Both true is contradictory.
     DEMO_MODE: bool = field(default_factory=lambda: _bool_env("DEMO_MODE", default=True))
     SECURE_MODE: bool = field(default_factory=lambda: _bool_env("SECURE_MODE", default=False))
-
-    # ── Cryptographic Backend ─────────────────────────────────────────
-    # Which PQC backend to use.  "liboqs" requires liboqs native library.
-    # "compatibility" uses X25519/Ed25519 with CLEARLY LABELED WARNINGS.
-    PQC_BACKEND: str = field(default_factory=lambda: os.environ.get("PQC_BACKEND", "auto"))
 
     # ── Watermark Secret ──────────────────────────────────────────────
     # In SECURE_MODE this MUST be set via environment or keystore.
@@ -108,10 +103,6 @@ class CipherTraceSettings:
     MAX_UPLOAD_SIZE_MB: int = field(
         default_factory=lambda: int(os.environ.get("MAX_UPLOAD_SIZE_MB", "50"))
     )
-    MAX_PDF_PAGES: int = field(
-        default_factory=lambda: int(os.environ.get("MAX_PDF_PAGES", "100"))
-    )
-
     # ── Keystore ──────────────────────────────────────────────────────
     KEYSTORE_DIR: str = field(
         default_factory=lambda: os.environ.get(
@@ -124,7 +115,7 @@ class CipherTraceSettings:
     DB_PATH: str = field(
         default_factory=lambda: os.environ.get(
             "CIPHERTRACE_DB_PATH",
-            os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "ciphertrace_v2.db"))
+            os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "ciphertrace.db"))
         )
     )
 

@@ -72,7 +72,7 @@ async def evaluate_suspect_stream(file_name: str, file_bytes: bytes, db: AsyncSe
     """
     Authoritative Forensic Pipeline:
     uploaded leaked document
-    → watermark extraction & RS(255, 127) decoding
+    → watermark extraction & Reed-Solomon decoding
     → watermark ID
     → Hyperledger Fabric LookupByWatermark (authoritative distributed query)
     → retrieve ledger record & local state
@@ -97,7 +97,7 @@ async def evaluate_suspect_stream(file_name: str, file_bytes: bytes, db: AsyncSe
         with open(temp_path, "wb") as buffer:
             buffer.write(file_bytes)
 
-        # 3. 2D DCT Extraction & Reed-Solomon RS(255, 127) decoding
+        # 3. 2D DCT Extraction & Reed-Solomon decoding
         extracted_payload, metrics = watermark_engine.extract_watermark(temp_path)
     finally:
         _safe_remove(temp_path)
@@ -287,7 +287,7 @@ async def evaluate_suspect_stream(file_name: str, file_bytes: bytes, db: AsyncSe
             extracted_payload_hex=extracted_payload.hex().lower(),
             payload_recovery_pct=float(metrics.get("payload_recovery_pct", 100.0)),
             bit_error_rate=ber,
-            ecc_strategy="Reed-Solomon RS(255, 127)",
+            ecc_strategy=WatermarkEngine.ECC_STRATEGY,
             recipient=OfficerSchema(
                 id=matched_user.id,
                 username=matched_user.username,
@@ -360,7 +360,7 @@ async def evaluate_suspect_stream(file_name: str, file_bytes: bytes, db: AsyncSe
         extracted_payload_hex=extracted_payload.hex().lower() if extracted_payload else None,
         payload_recovery_pct=0.0,
         bit_error_rate=ber,
-        ecc_strategy="Reed-Solomon RS(255, 127)",
+        ecc_strategy=WatermarkEngine.ECC_STRATEGY,
         recipient=None,
         top_suspect_name="None (Cleared)",
         match_confidence=0.0,
@@ -421,7 +421,7 @@ async def export_evidence_package(event_id: int, db: AsyncSession = Depends(get_
         "signature_verification": "VALID",
         "watermark_verification": "VALID",
         "document_hash_verification": "VALID",
-        "reed_solomon_profile": "RS(255,127)",
+        "reed_solomon_profile": WatermarkEngine.ECC_STRATEGY,
         "cryptographic_standards": {
             "pqc_signature": "NIST FIPS 204 (ML-DSA-65)",
             "pqc_kem": "NIST FIPS 203 (ML-KEM-768)",

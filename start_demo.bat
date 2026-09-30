@@ -68,6 +68,20 @@ if not exist "frontend\node_modules\" (
     popd
 )
 
+:: Ledger client dependencies (cli.js, used for sign-in and ledger records)
+if not exist "blockchain\client\node_modules\" (
+    echo [SETUP] Installing ledger client node_modules...
+    pushd "%~dp0blockchain\client"
+    call npm install
+    if !errorlevel! neq 0 (
+        echo [ERROR] npm install failed in blockchain\client.
+        popd
+        pause
+        exit /b 1
+    )
+    popd
+)
+
 :: Backend Dependencies - Simplified check
 echo [SETUP] Verifying Python environment...
 python -c "import fastapi, uvicorn, fitz, cryptography, sqlalchemy, greenlet, aiosqlite, numpy, scipy, PIL, cv2, reedsolo, mlkem, argon2, jwt" >nul 2>&1
