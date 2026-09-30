@@ -6,7 +6,7 @@ import { LogIn, AlertOctagon, FileArchive, KeyRound, ShieldAlert, ArrowRight, Us
 const MIN_PASSPHRASE_LENGTH = 12;
 
 interface LedgerSignInFormProps {
-  onLoginSuccess: (user: UserAccount, token: string) => void;
+  onLoginSuccess: (user: UserAccount) => void;
   submitLabel?: string;
 }
 
@@ -33,7 +33,7 @@ const buttonStyle: React.CSSProperties = {
 };
 
 /**
- * Two-step sign-in. Step 1 sends the username and identity bundle; the backend verifies
+ * Two-step sign-in. Step 1 sends the username and identity bundle; the worker verifies
  * the bundle with the ledger and says whether this device already has the user's
  * keystore. Step 2 then asks for its passphrase, or for a new one to create it.
  */
@@ -60,7 +60,7 @@ export const LedgerSignInForm: React.FC<LedgerSignInFormProps> = ({ onLoginSucce
       setIsLoading(true);
       setErrorMessage(null);
       const res = await ApiClient.ledgerLogin(cleanUser, bundle as File, pass, confirm);
-      onLoginSuccess(res.user, res.token);
+      onLoginSuccess(res.user);
     } catch (err: any) {
       if (err instanceof PassphraseNeededError) {
         setStep(err.mode);

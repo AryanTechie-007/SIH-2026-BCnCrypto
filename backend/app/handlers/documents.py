@@ -1,23 +1,20 @@
 import os
 import json
+import shutil
 import uuid
 from datetime import datetime
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
-from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
+from app import rpc
 from app.config import settings
-from app.database import get_db
+from app.errors import ApiError
 from app.models.database import Document, User, Distribution
 from app.services.crypto_engine import CryptoEngine
 from app.schemas import DocumentSchema, DistributeRequest, DistributionResponse, KeyEnvelopeInfo
-from app.routers.auth import get_current_user_from_token
 
-router = APIRouter(prefix="/api/documents", tags=["Documents"])
-
-UPLOAD_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "uploads"))
+UPLOAD_DIR = settings.UPLOAD_DIR
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 ALLOWED_DOC_MAGIC = {
@@ -34,31 +31,17 @@ def _validate_doc_magic(content: bytes) -> str:
     if settings.DEMO_MODE and (content.startswith(b"---") or content.startswith(b"{")):
         return "txt"
     if not settings.DEMO_MODE and not content.startswith(b"%PDF"):
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid file signature: Only authentic PDF documents (%PDF) are accepted in secure mode."
-        )
+        raise ApiError(400, "Invalid file signature: Only authentic PDF documents (%PDF) are accepted in secure mode.")
     return "pdf"
 
 
-@router.get("", response_model=List[DocumentSchema])
-@router.get("/", response_model=List[DocumentSchema])
-async def list_documents(
-    current_user: Optional[User] = Depends(get_current_user_from_token),
-    db: AsyncSession = Depends(get_db)
-):
-    """Lists confidential documents belonging strictly to the authenticated user session."""
-    if isinstance(current_user, AsyncSession):
-        db = current_user
-        current_user = None
-
-    if current_user and hasattr(current_user, 'id'):
-        result = await db.execute(
-            select(Document).where(Document.uploader_id == current_user.id).order_by(Document.id.desc())
-        )
-        docs = result.scalars().all()
-    else:
-        docs = []
+@rpc.method("documents.list")
+async def list_documents(db: AsyncSession, current_user: User) -> List[DocumentSchema]:
+    """Lists confidential documents belonging strictly to the signed-in user."""
+    result = await db.execute(
+        select(Document).where(Document.uploader_id == current_user.id).order_by(Document.id.desc())
+    )
+    docs = result.scalars().all()
 
     return [
         DocumentSchema(
@@ -73,31 +56,26 @@ async def list_documents(
     ]
 
 
-@router.post("/upload", response_model=DocumentSchema)
-async def upload_document(
-    file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user_from_token),
-    db: AsyncSession = Depends(get_db)
-):
+@rpc.method("documents.upload")
+async def upload_document(db: AsyncSession, current_user: User, path: str) -> DocumentSchema:
     """
-    Uploads a confidential document with hardened security:
+    Imports a confidential document from `path` with hardened security:
     - Verifies maximum upload size limit.
     - Validates file magic bytes (must be authentic PDF).
-    - Generates UUID storage path (never trusts browser-provided filename).
+    - Generates UUID storage path (never trusts the original filename).
     - Computes NIST FIPS 202 SHA3-256 digest.
-    - Scopes document ownership strictly to current_user session.
+    - Scopes document ownership strictly to the signed-in user.
     """
-    if isinstance(current_user, AsyncSession):
-        db = current_user
-        current_user = None
-
-    content = await file.read()
     max_bytes = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
-    if len(content) > max_bytes:
-        raise HTTPException(
-            status_code=413,
-            detail=f"Uploaded document exceeds maximum size ({settings.MAX_UPLOAD_SIZE_MB} MB)"
-        )
+    try:
+        too_big = os.path.getsize(path) > max_bytes
+        if not too_big:
+            with open(path, "rb") as f:
+                content = f.read()
+    except OSError as e:
+        raise ApiError(400, f"Could not read {os.path.basename(path)}: {e.strerror or e}")
+    if too_big:
+        raise ApiError(413, f"Uploaded document exceeds maximum size ({settings.MAX_UPLOAD_SIZE_MB} MB)")
 
     _validate_doc_magic(content)
 
@@ -111,7 +89,7 @@ async def upload_document(
     size = len(content)
 
     # Sanitize display filename
-    original_display_name = os.path.basename(file.filename or "document.pdf")
+    original_display_name = os.path.basename(path) or "document.pdf"
     sanitized_display_name = "".join(c for c in original_display_name if c.isalnum() or c in (".", "-", "_")) or "document.pdf"
 
     new_doc = Document(
@@ -120,7 +98,7 @@ async def upload_document(
         sha3_hash=doc_hash,
         original_path=target_path,
         size_bytes=size,
-        uploader_id=current_user.id if (current_user and hasattr(current_user, "id")) else None
+        uploader_id=current_user.id
     )
     db.add(new_doc)
     await db.commit()
@@ -136,12 +114,13 @@ async def upload_document(
     )
 
 
-@router.post("/distribute", response_model=DistributionResponse)
+@rpc.method("documents.distribute")
 async def distribute_document(
-    req: DistributeRequest,
-    current_user: User = Depends(get_current_user_from_token),
-    db: AsyncSession = Depends(get_db)
-):
+    db: AsyncSession,
+    current_user: User,
+    document_id: int,
+    recipient_ids: Optional[List[int]] = None
+) -> DistributionResponse:
     """
     Executes Post-Quantum Envelope Distribution:
     1. Generates ephemeral 256-bit Document Encryption Key (DEK).
@@ -152,14 +131,12 @@ async def distribute_document(
     4. Generates standardized NIST FIPS 203 Post-Quantum Envelope (.enc).
     5. Zero-Storage Policy: Shreds plaintext source file from disk.
     """
-    if isinstance(current_user, AsyncSession):
-        db = current_user
-        current_user = None
+    req = DistributeRequest(document_id=document_id, recipient_ids=recipient_ids)
 
     doc_res = await db.execute(select(Document).where(Document.id == req.document_id))
     doc = doc_res.scalar_one_or_none()
     if not doc:
-        raise HTTPException(status_code=404, detail="Target document not found")
+        raise ApiError(404, "Target document not found")
 
     enc_file_path = doc.original_path + ".enc"
     envelope_file_path = doc.original_path + ".envelope.enc"
@@ -188,10 +165,7 @@ async def distribute_document(
                 envelopes=existing_envelopes,
                 envelope_file_name=f"{doc.file_name}.enc"
             )
-        raise HTTPException(
-            status_code=404,
-            detail="Original document not found on server (Zero-Storage policy: please re-upload to encrypt again)."
-        )
+        raise ApiError(404, "Original document was already shredded (Zero-Storage policy: please re-upload to encrypt again).")
 
     # Load recipients
     if not req.recipient_ids:
@@ -201,12 +175,12 @@ async def distribute_document(
             users_res = await db.execute(select(User))
             recipients = users_res.scalars().all()
         if not recipients:
-            raise HTTPException(status_code=400, detail="No enrolled users found in node registry.")
+            raise ApiError(400, "No enrolled users found in node registry.")
     else:
         users_res = await db.execute(select(User).where(User.id.in_(req.recipient_ids)))
         recipients = users_res.scalars().all()
         if len(recipients) != len(req.recipient_ids):
-            raise HTTPException(status_code=400, detail="One or more specified recipient IDs are invalid")
+            raise ApiError(400, "One or more specified recipient IDs are invalid")
 
     # Read document content and generate 256-bit DEK
     with open(doc.original_path, "rb") as f:
@@ -314,22 +288,19 @@ async def distribute_document(
     )
 
 
-@router.get("/{document_id}/download-envelope")
-async def download_envelope(document_id: int, db: AsyncSession = Depends(get_db)):
-    """Downloads portable NIST FIPS 203 encrypted envelope (.enc)."""
+@rpc.method("documents.save_envelope")
+async def save_envelope(db: AsyncSession, document_id: int, dest: str) -> dict:
+    """Writes the portable NIST FIPS 203 encrypted envelope (.enc) to `dest`, chosen in a save dialog."""
     doc_res = await db.execute(select(Document).where(Document.id == document_id))
     doc = doc_res.scalar_one_or_none()
     if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
+        raise ApiError(404, "Document not found")
 
     envelope_file_path = doc.original_path + ".envelope.enc"
     enc_file_path = doc.original_path + ".enc"
     target_path = envelope_file_path if os.path.exists(envelope_file_path) else (enc_file_path if os.path.exists(enc_file_path) else None)
     if not target_path:
-        raise HTTPException(status_code=404, detail="Envelope file not yet generated. Distribute document first.")
+        raise ApiError(404, "Envelope file not yet generated. Distribute document first.")
 
-    return FileResponse(
-        target_path,
-        media_type="application/json",
-        filename=f"{doc.file_name}.enc"
-    )
+    shutil.copyfile(target_path, dest)
+    return {"saved_to": dest}

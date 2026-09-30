@@ -1,0 +1,61 @@
+# Builds the CIPHERTRACE desktop installers. PyInstaller cannot cross-compile,
+# so each installer is built on its own OS. Run it from the Actions tab
+# ("Run workflow"), or push a tag like v1.0.0. The installers are attached to
+# the run as artifacts.
+name: Desktop installers
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: dist:mac
+            artifacts: |
+              desktop/dist/*.dmg
+              desktop/dist/*.zip
+          - os: windows-latest
+            target: dist:win
+            artifacts: desktop/dist/*.exe
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Python environment for the worker
+        working-directory: backend
+        run: |
+          uv venv --python 3.12
+          uv pip install --find-links ../setup/wheels -r requirements-build.txt
+
+      - name: Node dependencies
+        run: |
+          npm ci --prefix frontend
+          npm ci --prefix desktop
+
+      - name: Post-quantum self-test and security audit
+        run: backend/.venv/${{ runner.os == 'Windows' && 'Scripts/python.exe' || 'bin/python' }} scripts/security_audit.py
+
+      - name: Build installer
+        working-directory: desktop
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false" # unsigned builds
+        run: npm run ${{ matrix.target }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ciphertrace-${{ runner.os }}
+          path: ${{ matrix.artifacts }}
+          if-no-files-found: error

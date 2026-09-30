@@ -258,7 +258,7 @@ recipient's ML-DSA-65 key, adds `signature`, and submits with `cli.js submit`
 as the recipient. To verify a record from the ledger alone: drop `signature`,
 serialize the rest as below, and check it against the recipient's
 `dsa_public_key` from the key registry
-(`LedgerEngine.record_signing_payload` in the backend does the first two steps).
+(`LedgerEngine.record_signing_payload` in the app's Python worker does the first two steps).
 
 **Canonical serialization** — both sides must agree byte for byte or signature
 verification fails:

@@ -1,16 +1,14 @@
 from datetime import datetime
-from fastapi import APIRouter
 
+from app import rpc
 from app.config import settings
-from ..services import ledger_client
-from ..services.crypto_engine import CryptoEngine
-from ..services.watermark_engine import WatermarkEngine
-
-router = APIRouter(prefix="/api/system", tags=["System Administration"])
+from app.services import ledger_client
+from app.services.crypto_engine import CryptoEngine
+from app.services.watermark_engine import WatermarkEngine
 
 
-@router.get("/health", response_model=None)
-async def get_system_health():
+@rpc.method("system.health")
+async def get_system_health() -> dict:
     """Returns accurate cryptographic health telemetry for the air-gapped terminal."""
     backend_info = CryptoEngine.get_backend_info()
     ledger_status = ledger_client.get_ledger_status()

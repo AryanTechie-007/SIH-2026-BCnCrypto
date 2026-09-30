@@ -7,7 +7,7 @@ interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentUser: UserAccount | null;
-  onLoginSuccess: (user: UserAccount, token: string) => void;
+  onLoginSuccess: (user: UserAccount) => void;
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
@@ -93,8 +93,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         <div style={{ padding: '20px' }}>
           <LedgerSignInForm
             submitLabel="SIGN IN TO VAULT"
-            onLoginSuccess={(user, token) => {
-              onLoginSuccess(user, token);
+            onLoginSuccess={(user) => {
+              onLoginSuccess(user);
               onClose();
             }}
           />

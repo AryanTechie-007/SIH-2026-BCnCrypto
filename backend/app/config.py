@@ -3,8 +3,12 @@ CIPHERTRACE Configuration Module.
 
 Centralizes all security-critical environment flags and operational modes.
 Controls the behavioral boundary between:
-  - DEMO_MODE:   demo secrets tolerated, CORS open, non-secure session cookie
+  - DEMO_MODE:   demo secrets tolerated
   - SECURE_MODE: real secrets required, no demo fallbacks
+
+Every path can be overridden by an environment variable. The desktop app sets
+them so that a packaged install keeps its data in the OS app-data folder; when
+unset (development) everything stays under backend/.
 
 Usage:
     from app.config import settings
@@ -15,7 +19,6 @@ Usage:
 import os
 import uuid
 from dataclasses import dataclass, field
-from typing import List
 
 
 def _bool_env(key: str, default: bool = False) -> bool:
@@ -32,12 +35,12 @@ def _bool_env(key: str, default: bool = False) -> bool:
 class CipherTraceSettings:
     """Immutable application settings loaded from environment at startup."""
 
-    # Unique process boot ID generated fresh on every server startup/restart
+    # Fresh on every worker start; the UI signs out when it changes
     BOOT_ID: str = field(default_factory=lambda: uuid.uuid4().hex)
 
     # ── Operational Mode ──────────────────────────────────────────────
-    # DEMO_MODE=true   → demo secrets tolerated, CORS open, non-secure session cookie
-    # SECURE_MODE=true → CIPHERTRACE_SYSTEM_SECRET and JWT_SECRET_KEY must be set
+    # DEMO_MODE=true   → demo secrets tolerated
+    # SECURE_MODE=true → CIPHERTRACE_SYSTEM_SECRET must be set
     # Both can be false (development mode).  Both true is contradictory.
     DEMO_MODE: bool = field(default_factory=lambda: _bool_env("DEMO_MODE", default=True))
     SECURE_MODE: bool = field(default_factory=lambda: _bool_env("SECURE_MODE", default=False))
@@ -81,28 +84,31 @@ class CipherTraceSettings:
         )
     )
 
-    # ── Authentication ────────────────────────────────────────────────
-    JWT_SECRET_KEY: str = field(
-        default_factory=lambda: os.environ.get(
-            "JWT_SECRET_KEY", "DEMO_JWT_SECRET_NOT_FOR_PRODUCTION"
-        )
-    )
-    JWT_ALGORITHM: str = "HS256"
-    JWT_EXPIRY_MINUTES: int = field(
-        default_factory=lambda: int(os.environ.get("JWT_EXPIRY_MINUTES", "60"))
-    )
-
-    # ── CORS / Network ────────────────────────────────────────────────
-    ALLOWED_ORIGINS: List[str] = field(
-        default_factory=lambda: os.environ.get(
-            "ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000"
-        ).split(",")
+    # ── Session ───────────────────────────────────────────────────────
+    # How long the keystore passphrase given at sign-in stays in memory.
+    SESSION_TTL_MINUTES: int = field(
+        default_factory=lambda: int(os.environ.get("SESSION_TTL_MINUTES", "60"))
     )
 
     # ── File Security ─────────────────────────────────────────────────
     MAX_UPLOAD_SIZE_MB: int = field(
         default_factory=lambda: int(os.environ.get("MAX_UPLOAD_SIZE_MB", "50"))
     )
+    # Uploaded documents and their .enc envelopes.
+    UPLOAD_DIR: str = field(
+        default_factory=lambda: os.environ.get(
+            "UPLOAD_DIR",
+            os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "uploads"))
+        )
+    )
+    # Watermarked copies, kept only until the user saves them.
+    RETURNS_DIR: str = field(
+        default_factory=lambda: os.environ.get(
+            "RETURNS_DIR",
+            os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "returns"))
+        )
+    )
+
     # ── Keystore ──────────────────────────────────────────────────────
     KEYSTORE_DIR: str = field(
         default_factory=lambda: os.environ.get(
@@ -136,11 +142,6 @@ class CipherTraceSettings:
             errors.append(
                 "CIPHERTRACE_SYSTEM_SECRET is required in SECURE_MODE. "
                 "Set it via environment variable or secure keystore."
-            )
-
-        if self.SECURE_MODE and self.JWT_SECRET_KEY == "DEMO_JWT_SECRET_NOT_FOR_PRODUCTION":
-            errors.append(
-                "JWT_SECRET_KEY must be set to a strong secret in SECURE_MODE."
             )
 
         if errors:

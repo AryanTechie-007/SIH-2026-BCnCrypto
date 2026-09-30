@@ -1,16 +1,13 @@
-from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import List
-from ..database import get_db
-from ..models.database import User
-from ..schemas import OfficerSchema
-
-router = APIRouter(prefix="/api/identity", tags=["Identity"])
+from app import rpc
+from app.models.database import User
+from app.schemas import OfficerSchema
 
 
-@router.get("/officers", response_model=List[OfficerSchema])
-async def list_enrolled_officers(db: AsyncSession = Depends(get_db)):
+@rpc.method("identity.officers")
+async def list_enrolled_officers(db: AsyncSession) -> List[OfficerSchema]:
     """Lists all enrolled recipients with their post-quantum public keys (NO private keys)."""
     result = await db.execute(select(User).order_by(User.id.asc()))
     users = result.scalars().all()

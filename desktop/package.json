@@ -1,0 +1,73 @@
+{
+  "name": "ciphertrace-desktop",
+  "productName": "CIPHERTRACE",
+  "version": "1.0.0",
+  "description": "CIPHERTRACE post-quantum document security and leak attribution, as a desktop app",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "npm run build:ui && node scripts/launch.js",
+    "dev": "node scripts/launch.js --dev",
+    "build:ui": "npm --prefix ../frontend run build",
+    "build:ledger": "npm --prefix ../blockchain/client ci --omit=dev && esbuild ../blockchain/client/cli.js --bundle --platform=node --target=node20 --external:pkcs11js --outfile=out/ledger-client/cli.js --log-level=warning",
+    "build:worker": "node scripts/build-worker.js",
+    "prepackage": "npm run build:ui && npm run build:ledger && npm run build:worker",
+    "package": "electron-builder",
+    "dist:mac": "npm run prepackage && electron-builder --mac",
+    "dist:win": "npm run prepackage && electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "^44.5.1",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.2"
+  },
+  "build": {
+    "appId": "in.sih2026.ciphertrace",
+    "productName": "CIPHERTRACE",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "build/icon.png",
+      {
+        "from": "../frontend/dist",
+        "to": "renderer"
+      }
+    ],
+    "extraResources": [
+      {
+        "from": "../backend/dist/ciphertrace-worker",
+        "to": "worker"
+      },
+      {
+        "from": "out/ledger-client",
+        "to": "ledger-client"
+      }
+    ],
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.productivity",
+      "identity": "-",
+      "hardenedRuntime": false
+    },
+    "dmg": {
+      "sign": false
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

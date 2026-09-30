@@ -210,7 +210,7 @@ export const WorkstationSidebar: React.FC<WorkstationSidebarProps> = ({
                 }}
               >
                 <img
-                  src="/logo.png"
+                  src="./logo.png"
                   alt="CipherTrace Logo"
                   style={{
                     width: '100%',
@@ -285,7 +285,7 @@ export const WorkstationSidebar: React.FC<WorkstationSidebarProps> = ({
               }}
             >
               <img
-                src="/logo.png"
+                src="./logo.png"
                 alt="CipherTrace Logo"
                 style={{
                   width: '100%',

@@ -45,7 +45,6 @@ export interface LedgerIdentityStatus {
 
 export interface AuthResult {
   user: UserAccount;
-  token: string;
   message: string;
 }
 
@@ -87,38 +86,28 @@ export interface DecryptionResult {
   ml_dsa_signature_preview: string;
   ledger_block_index: number;
   ledger_block_hash: string;
-  download_url: string;
 }
 
 export interface VerificationGates {
   watermark_valid: boolean;
   ledger_event_exists: boolean;
   ml_dsa_signature_valid: boolean;
-  merkle_inclusion_valid: boolean;
+  key_registry_match: boolean;
   document_hash_match: boolean;
-  ledger_chain_integrity: boolean;
 }
 
 export interface ForensicAnalysisResult {
-  status: 'IDENTIFIED' | 'EXTRACTION_FAILED' | 'UNATTRIBUTED' | 'ATTRIBUTED_WITH_WARNINGS';
+  status: 'IDENTIFIED' | 'UNATTRIBUTED' | 'ATTRIBUTED_WITH_WARNINGS';
   watermark_detected: boolean;
+  watermark_id?: string | null;
+  match_type?: 'EXACT' | 'CLOSEST' | null;
   extracted_payload_hex?: string;
   payload_recovery_pct: number;
   bit_error_rate: number;
   ecc_strategy: string;
   recipient?: Officer;
-  decryption_event?: {
-    event_id: number;
-    session_nonce: string;
-    timestamp: string;
-    device_id: string;
-    document_id: number;
-    document_name: string;
-    document_sha3: string;
-    ledger_block_index?: number;
-    ledger_block_hash?: string;
-    ml_dsa_signature_hex: string;
-  };
+  /** The decryption record exactly as stored on the ledger. */
+  ledger_record?: Record<string, string> | null;
   verification_gates: VerificationGates;
   overall_confidence: number;
   match_confidence?: number;

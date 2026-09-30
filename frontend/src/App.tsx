@@ -13,7 +13,6 @@ import { DocumentRecord, Officer, LedgerBlock, UserAccount } from './types';
 import { LoginPage } from './components/LoginPage';
 
 const STORAGE_KEY_USER = 'ciphertrace_operator_user';
-const STORAGE_KEY_TOKEN = 'ciphertrace_operator_token';
 const STORAGE_KEY_BOOT_ID = 'ciphertrace_server_boot_id';
 
 export function App() {
@@ -32,7 +31,6 @@ export function App() {
     try {
       // Purge any persistent disk-stored credentials so restarts always require fresh auth
       localStorage.removeItem(STORAGE_KEY_USER);
-      localStorage.removeItem(STORAGE_KEY_TOKEN);
 
       const savedUser = sessionStorage.getItem(STORAGE_KEY_USER);
       if (savedUser) {
@@ -58,11 +56,10 @@ export function App() {
         const serverBootId = h.value.server_boot_id;
         const storedBootId = sessionStorage.getItem(STORAGE_KEY_BOOT_ID);
 
-        // Detect backend process restart / kill: if server has a new boot ID, immediately log out
+        // The worker restarted, so its session (and unlocked keystore) is gone: sign out here too
         if (serverBootId) {
           if (storedBootId && storedBootId !== serverBootId) {
             sessionStorage.removeItem(STORAGE_KEY_USER);
-            sessionStorage.removeItem(STORAGE_KEY_TOKEN);
             sessionStorage.setItem(STORAGE_KEY_BOOT_ID, serverBootId);
             setCurrentUser(null);
             setDocuments([]);
@@ -85,7 +82,6 @@ export function App() {
             const parsed = JSON.parse(savedUser);
             if (!o.value.some(u => u.username === parsed.username || u.id === parsed.id)) {
               sessionStorage.removeItem(STORAGE_KEY_USER);
-              sessionStorage.removeItem(STORAGE_KEY_TOKEN);
               setCurrentUser(null);
             }
           }
@@ -105,14 +101,11 @@ export function App() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleLoginSuccess = (user: UserAccount, token: string) => {
+  const handleLoginSuccess = (user: UserAccount) => {
     setCurrentUser(user);
     setDocuments([]);
     try {
       sessionStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user));
-      sessionStorage.setItem(STORAGE_KEY_TOKEN, token);
-      localStorage.removeItem(STORAGE_KEY_USER);
-      localStorage.removeItem(STORAGE_KEY_TOKEN);
     } catch {
       // Ignore storage error
     }
@@ -121,20 +114,17 @@ export function App() {
   };
 
   const handleLogout = async () => {
-    // Before dropping the token: the backend forgets this session's keystore passphrase.
+    // The worker forgets this session's keystore passphrase.
     try {
       await ApiClient.logout();
     } catch {
-      // Backend unreachable: its sessions end when it restarts anyway
+      // Worker not running: its session ended with it
     }
     setCurrentUser(null);
     setDocuments([]);
     setBlocks([]);
     try {
       sessionStorage.removeItem(STORAGE_KEY_USER);
-      sessionStorage.removeItem(STORAGE_KEY_TOKEN);
-      localStorage.removeItem(STORAGE_KEY_USER);
-      localStorage.removeItem(STORAGE_KEY_TOKEN);
     } catch {
       // Ignore storage error
     }

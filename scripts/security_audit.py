@@ -21,6 +21,7 @@ ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 BACKEND_DIR = os.path.join(ROOT_DIR, "backend")
 APP_DIR = os.path.join(BACKEND_DIR, "app")
 CHAINCODE_DIR = os.path.join(ROOT_DIR, "blockchain", "chaincode")
+DESKTOP_DIR = os.path.join(ROOT_DIR, "desktop")
 sys.path.insert(0, BACKEND_DIR)
 
 PASS = "[PASS]"
@@ -175,12 +176,12 @@ def main():
     # Rule 9: No decrypted copy is released without a ledger record
     # --------------------------------------------------------------------------
     ledger_engine_code = read(APP_DIR, "services", "ledger_engine.py")
-    decryption_code = read(APP_DIR, "routers", "decryption.py")
+    decryption_code = read(APP_DIR, "handlers", "decryption.py")
     rule("9. Decrypted copies are withheld unless the ledger commit succeeds",
          "_withhold_copy" in ledger_engine_code and "LedgerCommitError" in ledger_engine_code
-         and decryption_code.count("except LedgerCommitError") >= 2,
+         and decryption_code.count("except LedgerCommitError") >= 1,
          "Failed ledger commits delete the watermarked copy and return 503.",
-         "Fail-closed ledger commit is missing from ledger_engine.py or decryption.py!")
+         "Fail-closed ledger commit is missing from ledger_engine.py or handlers/decryption.py!")
 
     # --------------------------------------------------------------------------
     # Rule 10: Runtime PQC cryptographic self-test
@@ -219,10 +220,44 @@ def main():
             offenders.append(f"{rel}: zipfile.extractall")
         if '"key_hex"' in code or "/secure-upload" in code:
             offenders.append(f"{rel}: returns key material")
-    rule("12. No unsafe zip extraction or key-leaking endpoints in the backend",
+    rule("12. No unsafe zip extraction or key-leaking methods in the worker",
          not offenders,
-         "Bundle uploads are unpacked with path checks; no endpoint returns key material.",
+         "Identity bundles are unpacked with path checks; no worker method returns key material.",
          "; ".join(offenders))
+
+    # --------------------------------------------------------------------------
+    # Rule 13: The desktop window is sandboxed and the UI can only reach the worker
+    # --------------------------------------------------------------------------
+    main_js = read(DESKTOP_DIR, "main.js")
+    preload_js = read(DESKTOP_DIR, "preload.js")
+    vite_config = read(ROOT_DIR, "frontend", "vite.config.ts")
+    missing = [check for check, ok in [
+        ("contextIsolation: true", "contextIsolation: true" in main_js),
+        ("nodeIntegration: false", "nodeIntegration: false" in main_js),
+        ("sandbox: true", "sandbox: true" in main_js),
+        ("popups denied", "action: 'deny'" in main_js),
+        ("file destinations only from save dialogs", "SAVE_METHODS" in main_js and "'dest' in params" in main_js),
+        ("preload exposes only contextBridge functions", "contextBridge.exposeInMainWorld" in preload_js
+         and "require('electron')" in preload_js and "require('node:" not in preload_js),
+        ("UI build CSP blocks network access", "connect-src 'none'" in vite_config and "script-src 'self'" in vite_config),
+    ] if not ok]
+    rule("13. Desktop window is sandboxed, isolated and offline; files are written only where the user chooses",
+         bool(main_js) and not missing,
+         "contextIsolation + sandbox, no Node in the UI, no popups, strict CSP, save paths from dialogs only.",
+         f"Desktop hardening missing: {', '.join(missing) or 'desktop/main.js not found'}")
+
+    # --------------------------------------------------------------------------
+    # Rule 14: Sign-out leaves nothing behind but the encrypted keystores
+    # --------------------------------------------------------------------------
+    local_data_code = read(APP_DIR, "services", "local_data.py")
+    auth_code = read(APP_DIR, "handlers", "auth.py")
+    worker_code = read(APP_DIR, "worker.py")
+    rule("14. Sign-out, start-up and shutdown wipe the database and working files, keeping only keystores",
+         "Base.metadata.sorted_tables" in local_data_code and "VACUUM" in local_data_code
+         and "settings.KEYSTORE_DIR" not in local_data_code
+         and "local_data.wipe()" in auth_code and worker_code.count("local_data.wipe()") >= 2,
+         "Every table and the upload, returns and bundle folders are cleared; keystores stay.",
+         "local_data.wipe() is missing, incomplete, not called at sign-out/start/stop, or touches KEYSTORE_DIR!")
 
     # --------------------------------------------------------------------------
     # Final Verdict

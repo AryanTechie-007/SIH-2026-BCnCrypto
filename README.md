@@ -61,12 +61,13 @@ The marked copy is released only once the record has been accepted. The app
 releases no decrypted copy without a ledger record.
 
 **5. Tracing a leak.** Upload the leaked PDF. The mark is extracted, the
-matching decryption record is retrieved, the recipient's signature is verified
-against their registered public key, and an evidence bundle is exported.
-Because the mark survives re-encoding, the recovered copy does not have to be
-pristine: if no frame decodes exactly, a stored mark matching at least 75% of
-the recovered bits, and clearly ahead of the next-best candidate, is used
-instead.
+matching decryption record is read from the ledger, the recipient's signature
+on it is verified against the public key the key registry holds for them, and
+an evidence bundle is exported. Everything comes from the ledger, so a copy
+decrypted on any machine can be traced. Because the mark survives re-encoding,
+the recovered copy does not have to be pristine: if no record matches exactly,
+the record whose mark matches at least 75% of the recovered bits, clearly ahead
+of the next-best one, is used instead.
 
 ### Why a ledger rather than a database
 
@@ -129,15 +130,15 @@ every page:
       ▼                                       ▼
 ┌──────────────────────────────────────────────────────────────────────────┐
 │              CIPHERTRACE app (runs on each user's machine)               │
-│          React UI  ·  FastAPI  ·  node blockchain/client/cli.js          │
+│   Electron  ·  React UI  ·  Python worker  ·  blockchain/client/cli.js   │
 └───────────────┬──────────────────────────────────────────┬───────────────┘
                 │                                          │
                 ▼                                          ▼
    Local data (private keys never leave)    Hadamard watermark engine
    - Keystore: ML-KEM + ML-DSA private      - 16-byte authenticated frame
      keys (Argon2id + AES-256-GCM)          - Order-16 Sylvester basis
-   - SQLite: public keys, documents,        - DC untouched (≈42 dB PSNR
-     decryption events                        on text pages)
+   - SQLite: this session only,             - DC untouched (≈42 dB PSNR
+     wiped at sign-out                        on text pages)
                 │                                          │
                 └────────────────────┬─────────────────────┘
                                      │ every ledger call is signed with
@@ -158,14 +159,18 @@ every page:
                              Forensic Leak Lab
                              1. Render the page at 150 DPI
                              2. Hadamard correlation decoding → watermark ID
-                             3. Exact match, else a ≥75% closest match
-                             4. Find the decryption event and verify
+                             3. Exact match on the ledger, else a ≥75%
+                                closest match
+                             4. Read its record from the ledger and verify
                                 the recipient's ML-DSA-65 signature
                              5. Export the evidence bundle
 ```
 
-The frontend and backend run on the user's own machine and will be merged into
-a single application; the ledger is the only shared component.
+CIPHERTRACE is one desktop app that runs on each user's machine; the ledger is
+the only shared component. Inside the app, the React UI has no Node.js access
+and there is no network server: it calls a Python worker process (the
+encryption, watermark and forensics code) over stdin/stdout, and the worker
+runs `cli.js` for every ledger call, on the Node.js built into Electron.
 
 | Component | Technology |
 |---|---|
@@ -176,7 +181,8 @@ a single application; the ledger is the only shared component.
 | Hashing | SHA3-256, HMAC-SHA3-256 |
 | Watermark | 2D DCT + Walsh-Hadamard spread spectrum (order-16 Sylvester basis) |
 | Ledger | Hyperledger Fabric 2.5.16, Node.js chaincode, Fabric Gateway client |
-| App | FastAPI + SQLite, React + TypeScript + Vite |
+| App | Electron desktop app: React + TypeScript + Vite UI, Python worker, SQLite |
+| Packaging | electron-builder (installers), PyInstaller (frozen worker), esbuild (bundled `cli.js`) |
 
 ### Cryptography
 
@@ -196,22 +202,25 @@ a single application; the ledger is the only shared component.
   fails.
 - Private keys are decrypted from the keystore only for the moment they are
   used. They are never stored in the database, sent to the ledger, or returned
-  by the API.
+  to the UI.
 
 ## Repository layout
 
 ```
-backend/            FastAPI app: routers/, services/ (crypto, keystore, watermark,
-                    ledger), models, tests/
-frontend/           React UI
+desktop/            Electron app: main.js (window, worker, save dialogs), preload.js,
+                    installer config
+backend/            Python worker: worker.py + rpc.py (stdin/stdout protocol),
+                    handlers/, services/ (crypto, keystore, watermark, ledger),
+                    models, tests/
+frontend/           React UI (loaded by the desktop app)
 blockchain/
   chaincode/        forensic-audit (decryption records), key-registry (public keys)
   client/           cli.js + ledger.js: the only way the app talks to the ledger
   scripts/          network setup, sign-up, bundles, smoke test
   testdata/         chaincode fixtures
 scripts/            security_audit.py, offline Fabric image export/import
-setup/              Windows installer and the bundled mlkem wheel
-*.bat               Windows launchers for the app
+setup/              Windows dependency installer and the bundled mlkem wheel
+.github/workflows/  builds the macOS and Windows installers
 ```
 
 ## Requirements
@@ -247,31 +256,64 @@ cd blockchain
 `setup.sh` starts from an empty ledger every time; after re-running it, repeat
 this step, because old bundles stop working.
 
-**3. Start the backend** (new terminal, from the repository root; it keeps running):
+**3. Set up and start the app** (from the repository root):
 
 ```bash
 cd backend
-uv venv --python 3.12 && source .venv/bin/activate
+uv venv --python 3.12
 uv pip install --find-links ../setup/wheels -r requirements.txt
-# without uv: python3.12 -m venv .venv && source .venv/bin/activate   (any 3.11–3.13)
-#             pip install --find-links ../setup/wheels -r requirements.txt
+# without uv: python3.12 -m venv .venv && .venv/bin/pip install --find-links ../setup/wheels -r requirements.txt
+cd ../frontend && npm install
+cd ../desktop && npm install
 export CIPHERTRACE_SYSTEM_SECRET="choose-one-and-keep-it"
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+npm start
 ```
 
-**4. Start the frontend** (another terminal, from the repository root):
+`npm start` builds the UI and opens the CIPHERTRACE window. The app starts its
+Python worker from `backend/.venv` and stops it when you quit. For hot reload
+while working on the UI, run `npm run dev` in `frontend/` and then `npm run dev`
+in `desktop/`.
+
+Sign in as `alice`: enter the username, choose `blockchain/bundles/alice.zip`,
+click **Continue**, then choose a keystore passphrase (at least 12 characters).
+Later sign-ins ask for that passphrase.
+
+Signing out, quitting, or a crash wipes this device's local data: the
+database, imported documents and `.enc` files, unsaved watermarked copies and
+unpacked bundles. Only the encrypted keystores stay, since the key registry is
+write-once. Forensics reads decryption records from the ledger, so earlier
+copies still trace.
+
+To reach a ledger on another machine, click the cog on the sign-in page and
+set the host and port. Each user connects to their own organization's peer;
+leave the port empty to keep each organization's default (7051 for Org1, 9051
+for Org2).
+
+## Desktop installers
 
 ```bash
-cd frontend && npm install && npm run dev
+cd desktop
+npm run dist:mac      # on a Mac: desktop/dist/*.dmg and *.zip
+npm run dist:win      # on Windows: desktop/dist/*.exe (NSIS installer)
 ```
 
-Open http://localhost:5173 and sign in as `alice`: enter the username, choose
-`blockchain/bundles/alice.zip`, click **Continue**, then choose a keystore
-passphrase (at least 12 characters). Later sign-ins ask for that passphrase.
+Each build freezes the Python worker with PyInstaller, bundles `cli.js` and its
+dependencies into one file, and packages them with the built UI. PyInstaller
+cannot cross-compile, so build each installer on its own OS, or run the
+**Desktop installers** workflow in GitHub Actions, which builds both.
+
+- The installed app needs no Python or Node.js. It keeps its database,
+  keystores and bundles in the OS app-data folder
+  (`~/Library/Application Support/CIPHERTRACE/data` on macOS,
+  `%APPDATA%\CIPHERTRACE\data` on Windows), and logs to
+  `~/Library/Logs/CIPHERTRACE` or `%APPDATA%\CIPHERTRACE\logs`.
+- The builds are unsigned. On macOS, open the app the first time with
+  right-click → **Open** (or run `xattr -cr /Applications/CIPHERTRACE.app`);
+  on Windows, choose **More info → Run anyway** in SmartScreen.
 
 ## Configuration
 
-Backend environment variables (all optional):
+Worker environment variables (all optional). When running from source, set them before `npm start`; the installed app sets the data paths itself.
 
 | Variable | Default | Purpose |
 |---|---|---|
@@ -279,11 +321,12 @@ Backend environment variables (all optional):
 | `CIPHERTRACE_DB_PATH` | `backend/ciphertrace.db` | SQLite database |
 | `KEYSTORE_DIR` | `backend/keystores` | Encrypted keystores |
 | `BUNDLES_DIR` | `backend/bundles` | Unpacked login bundles |
-| `NODE_BIN`, `LEDGER_CLI_PATH` | `node`, `blockchain/client/cli.js` | Ledger client |
-| `ORG1_PEER`, `ORG2_PEER` | `localhost:7051`, `localhost:9051` | Peer addresses, passed to `cli.js` |
-| `JWT_SECRET_KEY`, `JWT_EXPIRY_MINUTES` | demo value, `60` | Session tokens |
+| `UPLOAD_DIR`, `RETURNS_DIR` | `backend/uploads`, `backend/returns` | Imported documents and `.enc` files; watermarked copies until saved |
+| `NODE_BIN`, `LEDGER_CLI_PATH` | Electron's Node, `blockchain/client/cli.js` | Ledger client |
+| `ORG1_PEER`, `ORG2_PEER` | `localhost:7051`, `localhost:9051` | Peer addresses, passed to `cli.js`; a host and port saved with the sign-in page's cog take precedence |
+| `SESSION_TTL_MINUTES` | `60` | How long the passphrase stays unlocked after sign-in |
 | `DEMO_MODE`, `SECURE_MODE` | `true`, `false` | `SECURE_MODE` requires real secrets |
-| `FABRIC_SAMPLES` | unset | Only for the forensics and health ledger lookups |
+| `FABRIC_SAMPLES` | unset | Only for the health check's ledger status |
 
 ## Testing
 
@@ -300,7 +343,7 @@ From the repository root:
 # Watermark engine
 (cd backend && .venv/bin/python -m unittest tests.test_hadamard)
 
-# Security regression audit (12 rules)
+# Security regression audit (14 rules)
 backend/.venv/bin/python scripts/security_audit.py
 ```
 

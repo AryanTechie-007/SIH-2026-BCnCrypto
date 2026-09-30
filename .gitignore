@@ -37,3 +37,9 @@ backend/bundles/
 .DS_Store
 Thumbs.db
 *.log
+
+# Desktop app build output
+backend/build/
+backend/dist/
+desktop/dist/
+desktop/out/

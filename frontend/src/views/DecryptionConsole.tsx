@@ -603,7 +603,7 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
                 </button>
 
                 <button
-                  onClick={() => ApiClient.downloadEvidencePackage(decryptionResult.event_id)}
+                  onClick={() => ApiClient.downloadEvidencePackage(decryptionResult.watermark_id)}
                   style={{
                     backgroundColor: 'transparent',
                     border: '1px solid #38bdf8',

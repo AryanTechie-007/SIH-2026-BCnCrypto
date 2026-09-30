@@ -143,7 +143,7 @@ echo [*] Installing requirements from backend/requirements.txt...
 %PYTHON_EXE% -m pip install --find-links "%PROJECT_ROOT%\setup\wheels" -r "%PROJECT_ROOT%\backend\requirements.txt"
 if %errorlevel% neq 0 (
     echo [WARNING] Retrying install with wheel fallback...
-    %PYTHON_EXE% -m pip install --find-links "%PROJECT_ROOT%\setup\wheels" fastapi uvicorn cryptography pymupdf Pillow numpy scipy python-multipart sqlalchemy greenlet aiosqlite opencv-python-headless dilithium-py argon2-cffi pyjwt mlkem
+    %PYTHON_EXE% -m pip install --find-links "%PROJECT_ROOT%\setup\wheels" pydantic cryptography pymupdf Pillow numpy scipy sqlalchemy greenlet aiosqlite opencv-python-headless dilithium-py argon2-cffi mlkem
 )
 
 echo [*] Validating NIST Post-Quantum Cryptography Engine...
@@ -175,6 +175,16 @@ if %errorlevel% neq 0 (
     pause
     exit /b 1
 )
+
+echo [*] Installing desktop app dependencies (Electron)...
+cd /d "%PROJECT_ROOT%\desktop"
+call npm install
+if %errorlevel% neq 0 (
+    echo [ERROR] npm install encountered errors in desktop.
+    cd /d "%PROJECT_ROOT%"
+    pause
+    exit /b 1
+)
 cd /d "%PROJECT_ROOT%"
 
 echo.
@@ -182,7 +192,7 @@ echo ================================================================
 echo  ALL DEPENDENCIES AND PATHS FULLY CONFIGURED!
 echo.
 echo  To launch CIPHERTRACE:
-echo  Run start_demo.bat in the project root folder.
+echo  cd desktop  then  npm start
 echo ================================================================
 echo.
 pause

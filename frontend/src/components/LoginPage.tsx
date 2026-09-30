@@ -1,14 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { Settings } from 'lucide-react';
 import { UserAccount, Officer } from '../types';
 import { InteractiveSpottedBackground } from './InteractiveSpottedBackground';
 import { LedgerSignInForm } from './LedgerSignInForm';
+import { LedgerSettingsPanel } from './LedgerSettingsPanel';
 
 interface LoginPageProps {
-  onLoginSuccess: (user: UserAccount, token: string) => void;
+  onLoginSuccess: (user: UserAccount) => void;
   enrolledUsers: Officer[];
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUsers: _enrolledUsers }) => {
+  const [showLedgerSettings, setShowLedgerSettings] = useState(false);
+
   return (
     <div style={{
       minHeight: '100vh',
@@ -43,7 +47,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
           marginBottom: '14px'
         }}>
           <img
-            src="/logo.png"
+            src="./logo.png"
             alt="CipherTrace Logo"
             style={{ width: '15px', height: '15px', objectFit: 'contain', filter: 'drop-shadow(0 0 4px rgba(56, 189, 248, 0.5))' }}
           />
@@ -80,8 +84,31 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, enrolledUs
         boxShadow: '0 20px 40px rgba(0, 0, 0, 0.6)',
         overflow: 'hidden'
       }}>
+        {!showLedgerSettings && (
+          <button
+            type="button"
+            onClick={() => setShowLedgerSettings(true)}
+            title="Ledger connection"
+            aria-label="Ledger connection settings"
+            style={{
+              position: 'absolute',
+              top: '10px',
+              right: '10px',
+              background: 'none',
+              border: 'none',
+              padding: '4px',
+              color: 'var(--text-dim)',
+              cursor: 'pointer',
+              display: 'flex'
+            }}
+          >
+            <Settings size={15} />
+          </button>
+        )}
         <div style={{ padding: '24px' }}>
-          <LedgerSignInForm onLoginSuccess={onLoginSuccess} />
+          {showLedgerSettings
+            ? <LedgerSettingsPanel onClose={() => setShowLedgerSettings(false)} />
+            : <LedgerSignInForm onLoginSuccess={onLoginSuccess} />}
         </div>
       </div>
     </div>

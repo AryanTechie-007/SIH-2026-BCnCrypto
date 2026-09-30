@@ -1,16 +1,13 @@
-fastapi
-uvicorn
+pydantic
 sqlalchemy
 greenlet
 aiosqlite
 mlkem
 dilithium-py
 argon2-cffi
-pyjwt
 cryptography
 pymupdf
 Pillow
 numpy
 scipy
-python-multipart
 opencv-python-headless

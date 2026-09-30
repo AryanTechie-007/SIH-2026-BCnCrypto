@@ -42,7 +42,6 @@ class LedgerIdentityStatus(BaseModel):
 
 class AuthResponse(BaseModel):
     user: UserSchema
-    token: str
     message: str
 
 
@@ -95,12 +94,6 @@ class DistributionResponse(BaseModel):
     envelope_file_name: str
 
 
-class DecryptionRequest(BaseModel):
-    document_id: int
-    recipient_id: int
-    device_id: Optional[str] = None
-
-
 class DecryptionResponse(BaseModel):
     event_id: int
     document_id: int
@@ -116,60 +109,22 @@ class DecryptionResponse(BaseModel):
     ledger_block_index: int
     ledger_block_hash: str
     fabric_tx_id: Optional[str] = None
-    download_url: str
 
 
 class VerificationGates(BaseModel):
-    watermark_valid: bool
-    ledger_event_exists: bool
-    ml_dsa_signature_valid: bool
-    merkle_inclusion_valid: bool
-    document_hash_match: bool
-    ledger_chain_integrity: bool
-    fabric_consensus_valid: Optional[bool] = None
-
-
-class CandidateMatch(BaseModel):
-    officer_id: int
-    navy_id: str
-    name: str
-    rank: str
-    command_unit: str
-    device_id: str
-    confidence: float
-    match_type: str  # "CONFIRMED_MATCH", "PROBABILISTIC", "LOW_CORRELATION", "CLEARED"
-    event_id: Optional[int] = None
-    document_name: Optional[str] = None
-
-
-class EvidenceBundle(BaseModel):
-    case_id: str
-    watermark_id: str
-    document_hash: str
-    recipient_key_id: str
-    recipient_identity: str
-    recipient_navy_id: str
-    decryption_event_id: int
-    timestamp: str
-    signature_algorithm: str
-    signature_hex: str
-    public_key_hex: str
-    event_hash: str
-    fabric_tx_id: Optional[str] = None
-    fabric_block_number: Optional[int] = None
-    fabric_endorsements: Optional[List[str]] = None
-    ledger_verification: str
-    signature_verification: str
-    watermark_verification: str
-    document_hash_verification: str
-    bundle_sha3_digest: str
+    watermark_valid: bool          # a watermark was decoded and its ID matched a ledger record
+    ledger_event_exists: bool      # the forensic chaincode holds a decryption record for it
+    ml_dsa_signature_valid: bool   # the recipient's ML-DSA-65 signature over that record verifies
+    key_registry_match: bool       # the signing key is the one the key registry holds for the recipient
+    document_hash_match: bool      # the file is byte-identical to the released copy (fails for re-saved copies)
 
 
 class ForensicAnalysisResponse(BaseModel):
     file_name: Optional[str] = "suspect_document"
-    status: str  # "IDENTIFIED", "ATTRIBUTED_WITH_WARNINGS", "UNATTRIBUTED", "EXTRACTION_FAILED"
+    status: str  # "IDENTIFIED", "ATTRIBUTED_WITH_WARNINGS", "UNATTRIBUTED"
     watermark_detected: bool
     watermark_id: Optional[str] = None
+    match_type: Optional[str] = None  # "EXACT", or "CLOSEST" for a damaged watermark
     extracted_payload_hex: Optional[str] = None
     payload_recovery_pct: float
     bit_error_rate: float
@@ -177,9 +132,7 @@ class ForensicAnalysisResponse(BaseModel):
     recipient: Optional[OfficerSchema] = None
     top_suspect_name: Optional[str] = None
     match_confidence: float = 0.0
-    decryption_event: Optional[Dict[str, Any]] = None
+    ledger_record: Optional[Dict[str, Any]] = None  # the decryption record exactly as stored on the ledger
     verification_gates: VerificationGates
     overall_confidence: float
     analysis_narrative: str
-    candidate_matches: Optional[List[CandidateMatch]] = None
-    evidence_bundle: Optional[EvidenceBundle] = None

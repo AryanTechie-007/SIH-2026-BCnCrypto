@@ -1,16 +1,14 @@
-from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from ..database import get_db
-from ..models.database import LedgerBlock
-from ..services.ledger_engine import LedgerEngine
-
-router = APIRouter(prefix="/api/ledger", tags=["Ledger"])
+from app import rpc
+from app.models.database import LedgerBlock
+from app.services.ledger_engine import LedgerEngine
 
 ledger_engine = LedgerEngine()
 
-@router.get("/blocks")
-async def get_all_blocks(db: AsyncSession = Depends(get_db)):
+
+@rpc.method("ledger.blocks")
+async def get_all_blocks(db: AsyncSession) -> list:
     """Retrieves all blocks on the permissioned air-gapped ledger."""
     await ledger_engine.init_genesis_block_if_needed(db)
     result = await db.execute(select(LedgerBlock).order_by(LedgerBlock.id.asc()))

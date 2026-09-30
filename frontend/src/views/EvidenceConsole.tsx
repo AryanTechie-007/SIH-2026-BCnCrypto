@@ -171,15 +171,14 @@ export const EvidenceConsole: React.FC = () => {
             fontFamily: 'var(--font-mono)'
           }}>
             <div style={{ color: '#38bdf8', fontWeight: 700, marginBottom: '10px', fontSize: '11px' }}>
-              THE 6 CRYPTOGRAPHIC GATES:
+              THE 5 VERIFICATION GATES (ALL CHECKED AGAINST THE LEDGER):
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', color: 'var(--text-dim)' }}>
-              <div><strong style={{ color: '#38bdf8' }}>Gate 1:</strong> Watermark &amp; RS(255,127) Parity</div>
-              <div><strong style={{ color: '#38bdf8' }}>Gate 2:</strong> Decryption Session in Ledger</div>
-              <div><strong style={{ color: '#38bdf8' }}>Gate 3:</strong> ML-DSA-65 Recipient Signature</div>
-              <div><strong style={{ color: '#38bdf8' }}>Gate 4:</strong> Merkle Inclusion Audit Proof</div>
-              <div><strong style={{ color: '#38bdf8' }}>Gate 5:</strong> Document SHA3-256 Digest Match</div>
-              <div><strong style={{ color: '#38bdf8' }}>Gate 6:</strong> Hash Chain Ledger Integrity</div>
+              <div><strong style={{ color: '#38bdf8' }}>Gate 1:</strong> Watermark decoded (exact or closest match)</div>
+              <div><strong style={{ color: '#38bdf8' }}>Gate 2:</strong> Decryption record on the ledger</div>
+              <div><strong style={{ color: '#38bdf8' }}>Gate 3:</strong> Recipient's ML-DSA-65 signature on the record</div>
+              <div><strong style={{ color: '#38bdf8' }}>Gate 4:</strong> Signing key registered to the recipient</div>
+              <div><strong style={{ color: '#38bdf8' }}>Gate 5:</strong> File identical to the released copy (informational)</div>
             </div>
           </div>
 
@@ -226,9 +225,9 @@ export const EvidenceConsole: React.FC = () => {
                   </span>
                 </div>
 
-                {analysisResult.decryption_event && (
+                {analysisResult.ledger_record && analysisResult.watermark_id && (
                   <button
-                    onClick={() => ApiClient.downloadEvidencePackage(analysisResult.decryption_event!.event_id)}
+                    onClick={() => ApiClient.downloadEvidencePackage(analysisResult.watermark_id!)}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -344,7 +343,7 @@ export const EvidenceConsole: React.FC = () => {
                 {analysisResult.analysis_narrative}
               </div>
 
-              {/* The 6 Verification Gates Checklist */}
+              {/* The 5 Verification Gates Checklist */}
               <div style={{ marginBottom: '16px' }}>
                 <div style={{
                   fontSize: '10px',
@@ -359,12 +358,11 @@ export const EvidenceConsole: React.FC = () => {
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', fontFamily: 'var(--font-mono)' }}>
                   {[
-                    { label: 'Gate 1: Watermark & Hadamard Orthogonal Decoding', ok: analysisResult.verification_gates.watermark_valid },
-                    { label: 'Gate 2: Decryption Session in Ledger', ok: analysisResult.verification_gates.ledger_event_exists },
+                    { label: `Gate 1: Watermark Decoded${analysisResult.match_type === 'CLOSEST' ? ' (Closest Match)' : ''}`, ok: analysisResult.verification_gates.watermark_valid },
+                    { label: 'Gate 2: Decryption Record on the Ledger', ok: analysisResult.verification_gates.ledger_event_exists },
                     { label: 'Gate 3: NIST FIPS 204 ML-DSA-65 Signature', ok: analysisResult.verification_gates.ml_dsa_signature_valid },
-                    { label: 'Gate 4: Merkle Root Inclusion Proof', ok: analysisResult.verification_gates.merkle_inclusion_valid },
-                    { label: 'Gate 5: Document SHA3-256 Digest Match', ok: analysisResult.verification_gates.document_hash_match },
-                    { label: 'Gate 6: Hash Chain Ledger Integrity', ok: analysisResult.verification_gates.ledger_chain_integrity }
+                    { label: 'Gate 4: Signing Key Registered to Recipient', ok: analysisResult.verification_gates.key_registry_match },
+                    { label: 'Gate 5: Identical to Released Copy (Informational)', ok: analysisResult.verification_gates.document_hash_match }
                   ].map(g => (
                     <div
                       key={g.label}
