@@ -667,7 +667,7 @@ export const DecryptionConsole: React.FC<DecryptionConsoleProps> = ({
                 lineHeight: '1.4',
                 borderRadius: '3px'
               }}>
-                ℹ <strong>FORENSIC NOTICE:</strong> This document contains an invisible 2D DCT steganographic watermark permanently bound to <strong>{decryptionResult.recipient_name}</strong>. If printed, screenshotted, or leaked, the Evidence console can extract and attribute the exact source.
+                ℹ <strong>FORENSIC NOTICE:</strong> This document contains an invisible 2D DCT steganographic watermark permanently bound to <strong>{decryptionResult.recipient_name}</strong>. If printed or leaked, the Evidence console can extract and attribute the exact source.
               </div>
             </>
           ) : (

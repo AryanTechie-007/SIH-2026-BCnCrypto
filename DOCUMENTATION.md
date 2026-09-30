@@ -1,7 +1,7 @@
 # CIPHERTRACE — Technical Specification & Operational Manual
 **Project:** Post-Quantum Defense Document Forensic Attribution Platform  
 **Target Environment:** 100% Offline / Air-Gapped Military-Grade Deployment  
-**Standard Compliance:** NIST FIPS 203 (ML-KEM-768), NIST FIPS 204 (ML-DSA-65), NIST SP 800-38D (AES-256-GCM), NIST FIPS 202 (SHA3-256), CCSDS 131.0-B-3 (Reed-Solomon RS(255,127))
+**Standard Compliance:** NIST FIPS 203 (ML-KEM-768), NIST FIPS 204 (ML-DSA-65), NIST SP 800-38D (AES-256-GCM), NIST FIPS 202 (SHA3-256), Walsh-Hadamard Transform Orthogonal Spreading (WHT/DSSS H_64)
 
 ---
 
@@ -20,9 +20,9 @@
    - Classical algorithms (X25519/Ed25519) are not used or emulated with padding.
 
 3. **Robust Watermark Engineering:**
-   - **2D DCT Frequency Modulation:** Luminance ($Y$) channel rendered at deterministic 150 DPI. Modulation on coefficient $(3,3)$ provides optical imperceptibility ($\text{PSNR} > 42\text{ dB}$, $\Delta E < 0.1$).
-   - **Genuine Reed-Solomon RS(255,127):** 127 data symbols + 128 parity symbols (`RSCodec(128)`), correcting up to 64 byte errors from JPEG recompression, cropping, or noise.
-   - **Authenticated 127-Byte Frame:** Magic header (`CPTR`), Version (`0x02`), Watermark ID, Event UUID, Document SHA3 fingerprint, Recipient Key ID fingerprint, Session Nonce, and HMAC-SHA3-256 authentication tag.
+   - **2D DCT Frequency Modulation:** Luminance ($Y$) channel rendered at deterministic 150 DPI. Modulation on low-to-mid AC coefficients with zero DC shift provides optical imperceptibility ($\text{PSNR} > 41\text{ dB}$).
+   - **Walsh-Hadamard WHT/DSSS Spreading:** Order-64 Sylvester-Hadamard matrix ($H_{64}$) orthogonal basis vectors with coherent correlation averaging yielding $> 42\text{ dB}$ processing gain.
+   - **Authenticated 16-Byte Frame:** 10-byte Watermark ID + 4-byte HMAC-SHA3-256 authenticity tag + 2-byte Magic Header (`CP`).
 
 4. **Multi-Organization Permissioned Blockchain (Hyperledger Fabric):**
    - 3-Organization Consortium: Org1 (Defense Command), Org2 (Independent Audit), Org3 (Forensic Bureau) + Raft Orderer.
@@ -48,7 +48,7 @@ SIH 2026/
 │   │   ├── services/
 │   │   │   ├── crypto_engine.py     # NIST FIPS 203 ML-KEM-768 & FIPS 204 ML-DSA-65
 │   │   │   ├── keystore.py          # Encrypted recipient keystore manager (Argon2id + AES-GCM)
-│   │   │   ├── watermark_engine.py  # 2D DCT steganography & RS(255,127) FEC
+│   │   │   ├── watermark_engine.py  # 2D DCT + Walsh-Hadamard WHT/DSSS steganography
 │   │   │   ├── ledger_client.py     # Hyperledger Fabric client & fail-closed adapter
 │   │   │   └── ledger_engine.py     # Block chaining, Merkle tree & local audit cache
 │   │   └── routers/

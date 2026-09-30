@@ -95,11 +95,11 @@ export const ForensicConsole: React.FC = () => {
                   <>
                     <div style={{ fontWeight: 700, color: '#ffffff' }}>Select / Drop Leaked File</div>
                     <div style={{ fontSize: '11px', color: 'var(--text-dim)', marginTop: '4px' }}>
-                      Supports: PDF, Screen Captures (JPG/PNG), Cropped Documents
+                      Supports: Leaked PDF Documents (.pdf)
                     </div>
                   </>
                 )}
-                <input type="file" onChange={handleFileChange} accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf" style={{ display: 'none' }} />
+                <input type="file" onChange={handleFileChange} accept=".pdf,application/pdf" style={{ display: 'none' }} />
               </label>
 
               <div style={{ marginTop: '16px' }}>

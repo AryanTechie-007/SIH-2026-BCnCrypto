@@ -34,33 +34,21 @@ watermark_engine = WatermarkEngine()
 ledger_engine = LedgerEngine()
 
 ALLOWED_MIME_SIGNATURES = {
-    b"%PDF": "pdf",
-    b"\x89PNG\r\n\x1a\n": "png",
-    b"\xff\xd8\xff": "jpg",
-    b"RIFF": "webp"
+    b"%PDF": "pdf"
 }
 
 
 def _validate_file_magic(file_bytes: bytes, original_filename: str = "") -> str:
-    """Validates file magic bytes to prevent file extension spoofing while preserving image types."""
+    """Validates file magic bytes to ensure only official PDF documents are processed."""
     if file_bytes.startswith(b"%PDF"):
         return "pdf"
-    if file_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
-        return "png"
-    if file_bytes.startswith(b"\xff\xd8"):
-        return "jpg"
-    if file_bytes.startswith(b"RIFF") and b"WEBP" in file_bytes[:16]:
-        return "webp"
-    if file_bytes.startswith(b"BM"):
-        return "bmp"
-    # Fallback to original extension if supported
     lower = (original_filename or "").lower()
-    for ext in ["png", "jpg", "jpeg", "webp", "bmp", "pdf"]:
-        if lower.endswith("." + ext):
-            return "jpg" if ext == "jpeg" else ext
-    if file_bytes.startswith(b"{") or file_bytes.startswith(b"---"):
-        return "txt"
-    return "bin"
+    if lower.endswith(".pdf"):
+        return "pdf"
+    raise HTTPException(
+        status_code=400,
+        detail="Unsupported file format: Only official PDF documents (.pdf) are supported for forensic attribution. Image attribution is disabled."
+    )
 
 
 def _safe_remove(file_path: str):
@@ -151,7 +139,7 @@ async def evaluate_suspect_stream(file_name: str, file_bytes: bytes, db: AsyncSe
                 watermark_id = wm.watermark_id or wm.watermark_hex[:20].lower()
                 break
 
-    # Tier 3: Robust Forensic Bit-Distance Attribution for Screen Captures & Compressed Leaks
+    # Tier 3: Statistical Bit-Distance Attribution for Degraded or Corrupted PDF Leaks
     if not target_wm:
         candidate_hex = None
         if watermark_id and len(watermark_id) >= 16:

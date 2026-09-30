@@ -113,14 +113,14 @@ export const EvidenceConsole: React.FC = () => {
                     SELECT OR DROP LEAKED FILE
                   </div>
                   <div style={{ fontSize: '10px', color: 'var(--text-dim)', marginTop: '4px', lineHeight: '1.4' }}>
-                    Supports: Leaked PDF, Mobile Screenshots (PNG / JPG / WEBP), Cropped Scans
+                    Supports: Leaked PDF Documents (.pdf)
                   </div>
                 </>
               )}
               <input
                 type="file"
                 onChange={handleFileChange}
-                accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf"
+                accept=".pdf,application/pdf"
                 style={{ display: 'none' }}
               />
             </label>
@@ -435,7 +435,7 @@ export const EvidenceConsole: React.FC = () => {
                 AWAITING SUSPECT ARTIFACT INGESTION
               </div>
               <div style={{ fontSize: '11px', color: 'var(--text-dim)', maxWidth: '360px', lineHeight: '1.5' }}>
-                Ingest a leaked document or mobile screen capture on the left. The forensic decoder will perform blind 2D DCT frequency extraction, match against the immutable ledger, and display positive user attribution here.
+                Ingest a leaked PDF document on the left. The forensic decoder will perform blind 2D DCT frequency extraction, match against the immutable ledger, and display positive user attribution here.
               </div>
             </div>
           )}

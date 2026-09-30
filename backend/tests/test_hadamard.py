@@ -108,48 +108,6 @@ class TestHadamardWatermarkEngine(unittest.TestCase):
         self.assertIsNotNone(parsed)
         self.assertEqual(parsed["watermark_id"], wm_id)
 
-    def test_hadamard_screenshot_extraction(self):
-        """Verifies watermark attribution from downsampled screen captures with viewer borders."""
-        wm_id = "0123456789abcdef0123"
-        frame = self.engine.build_watermark_frame(
-            watermark_id=wm_id,
-            event_id="evt_test_004",
-            document_hash="a" * 64,
-            recipient_key_id="b" * 64,
-            session_nonce="c" * 32
-        )
-        self.engine.embed_watermark(self.sample_pdf, frame, self.output_pdf)
-
-        # Render watermarked PDF
-        doc = fitz.open(self.output_pdf)
-        pix = doc[0].get_pixmap(dpi=self.engine.render_dpi)
-        img_np = np.array(Image.frombytes("RGB", [pix.width, pix.height], pix.samples))
-        doc.close()
-
-        # Simulate 43% zoom screenshot (533x754) embedded in grey viewer window (575x787)
-        import cv2
-        screen_page = cv2.resize(img_np, (533, 754), interpolation=cv2.INTER_LINEAR)
-        screenshot = np.full((787, 575, 3), 60, dtype=np.uint8)
-        screenshot[16:16 + 754, 21:21 + 533] = screen_page
-
-        screenshot_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'simulated_screenshot.png'))
-        Image.fromarray(screenshot).save(screenshot_path)
-
-        try:
-            extracted, metrics = self.engine.extract_watermark(screenshot_path)
-            self.assertIsNotNone(extracted, "Screenshot watermark extraction failed")
-            self.assertTrue(metrics["watermark_detected"])
-            
-            # Verify high-fidelity forensic attribution (>=95% bit alignment under 2.3x downsampling)
-            cand_bits = "".join(format(int(c, 16), '04b') for c in metrics["watermark_id"])
-            ref_bits = "".join(format(int(c, 16), '04b') for c in wm_id)
-            match_pct = sum(c1 == c2 for c1, c2 in zip(cand_bits, ref_bits)) / len(ref_bits) * 100.0
-            self.assertGreaterEqual(match_pct, 95.0, f"Watermark attribution match {match_pct:.1f}% below 95%")
-            print(f"\n[BENCHMARK] Screenshot Attribution Success: Match={match_pct:.1f}%, Extracted={metrics['watermark_id']}, Analysis={metrics.get('analysis')}")
-        finally:
-            if os.path.exists(screenshot_path):
-                os.remove(screenshot_path)
-
 
 if __name__ == '__main__':
     unittest.main()
