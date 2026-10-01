@@ -11,6 +11,7 @@ import { ApiClient } from './api/client';
 import { DocumentRecord, Officer, LedgerBlock, UserAccount } from './types';
 
 import { LoginPage } from './components/LoginPage';
+import { LogoutAnimation } from './components/LogoutAnimation';
 
 const STORAGE_KEY_USER = 'ciphertrace_operator_user';
 const STORAGE_KEY_BOOT_ID = 'ciphertrace_server_boot_id';
@@ -20,6 +21,7 @@ export function App() {
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isOnline, setIsOnline] = useState<boolean>(true);
+  const [isLoggingOut, setIsLoggingOut] = useState<boolean>(false);
 
   // Global operational records
   const [documents, setDocuments] = useState<DocumentRecord[]>([]);
@@ -113,7 +115,11 @@ export function App() {
     refreshAllData();
   };
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
+    setIsLoggingOut(true);
+  };
+
+  const finishLogout = async () => {
     // The worker forgets this session's keystore passphrase.
     try {
       await ApiClient.logout();
@@ -123,12 +129,22 @@ export function App() {
     setCurrentUser(null);
     setDocuments([]);
     setBlocks([]);
+    setIsLoggingOut(false);
     try {
       sessionStorage.removeItem(STORAGE_KEY_USER);
     } catch {
       // Ignore storage error
     }
   };
+
+  // If currently logging out, render the cinematic cannon fire & ship sinking animation
+  if (isLoggingOut) {
+    return (
+      <ErrorBoundary>
+        <LogoutAnimation onComplete={finishLogout} />
+      </ErrorBoundary>
+    );
+  }
 
   // If user is not yet logged in, present the clean authentication portal first
   if (!currentUser) {
