@@ -85,6 +85,25 @@ All five should succeed before you continue.
 
 ## Quick start
 
+### Windows (Local Standalone Setup)
+
+On Windows, you can set up the ledger and manage identities natively without Docker:
+
+```cmd
+setup.bat                                   # initializes CAs, ledger state, and bundles (alice, bob)
+smoke-test.bat                              # 8 checks, validates whoami, keys, and records
+```
+
+To issue additional users:
+```cmd
+new-recipient.bat charlie Org1
+bundle-identity.bat charlie Org1            # -> bundles/charlie.zip
+```
+
+---
+
+### macOS & Linux (Docker / Fabric Network)
+
 ```bash
 ./scripts/setup.sh                          # network, both chaincodes, recipient identities
 source ./scripts/env-recipient.sh user-042  # act as that recipient

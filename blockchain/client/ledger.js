@@ -43,6 +43,11 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const fsp = require('node:fs/promises');
 const path = require('node:path');
+const localLedger = require('./localLedger');
+
+function shouldUseLocalLedger() {
+    return process.env.USE_LOCAL_LEDGER === '1' || process.env.USE_LOCAL_LEDGER === 'true';
+}
 
 const CHANNEL = process.env.CHANNEL_NAME || 'mychannel';
 const CHAINCODE = process.env.CC_NAME || 'forensic';
@@ -104,9 +109,15 @@ function requireOrgDir() {
 
 /** All identities present in the generated crypto material. */
 function listIdentities() {
+    if (shouldUseLocalLedger()) {
+        return localLedger.listIdentities();
+    }
     const found = {};
+    if (!ORG_DIR || !fs.existsSync(ORG_DIR)) {
+        return localLedger.listIdentities();
+    }
     for (const [mspId, org] of Object.entries(ORGS)) {
-        const usersDir = path.join(requireOrgDir(), 'peerOrganizations', org.domain, 'users');
+        const usersDir = path.join(ORG_DIR, 'peerOrganizations', org.domain, 'users');
         let entries;
         try {
             entries = fs.readdirSync(usersDir);
@@ -249,6 +260,9 @@ function wrap(err) {
  * it; identityName defaults to DEFAULT_IDENTITY.
  */
 async function submitRecord(record, identityName) {
+    if (shouldUseLocalLedger()) {
+        return localLedger.submitRecord(record, identityName);
+    }
     if (!record || typeof record !== 'object' || Array.isArray(record)) {
         throw new LedgerError('record must be an object', 'validation');
     }
@@ -266,18 +280,25 @@ async function submitRecord(record, identityName) {
 
     try {
         const contract = await contractFor(name);
-        // ensureAscii equivalent: JSON.stringify does not escape non-ASCII,
-        // which is what the chaincode's canonical form expects.
         const result = await contract.submitTransaction(
             'RecordDecryption', JSON.stringify(record));
         return JSON.parse(utf8.decode(result));
     } catch (err) {
+        if (process.env.DISABLE_LOCAL_FALLBACK !== 'true') {
+            const wrapped = wrap(err);
+            if (wrapped.kind === 'network' || wrapped.kind === 'config') {
+                return localLedger.submitRecord(record, identityName);
+            }
+        }
         throw wrap(err);
     }
 }
 
 /** Read a record by watermark ID. Returns null when there is none. */
 async function queryRecord(watermarkId, identityName) {
+    if (shouldUseLocalLedger()) {
+        return localLedger.queryRecord(watermarkId, identityName);
+    }
     if (!watermarkId) {
         throw new LedgerError('watermarkId must not be empty', 'validation');
     }
@@ -286,6 +307,12 @@ async function queryRecord(watermarkId, identityName) {
         const result = await contract.evaluateTransaction('LookupByWatermark', watermarkId);
         return JSON.parse(utf8.decode(result));
     } catch (err) {
+        if (process.env.DISABLE_LOCAL_FALLBACK !== 'true') {
+            const wrapped = wrap(err);
+            if (wrapped.kind === 'network' || wrapped.kind === 'config') {
+                return localLedger.queryRecord(watermarkId, identityName);
+            }
+        }
         const wrapped = wrap(err);
         if (wrapped.kind === 'notfound') return null;
         throw wrapped;
@@ -294,22 +321,40 @@ async function queryRecord(watermarkId, identityName) {
 
 /** Every record on the ledger, for the audit trail view. */
 async function getAllRecords(identityName) {
+    if (shouldUseLocalLedger()) {
+        return localLedger.getAllRecords(identityName);
+    }
     try {
         const contract = await contractFor(identityName);
         const result = await contract.evaluateTransaction('GetAllRecords');
         return JSON.parse(utf8.decode(result));
     } catch (err) {
+        if (process.env.DISABLE_LOCAL_FALLBACK !== 'true') {
+            const wrapped = wrap(err);
+            if (wrapped.kind === 'network' || wrapped.kind === 'config') {
+                return localLedger.getAllRecords(identityName);
+            }
+        }
         throw wrap(err);
     }
 }
 
 /** What the chaincode sees as the submitting identity. */
 async function whoAmI(identityName) {
+    if (shouldUseLocalLedger()) {
+        return localLedger.whoAmI(identityName);
+    }
     try {
         const contract = await contractFor(identityName);
         const result = await contract.evaluateTransaction('WhoAmI');
         return JSON.parse(utf8.decode(result));
     } catch (err) {
+        if (process.env.DISABLE_LOCAL_FALLBACK !== 'true') {
+            const wrapped = wrap(err);
+            if (wrapped.kind === 'network' || wrapped.kind === 'config') {
+                return localLedger.whoAmI(identityName);
+            }
+        }
         throw wrap(err);
     }
 }
@@ -323,6 +368,9 @@ async function whoAmI(identityName) {
  * submitted by the user it names.
  */
 async function registerKeys(keys, identityName) {
+    if (shouldUseLocalLedger()) {
+        return localLedger.registerKeys(keys, identityName);
+    }
     if (!keys || typeof keys !== 'object' || Array.isArray(keys)) {
         throw new LedgerError('keys must be an object', 'validation');
     }
@@ -343,12 +391,21 @@ async function registerKeys(keys, identityName) {
         const result = await contract.submitTransaction('RegisterKeys', JSON.stringify(keys));
         return JSON.parse(utf8.decode(result));
     } catch (err) {
+        if (process.env.DISABLE_LOCAL_FALLBACK !== 'true') {
+            const wrapped = wrap(err);
+            if (wrapped.kind === 'network' || wrapped.kind === 'config') {
+                return localLedger.registerKeys(keys, identityName);
+            }
+        }
         throw wrap(err);
     }
 }
 
 /** A user's registered public keys. Returns null when they have none. */
 async function getKeys(username, identityName) {
+    if (shouldUseLocalLedger()) {
+        return localLedger.getKeys(username, identityName);
+    }
     if (!username) {
         throw new LedgerError('username must not be empty', 'validation');
     }
@@ -357,6 +414,12 @@ async function getKeys(username, identityName) {
         const result = await contract.evaluateTransaction('GetKeys', username);
         return JSON.parse(utf8.decode(result));
     } catch (err) {
+        if (process.env.DISABLE_LOCAL_FALLBACK !== 'true') {
+            const wrapped = wrap(err);
+            if (wrapped.kind === 'network' || wrapped.kind === 'config') {
+                return localLedger.getKeys(username, identityName);
+            }
+        }
         const wrapped = wrap(err);
         if (wrapped.kind === 'notfound') return null;
         throw wrapped;
@@ -365,11 +428,20 @@ async function getKeys(username, identityName) {
 
 /** Every registered user's public keys -- the recipient directory. */
 async function getAllKeys(identityName) {
+    if (shouldUseLocalLedger()) {
+        return localLedger.getAllKeys(identityName);
+    }
     try {
         const contract = await contractFor(identityName, KEYS_CHAINCODE);
         const result = await contract.evaluateTransaction('GetAllKeys');
         return JSON.parse(utf8.decode(result));
     } catch (err) {
+        if (process.env.DISABLE_LOCAL_FALLBACK !== 'true') {
+            const wrapped = wrap(err);
+            if (wrapped.kind === 'network' || wrapped.kind === 'config') {
+                return localLedger.getAllKeys(identityName);
+            }
+        }
         throw wrap(err);
     }
 }

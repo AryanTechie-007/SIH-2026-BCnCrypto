@@ -234,6 +234,38 @@ scripts/            security_audit.py, offline Fabric image export/import
 
 All commands start from the repository root.
 
+### Windows (Automated Local Setup)
+
+On Windows, you can set up and run the entire application and ledger locally with automated batch scripts—without needing Docker, WSL, or manual OpenSSL commands:
+
+1. **Install all dependencies & prepare ledger:**
+   ```cmd
+   install_dependencies.bat
+   ```
+   This automatically verifies Node.js and Python, installs Astral `uv` if needed, configures the backend virtual environment, installs frontend and desktop packages, compiles the UI, initializes the local ledger, and generates login identity bundles (`alice.zip` and `bob.zip`) in `blockchain\bundles\`.
+
+2. **Launch CIPHERTRACE:**
+   ```cmd
+   Ciphertracelauncher.bat
+   ```
+   *(For development mode with hot reload, run `Ciphertracelauncher.bat --dev`)*
+
+3. **Sign in:**
+   - **Username:** `alice`
+   - **Identity bundle:** choose `blockchain\bundles\alice.zip`
+   - Click **Continue**, then choose a keystore passphrase (at least 12 characters).
+
+**Windows Ledger Management Tools:**
+- `setup_ledger.bat` (or `blockchain\setup.bat`) — Reset and re-initialize the local ledger and default identities
+- `blockchain\new-recipient.bat <name> [Org1|Org2]` — Create a new recipient identity
+- `blockchain\bundle-identity.bat <name> [Org1|Org2]` — Package an identity into a `.zip` login bundle
+- `blockchain\smoke-test.bat` — Run the end-to-end ledger validation suite
+- `blockchain\teardown.bat` — Reset local ledger state
+
+---
+
+### macOS & Linux (or WSL)
+
 **1. Start the ledger** (first run takes a few minutes):
 
 ```bash

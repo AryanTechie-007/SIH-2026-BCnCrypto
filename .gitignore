@@ -30,6 +30,9 @@ backend/returns/*
 backend/keystores/*.keystore
 !backend/keystores/.gitkeep
 backend/bundles/
+blockchain/bundles/
+blockchain/crypto/
+blockchain/data/
 
 # IDE and OS files
 .vscode/
