@@ -23,6 +23,11 @@ jobs:
           - os: windows-latest
             target: dist:win
             artifacts: desktop/dist/*.msi
+          - os: ubuntu-latest
+            target: dist:linux
+            artifacts: |
+              desktop/dist/*.AppImage
+              desktop/dist/*.deb
     runs-on: ${{ matrix.os }}
 
     steps:

@@ -5,6 +5,11 @@
   "description": "CIPHERTRACE post-quantum document security and leak attribution, as a desktop app",
   "private": true,
   "main": "main.js",
+  "homepage": "https://github.com/AryanTechie-007/SIH-2026-BCnCrypto",
+  "author": {
+    "name": "Ve Ni Di",
+    "email": "aryantechie007@users.noreply.github.com"
+  },
   "scripts": {
     "start": "npm run build:ui && node scripts/launch.js",
     "dev": "node scripts/launch.js --dev",
@@ -14,7 +19,8 @@
     "prepackage": "npm run build:ui && npm run build:ledger && npm run build:worker",
     "package": "electron-builder",
     "dist:mac": "npm run prepackage && electron-builder --mac",
-    "dist:win": "npm run prepackage && electron-builder --win"
+    "dist:win": "npm run prepackage && electron-builder --win",
+    "dist:linux": "npm run prepackage && electron-builder --linux"
   },
   "devDependencies": {
     "electron": "^44.5.1",
@@ -70,6 +76,15 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "upgradeCode": "{343CE752-C57B-4B24-B7DE-0C89107E49F0}"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Utility",
+      "icon": "build/icons",
+      "synopsis": "Post-quantum document security and leak attribution"
     }
   }
 }

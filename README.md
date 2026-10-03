@@ -322,21 +322,26 @@ for Org2).
 cd desktop
 npm run dist:mac      # on a Mac: desktop/dist/*.dmg and *.zip
 npm run dist:win      # on Windows: desktop/dist/*.msi (Windows Installer)
+npm run dist:linux    # on Linux: desktop/dist/*.AppImage and *.deb
 ```
 
 Each build freezes the Python worker with PyInstaller, bundles `cli.js` and its
 dependencies into one file, and packages them with the built UI. PyInstaller
 cannot cross-compile, so build each installer on its own OS, or run the
-**Desktop installers** workflow in GitHub Actions, which builds both.
+**Desktop installers** workflow in GitHub Actions, which builds all three.
 
 - The installed app needs no Python or Node.js. It keeps its database,
   keystores and bundles in the OS app-data folder
   (`~/Library/Application Support/CIPHERTRACE/data` on macOS,
-  `%APPDATA%\CIPHERTRACE\data` on Windows), and logs to
-  `~/Library/Logs/CIPHERTRACE` or `%APPDATA%\CIPHERTRACE\logs`.
+  `%APPDATA%\CIPHERTRACE\data` on Windows, `~/.config/CIPHERTRACE/data` on
+  Linux), and logs to `~/Library/Logs/CIPHERTRACE`, `%APPDATA%\CIPHERTRACE\logs`
+  or `~/.config/CIPHERTRACE/logs`.
 - The builds are unsigned. On macOS, open the app the first time with
   right-click → **Open** (or run `xattr -cr /Applications/CIPHERTRACE.app`);
   on Windows, choose **More info → Run anyway** in SmartScreen.
+- On Linux, install the `.deb` with `sudo apt install ./CIPHERTRACE*.deb`, or
+  make the AppImage executable (`chmod +x`) and run it. On Ubuntu 22.04 and
+  later the AppImage needs `libfuse2` (`sudo apt install libfuse2`).
 
 ## Configuration
 
