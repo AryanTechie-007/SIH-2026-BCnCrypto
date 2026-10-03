@@ -1,0 +1,165 @@
+CIPHERTRACE: QUANTUM-SAFE DOCUMENT SHARING THAT TRACES EVERY LEAK TO ITS SOURCE
+Team: Ve Ni Di
+
+Tagline: Encrypt it. Watermark it. Trace it.
+
+1. THE PROBLEM
+
+Government, defence and law-enforcement bodies share confidential documents every day: operational orders, intelligence briefs, policy drafts, tender documents and case files. Today's protections share three weaknesses.
+
+1.1 Protection ends at decryption. Encryption protects a file in transit, but once an authorised recipient opens it, the plaintext can be copied, forwarded or uploaded anywhere. When a confidential document appears in public, there is usually no reliable way to prove which recipient's copy it was. Investigations take weeks, and the recipient can simply deny it.
+
+1.2 Audit logs can be changed by insiders. Access logs kept in an ordinary database or file server can be edited or deleted by an administrator, which is exactly the kind of insider such logs are meant to catch. A log that can be silently altered is not evidence.
+
+1.3 Today's encryption has an expiry date. Classical public-key algorithms (RSA, elliptic curves) will be broken by large quantum computers. Adversaries can record encrypted traffic now and decrypt it later ("harvest now, decrypt later"). Classified material must stay secret for decades, so it needs protection that will still hold then.
+
+Forwarding (A sends to B, B forwards to C) and compromised keys make all three problems worse. Responsibility gets lost along the chain, and a stolen key casts doubt on all past evidence.
+
+2. OUR SOLUTION: CIPHERTRACE
+
+CipherTrace is a desktop application for sharing classified documents. It binds the recipient's identity into every page they open, and records every access on a permissioned blockchain. It combines three layers that are usually separate:
+
+- Encrypt: every document is encrypted with NIST post-quantum cryptography, separately for each authorised recipient.
+- Watermark: every time a recipient opens a document, an invisible watermark unique to that person and that session is woven into every page of their copy.
+- Record: every opening is digitally signed by the recipient and written to a permissioned Hyperledger Fabric ledger, which two independent organisations must both approve.
+- Trace: when a copy leaks, CipherTrace extracts its watermark, finds the matching ledger record, verifies the recipient's signature against their registered key, and names the recipient, with evidence anyone can independently verify.
+
+A short story shows the flow. Bob, encrypts an operational plan for Alice and Mallory. Each of them opens it in CipherTrace; each copy gets its own invisible watermark, and each opening is recorded on the ledger with the recipient's own signature. Weeks later, the plan surfaces online. An investigator drops the leaked PDF into CipherTrace's Forensic Leak Lab. Within seconds, the watermark is decoded, the ledger record is found, Mallory's signature is verified, and an evidence package is exported. Mallory cannot deny it: the record carries her own post-quantum signature, and no single administrator could have altered it.
+
+3. WHAT IS IMPLEMENTED TODAY (WORKING PROTOTYPE)
+
+3.1 A serverless, cross-platform desktop application
+- One desktop app (Electron, with a React + TypeScript interface and a Python cryptography and imaging engine), packaged as native installers for Windows (MSI), macOS (DMG) and Linux (AppImage and .deb).
+- There is no central server to attack. Each user's app holds their own keys, and the blockchain is the only shared component.
+- No internet is needed: it runs on an isolated (air-gapped) network. Fonts and all components are bundled, and the Fabric images can be exported and loaded offline.
+- The app window is hardened: the interface runs sandboxed with no access to the operating system, cannot load anything from the network (strict content security policy), cannot open popups, and can only write files where the user chooses in a save dialog.
+- A post-quantum self-test runs at every start-up: a full ML-KEM encapsulate/decapsulate and ML-DSA sign/verify round trip with exact NIST key and signature sizes. The app refuses to start if it fails.
+
+3.2 Ledger-based identity, no passwords to steal
+- Users are created only by the ledger administrator, on the ledger side. Each user receives an identity bundle (an X.509 certificate and their Fabric private key). There is no sign-up form and no password database.
+- Signing in takes the username and identity bundle. The app proves the identity to a ledger peer, which only answers requests signed by a key its organisation's certificate authority issued.
+- On first sign-in, the app generates the user's post-quantum key pairs (ML-KEM-768 for receiving documents, ML-DSA-65 for signing records) and publishes the public halves to a Key Registry smart contract. Registration is write-once, and the contract only accepts keys from the identity they belong to.
+- Private keys never leave the device. They are stored in a local keystore encrypted with AES-256-GCM under a key derived from the user's passphrase with Argon2id, a password-hashing method designed to resist brute force. The passphrase (minimum 12 characters) is held only in memory for the session and never written anywhere.
+- The recipient directory is read from the Key Registry, so every registered user can be chosen as a recipient on any machine.
+
+3.3 Post-quantum encryption, per recipient
+- Each document is encrypted once with AES-256-GCM using a fresh random 256-bit document key.
+- The document key is wrapped separately for each authorised recipient using ML-KEM-768 (NIST FIPS 203), with the recipient's public key from the Key Registry.
+- The result is a single portable .enc file that can travel by any channel (email, USB, file share). Only the named recipients can open it.
+
+3.4 Decryption that is recorded on the ledger before anything is released
+When a recipient opens a document:
+1. Their keystore is unlocked with the session passphrase, and their entry in the .enc file is unwrapped with ML-KEM-768.
+2. The document is decrypted, and an invisible watermark with a fresh, unique watermark ID is embedded in every page.
+3. A decryption record is built: watermark ID, recipient, SHA3-256 hash of the original document, SHA-256 hash of the watermarked copy, time, and the fingerprint of the recipient's signing key.
+4. The recipient signs the record with ML-DSA-65 (NIST FIPS 204).
+5. The record is submitted to the ledger with the recipient's own Fabric identity. The smart contract rejects any record whose named recipient is not the identity that submitted it, and both organisations must endorse it before it is written.
+6. The watermarked copy is released only after the record is committed. If the ledger is unreachable or rejects the record, the copy is deleted. No record, no copy.
+
+Only the signed-in user can decrypt, and only as themselves.
+
+3.5 Invisible forensic watermarking
+- Each copy carries a 16-byte (128-bit) frame: a 10-byte watermark ID (which is the ledger key for the decryption record), 4 check bytes and a 2-byte marker.
+- Each page is rendered at 150 DPI and only the brightness (luminance) channel is modified, in 8x8 DCT blocks. Each bit modulates 16 low-to-mid frequency coefficients with a row of an order-16 Sylvester-Hadamard matrix (direct-sequence spread spectrum). Block brightness (the DC coefficient) is never changed.
+- The mark is invisible: about 42 dB PSNR on text pages and about 40 dB on photographic pages.
+- The frame is repeated across thousands of blocks per page, and extraction correlates over all of them, so the watermark survives re-saving and re-exporting of the file.
+- The watermark ID is generated with HMAC-SHA3-256 from the document hash, recipient, a random session nonce and the event, so it is unique to that recipient and that session.
+
+3.6 Forensic Leak Lab: tracing a leak
+An investigator signs in and loads the suspected leaked PDF. CipherTrace:
+1. renders the pages and decodes the watermark ID by Hadamard correlation;
+2. looks the ID up on the ledger (exact match only, so a damaged watermark is reported as unattributed rather than guessed);
+3. fetches the recipient's registered public key from the Key Registry;
+4. verifies the recipient's ML-DSA-65 signature over the ledger record, and checks that the signing key's fingerprint matches the registered key;
+5. checks whether the file is byte-identical to the copy that was released (informational).
+
+These are five verification gates. The result is either IDENTIFIED (all critical gates pass), ATTRIBUTED WITH WARNINGS (a record exists but its signature or key does not verify, for example if the record was tampered with), or UNATTRIBUTED. Because everything is read from the ledger, a copy decrypted on any machine can be traced from any other machine.
+
+3.7 Court-ready, independently verifiable evidence
+The evidence export is self-contained: the ledger record exactly as stored, the recipient's Key Registry entry with their public key, the verification results, step-by-step instructions to re-verify the signature without CipherTrace, and a SHA3-256 digest of the whole package. An auditor, court or opposing expert can check the evidence with any standard ML-DSA implementation.
+
+3.8 Why a blockchain, not a database
+A signature proves who produced a record; it cannot prove that a record still exists. An administrator with an ordinary database could simply delete the row. The permissioned ledger closes that gap three ways:
+- Records are hash-linked in blocks, so altering a committed record breaks every block after it.
+- Two independent organisations each hold a full copy, so any divergence is detected.
+- The write policy requires both organisations to approve, so no single administrator can insert or suppress a record.
+The network uses Hyperledger Fabric 2.5 with two organisations, a Raft ordering service, and two smart contracts (Node.js): the Key Registry (public keys) and the Forensic contract (decryption records, keyed by watermark ID). It is entirely self-hosted: no public blockchain, no cryptocurrency, no cloud services.
+
+3.9 Multi-machine deployment
+Each user connects to their own organisation's ledger peer. The ledger address is configurable from the sign-in screen, so users on different machines share one ledger. This has been tested with two machines: a document encrypted on one was decrypted on the other and traced from the first.
+
+3.10 Engineering assurance
+- An automated security audit with 14 rules runs on every build. It checks, among other things, that no classical public-key algorithms are used, that no private keys or passphrases can be stored in the database or exposed by the app, that the keystore uses Argon2id and AES-256-GCM, that decrypted copies are withheld unless the ledger commit succeeds, that both smart contracts bind every write to the submitting identity, that the desktop window is sandboxed, and that sign-out wipes local data.
+- Both smart contracts have unit tests. The watermark engine has its own tests, including an invisibility (PSNR) benchmark.
+- A continuous-integration workflow builds the Windows, macOS and Linux installers from source.
+
+4. PLANNED FEATURES (IN DEVELOPMENT)
+
+These three features extend the working system with no new infrastructure and no new cryptography.
+
+4.1 Forwarding provenance (provenance trees, not single-hop lookups)
+Real documents get forwarded: A sends to B, B forwards to C. Today's systems lose track after the first hop. With CipherTrace, when B forwards a document, B's app re-encrypts it for C, and C's decryption record on the ledger links to its parent record (B's). The smart contract only accepts a forward from someone who is on record as having received the document, and a sender can mark a document as not forwardable. When a copy leaks, the Forensic Leak Lab follows the parent links one ledger lookup at a time and reveals the full chain, A to B to C, from a single leaked page.
+
+4.2 Ledger-gated key release: making the ledger mandatory. The document key is split into two parts. One travels in the .enc file; the other is stored on the ledger in private data collections (half held by each organisation, wrapped to the recipient so the organisations cannot use it). The second part is released only after the recipient's decryption record is committed, in a separate step, because a Fabric transaction's result reaches the client before it is committed. This makes it cryptographically impossible to open a document without leaving a signed, consensus-verified record, even with modified software.
+
+4.3 Key revocation and compromise handling
+If a recipient's private key is stolen or lost, can past evidence still be trusted? CipherTrace adds a RevokeKey function to the Key Registry. Once a key is revoked, any record signed with it after the revocation is flagged, while records made before it remain valid evidence. "Before" and "after" are decided by the order of blocks on the ledger (consensus), not by any computer's clock, so a user cannot backdate a record. New documents can no longer be encrypted to the revoked key, and the user re-registers fresh keys, which also lets a user who lost their device recover their identity.
+
+5. ROADMAP
+
+5.1 Document recall and expiry. Senders can recall a document, remove a recipient, or set an expiry ("readable until 31 October"). The smart contract refuses decryption records for recalled or expired documents, using the ledger's own ordering rather than the user's clock. Combined with 5.1, a revoked recipient never receives the key part, so recall is enforced by cryptography.
+
+5.2 Chain-of-custody timeline and insider-threat alerts. A per-document history from the ledger (issued, opened, forwarded, revoked, refused, leaked), identical on every machine, plus simple, explainable alerts: bulk access in a short time, access outside working hours, access long after a document was issued, repeated access, and attempts to open after revocation or expiry.
+
+5.3 Court-ready PDF report. A formatted forensic report with the leaked page, the extracted watermark ID, the ledger record, the signature verification and the steps to re-verify.
+
+5.4 Two-person rule. For top-secret documents, decryption requires a supervisor's approval recorded on the ledger first, following established defence practice.
+
+5.5 Further hardening. Error-correcting codes so the watermark survives printing and photographing, compression of watermarked copies, hardware-backed key storage (TPM / Secure Enclave), and code-signed installers.
+
+6. INNOVATION AND UNIQUENESS
+
+- Three protections in one pipeline: post-quantum encryption, per-recipient invisible watermarking and a consensus-verified ledger, where most solutions offer one.
+- No record, no copy: the decrypted file is released only after the ledger accepts the access record (fail-closed).
+- Non-repudiation: recipients sign their own access records with post-quantum signatures, so they cannot deny opening a document.
+- Quantum-safe from day one: NIST FIPS 203 (ML-KEM-768) and FIPS 204 (ML-DSA-65), with no classical public-key algorithms anywhere.
+- Watermark tied to the ledger: the watermark ID is the ledger key, linking a leaked page directly to a signed, immutable record.
+- Serverless and air-gapped: no central server to breach, no internet or cloud dependency; private keys never leave the device.
+- Evidence anyone can verify, as data comes from the DLT.
+- Planned provenance trees across forwarding, and key revocation decided by ledger order.
+
+7. FEASIBILITY AND VIABILITY
+
+- The core system works today: encryption, watermarking, ledger records and leak tracing run end to end on a live two-organisation Fabric network, across multiple machines, on Windows, macOS and Linux.
+- Measured on the prototype: ML-KEM-768 public key 1,184 bytes and ciphertext 1,088 bytes; ML-DSA-65 signature 3,309 bytes (exact NIST sizes, checked at every start-up); watermark invisibility about 42 dB PSNR on text pages; decryption takes under a second plus the ledger commit.
+- 100% open-source stack with no licence fees: Hyperledger Fabric, Electron, Python, OpenCV, NumPy/SciPy, PyMuPDF (AGPL, satisfied by open-sourcing CipherTrace) and open-source implementations of the NIST post-quantum standards.
+- Minimal infrastructure: for a pilot, the whole ledger (two organisations and ordering) runs in Docker on one standard machine. In production, each organisation hosts its own peer. Users only need a laptop and the installer: no Python, Node.js or other setup.
+- Self-hosted and sovereign: all data and keys stay on the organisation's own machines, which suits government data-localisation requirements and Atmanirbhar Bharat.
+
+Challenges and how we address them:
+- A recipient leaks a photo or printout instead of the file: the watermark is spread across thousands of blocks; error-correcting codes for print and photo survival are on the roadmap.
+- A malicious recipient bypasses the app with custom code: ledger-gated key release (4.2) makes the ledger record mandatory. Even then, a recipient who receives the key could strip the watermark, but they remain on record as having opened the document, which narrows any leak to the people who opened it.
+- A key is stolen: key revocation (4.3), judged by ledger block order.
+- Ledger unavailable: the app refuses to release a copy rather than skip the record (fail-closed); two organisations with Raft ordering provide resilience.
+- Quantum computers: NIST post-quantum algorithms are used throughout.
+
+8. IMPACT AND BENEFITS
+
+Target users: defence and armed forces, government ministries and departments, law enforcement and courts, and public-sector undertakings and regulated enterprises that handle confidential material.
+
+- Deterrence: recipients know every copy is traceable to them, which discourages leaks before they happen.
+- Investigations in seconds, not weeks: a leaked file points directly to the responsible recipient, and with forwarding provenance, to how it travelled.
+- Evidence that holds up: signed, consensus-verified, independently checkable records.
+- Long-term confidentiality: protection against harvest-now, decrypt-later quantum attacks.
+- Accountable governance: tamper-proof audit trails strengthen trust in public institutions.
+- Economic: open source, no licence fees, commodity hardware, and lower cost of leak investigations and damage.
+- Environmental: secure digital distribution replaces printed classified copies and couriers.
+
+9. TECHNOLOGY STACK
+
+- Post-quantum cryptography: ML-KEM-768 (NIST FIPS 203), ML-DSA-65 (NIST FIPS 204).
+- Symmetric and supporting cryptography: AES-256-GCM, Argon2id, SHA3-256, HMAC-SHA3-256, SHA-256.
+- Watermarking: 2D DCT with Walsh-Hadamard spread spectrum (PyMuPDF, OpenCV, NumPy, SciPy).
+- Blockchain: Hyperledger Fabric 2.5 (two organisations, Raft ordering), Node.js smart contracts, Fabric Gateway client.
+- Application: Electron, React + TypeScript (Vite), Python worker, SQLite (session data only).
+- Packaging and delivery: PyInstaller, electron-builder, esbuild; installers for Windows (MSI), macOS (DMG) and Linux (AppImage, .deb); GitHub Actions builds.

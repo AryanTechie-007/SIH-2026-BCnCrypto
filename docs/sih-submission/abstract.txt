@@ -1,0 +1,37 @@
+CIPHERTRACE: QUANTUM-SAFE DOCUMENT SHARING THAT TRACES EVERY LEAK TO ITS SOURCE
+Encrypt it. Watermark it. Trace it.
+
+Problem
+Confidential government and defence documents are protected only until an authorised recipient opens them. After that, a leaked copy usually cannot be traced to its source, access logs can be altered by insiders, and today's encryption is vulnerable to future quantum computers ("harvest now, decrypt later"). Forwarding between people and compromised keys make attribution even harder.
+
+Solution
+CipherTrace is a serverless desktop application (Windows, macOS and Linux) that binds the recipient's identity into every page they open and records every access on a permissioned blockchain.
+
+- Encrypt: each document is encrypted with AES-256-GCM, and its key is wrapped separately for each authorised recipient with ML-KEM-768 (NIST FIPS 203). The result is one portable .enc file only the named recipients can open.
+- Watermark: each time a recipient opens a document, an invisible watermark unique to that person and session is embedded in every page, using 2D DCT with Walsh-Hadamard spread spectrum (about 42 dB PSNR, invisible to the eye).
+- Record: each opening is signed by the recipient with ML-DSA-65 (NIST FIPS 204) and written to a Hyperledger Fabric ledger that two independent organisations must both approve. The smart contract only accepts records submitted by the recipient they name. The decrypted copy is released only after the record is committed: no record, no copy.
+- Trace: the Forensic Leak Lab decodes the watermark from a leaked PDF, finds the matching ledger record, verifies the recipient's signature against their registered key through five verification gates, and exports a self-contained evidence package anyone can verify independently.
+
+Current Status
+A working, cross-platform prototype running end to end on a live two-organisation Fabric network and tested across multiple machines. Key features:
+- Identity from the ledger: users sign in with an issued certificate bundle; there are no passwords to steal.
+- Private keys never leave the device: they are stored in an Argon2id + AES-256-GCM keystore.
+- Public keys live in a write-once Key Registry on the ledger.
+- Tamper detection: an altered ledger record fails signature verification.
+- Local working data is wiped at sign-out.
+- A post-quantum self-test runs at every start-up, and a 14-rule automated security audit runs on every build.
+- The app is sandboxed and works on air-gapped networks with no internet or cloud dependency.
+
+Planned features (in development)
+- Forwarding provenance: when a document is forwarded (A to B to C), each hop is linked to its parent on the ledger, so one leaked page reveals the full chain.
+- Ledger-gated key release: half of the document key is released only after the access record is committed, making the ledger cryptographically mandatory.
+- Key revocation: a compromised key can be revoked on the ledger; anything signed with it after the revocation is flagged, judged by ledger block order rather than any clock, while earlier evidence stays valid.
+
+Roadmap
+- Document recall and expiry.
+- A chain-of-custody timeline with insider-threat alerts.
+- Court-ready PDF reports.
+- A two-person rule for top-secret documents.
+
+Impact
+Deterrence through guaranteed traceability, leak investigations in seconds instead of weeks, evidence that holds up, long-term quantum-safe confidentiality, and tamper-proof accountability for public institutions. Fully open-source and self-hosted, with no licence fees and minimal infrastructure, suited to government and defence deployment under data-sovereignty requirements.
